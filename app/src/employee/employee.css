@@ -105,3 +105,6 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
 .my-thread li.theirs { background: var(--accent-bg); }
 .tag-green { background: var(--green-bg); color: var(--green); border-color: transparent; }
 .tag-amber { background: var(--amber-bg); color: var(--amber); border-color: transparent; white-space: normal; }
+
+/* Released summary sits above the form or runner. */
+.my-summary { margin-bottom: 22px; }

@@ -6,3 +6,4 @@ export * from './library.js';
 export * from './language.js';
 export * from './report.js';
 export * from './organisation.js';
+export * from './employeeSummary.js';

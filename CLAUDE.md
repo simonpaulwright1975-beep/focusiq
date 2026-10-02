@@ -33,5 +33,6 @@ Every FocusiQ app and page uses the Walter Geering house design system. It is de
 - Answer keys and scoring metadata never reach an employee's browser.
 - Adjustment requests may contain health information: Director-only, internal notes never on employee-readable rows, no request text copied into audit logs.
 - Questions & data-rights requests: replies are sent as "Walter Geering" (no Director identities to employees); internal notes never reach employees; statutory deadlines (one calendar month, one extension of up to two months) live in `src/participation/requests.ts` and must stay in step with the SQL in `20261002090600_focusiq_rights_requests.sql`.
+- Employee summaries reach employees only once a Director releases them (`summary_releases`, `my_summary()`). They never contain percentiles, rankings, comparisons with colleagues or Director identities. Bands are opt-in and compare only with the person's own previous assessment.
 - Never infer pronouns in generated text. Never add protected characteristics to the model.
 - Run before committing: `npm run typecheck`, `npm test`, `npm run build:app`.

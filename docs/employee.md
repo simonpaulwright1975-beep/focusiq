@@ -192,8 +192,42 @@ It's marked *DRAFT – review before sending*. Internal notes are **not** includ
 - **Outcomes:** valid only for the request type, enforced by a constraint.
 - **Employee functions:** `my_rights_requests()` returns only messages meant for the employee, without Director identities, and `follow_up_rights_request()` covers their own open requests only.
 
-## 5. Still to build
+## 5. Employee summary page (built)
 
-- **Employee summary page:** the constructive summary only (`my_insight_summaries()`).
+A Director reviews and releases each employee's summary. Until then, the employee sees nothing.
+
+**Director: Employee report → Summary for the employee.**
+- **Status:** not released, released (with date), or read by the employee. Earlier versions and withdrawals are listed with their reasons.
+- **Prepare summary:**
+  - The live preview on the right is exactly what the employee will see (the same `SummaryView` component).
+  - **What we saw:** constructive paragraphs from the insight report.
+  - **Support:** the Director picks which of the report's recommendations to share and can reword each one. Text is rewritten into "you" form.
+  - **Bands (off by default):** Strength / Expected / Development opportunity per dimension, each compared only with the employee's own previous assessment. While the expectation levels are provisional, the summary says so.
+  - **Optional personal note.** It's signed "Walter Geering"; Director names never appear.
+- **Release:** releasing a new version withdraws the previous one ("Replaced by a new version").
+- **Withdraw:** needs a reason. The reason is never shown to the employee.
+
+**Employee.**
+- **Placement:** the summary appears at the top of the employee page once released.
+- **Read receipt:** "I have read my summary" records the read time, which the Director sees.
+- **Questions:** "Questions about your summary?" opens the questions & concerns form.
+
+**What a summary never contains.** `buildEmployeeSummary` refuses to build a summary that breaks these rules:
+- percentiles, rankings, or comparisons with colleagues;
+- who released it;
+- pronouns, or medical or diagnostic language (the insight language safeguard);
+- internal notes;
+- support items that aren't in the insight report.
+
+**Database** (`20261002090700_focusiq_summary_release.sql`):
+- **Append-only tables:** `summary_releases`, `summary_withdrawals` and `summary_reads`. Directors read them; no one writes to them directly.
+- **`release_employee_summary()` (Director only):** withdraws the current version and also re-checks for comparisons, a released-by field, and bands that weren't selected.
+- **`withdraw_employee_summary()` (Director only):** needs a reason.
+- **`my_summary()`:** returns the current release's content and read time only. It never returns who released it or why a version was withdrawn.
+- **`mark_summary_read()`:** covers the employee's own current summary only.
+- **`my_insight_summaries()` is removed:** it returned content before any Director review.
+
+## 6. Still to build
+
 - **Acknowledgement overview:** who has and hasn't acknowledged the current notice.
 - **Notifications:** email the employee when a reply or decision arrives, and remind Directors of deadlines. This needs an email service.

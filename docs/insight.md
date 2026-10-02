@@ -111,7 +111,7 @@ Each observation comes with a group-level response. Smaller groups are never rep
 | `motivation_profiles` | Ranked motivators per assessment |
 | `insight_findings`, `insight_not_concluded` | Findings with evidence and exercise ids; append-only |
 | `employee_insight_reports` | Frozen Director report and employee-facing summary; append-only |
-| `my_insight_summaries()` | The only way an employee reads their insight: the constructive summary only |
+| `my_insight_summaries()` | Removed in `20261002090700_focusiq_summary_release.sql`. Employees now read only Director-released summaries through `my_summary()` (see `docs/employee.md` §5) |
 | `organisation_insights` | Group observations (group size ≥ 5 enforced); append-only |
 | `insight_actions` | Converts recommendations into tracked actions (status, owner, due date) for an employee or a group |
 

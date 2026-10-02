@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
 import { Trend } from '../components/charts.js';
+import { ReleasePanel } from './ReleasePanel.js';
 import { BandChip, Card, ConfidenceBadge, Explanation, fmt, ordinal } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
 import { CORE_KEYS, definitionFor, metricLabel, useStore } from '../state.js';
@@ -14,7 +15,6 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
   const employee = data.employees.find((e) => e.id === employeeId)!;
   const [trendKey, setTrendKey] = useState('decision_efficiency');
   const [openEvidence, setOpenEvidence] = useState<string | null>(null);
-  const [employeeView, setEmployeeView] = useState(false);
 
   const def = definitionFor(filters, now, employee.department);
   const rows = useMemo(
@@ -103,15 +103,16 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
       {!insight ? (
         <Card title="Insight report"><p className="empty">No exercise evidence is available for this employee.</p></Card>
       ) : (
-        <InsightSection
-          report={insight.report}
-          exercises={exercises}
-          name={employee.displayName}
-          openEvidence={openEvidence}
-          setOpenEvidence={setOpenEvidence}
-          employeeView={employeeView}
-          setEmployeeView={setEmployeeView}
-        />
+        <>
+          <ReleasePanel employeeId={employee.id} name={employee.displayName} assessmentId={insight.assessmentId} report={insight.report} />
+          <InsightSection
+            report={insight.report}
+            exercises={exercises}
+            name={employee.displayName}
+            openEvidence={openEvidence}
+            setOpenEvidence={setOpenEvidence}
+          />
+        </>
       )}
     </div>
   );
@@ -155,8 +156,6 @@ function InsightSection(props: {
   name: string;
   openEvidence: string | null;
   setOpenEvidence: (k: string | null) => void;
-  employeeView: boolean;
-  setEmployeeView: (v: boolean) => void;
 }) {
   const { report, exercises, openEvidence, setOpenEvidence } = props;
   const q = report.fourQuestions;
@@ -186,20 +185,11 @@ function InsightSection(props: {
     </div>
   );
 
-  if (props.employeeView) {
-    return (
-      <Card title="Employee-facing summary (preview)" sub="What the employee sees: constructive, no percentiles, no Director-only interpretation" actions={<button className="btn secondary" onClick={() => props.setEmployeeView(false)}>Back to Director report</button>}>
-        {report.employeeFacing.paragraphs.map((p) => <p key={p} className="statement">{p}</p>)}
-      </Card>
-    );
-  }
-
   return (
     <div className="stack">
       <Card
         title={`FocusiQ summary – ${props.name}`}
         sub={`Interpretation ${report.interpretationVersion} · generated from exercise evidence · a conversation starter, not unquestionable fact`}
-        actions={<button className="btn secondary" onClick={() => props.setEmployeeView(true)}>Preview employee version</button>}
       >
         {q.overallSummary.map((s) => <p key={s.text} className="statement">{s.text}</p>)}
       </Card>

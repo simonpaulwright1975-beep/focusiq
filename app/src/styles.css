@@ -159,3 +159,29 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 .request-actions { gap: 8px; }
 .request-actions .btn, .composer .btn { padding: 10px 20px; }
 .stack-tight { display: grid; gap: 8px; }
+
+/* ---- Employee summary (shared with the Director preview) ---- */
+.summary h2 { font-size: 26px; margin: 6px 0 8px; }
+.summary h3 { margin: 22px 0 8px; }
+.summary .lead { font-size: 15px; color: var(--ink-soft); }
+.summary-message { background: var(--accent-bg); border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
+.summary-message p { margin: 6px 0 0; white-space: pre-wrap; }
+.summary-provisional { background: var(--amber-bg); color: var(--amber); border-radius: 10px; padding: 8px 12px; }
+.summary-dimensions { list-style: none; padding: 0; margin: 0; }
+.summary-dimensions li { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--track); flex-wrap: wrap; }
+.summary-dim-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.band-strength { background: #0d5a3b; color: #fff; border-color: transparent; }
+.band-expected { background: #2f8f5a; color: #fff; border-color: transparent; }
+.band-develop { background: #72b88d; color: var(--ink); border-color: transparent; }
+.summary-key { display: grid; gap: 6px; margin: 12px 0; }
+.summary-key div { display: flex; gap: 10px; align-items: center; }
+.summary-key dd { margin: 0; color: var(--ink-soft); }
+.summary-support { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.summary-support li { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: #fffdfb; }
+.summary-support p { margin: 4px 0 0; color: var(--ink-soft); }
+.summary-motivators { margin: 0; padding-left: 20px; }
+.release-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 900px) { .release-grid { grid-template-columns: minmax(0, 1fr); } }
+.release-preview { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; max-height: 70vh; overflow: auto; }
+.support-choice { display: grid; gap: 6px; margin-bottom: 10px; }
+.modal:has(.release-grid) { width: min(1100px, 100%); }

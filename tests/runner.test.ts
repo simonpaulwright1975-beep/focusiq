@@ -284,6 +284,7 @@ suite('images and bundle safety', () => {
     visit(resolve(root, 'app/src/employee/main.tsx'));
     const files = [...seen].map((f) => f.replace(`${root}/`, ''));
     expect(files).toContain('src/runner/session.ts');
+    expect(files).toContain('app/src/shared/SummaryView.tsx');
     for (const f of files) {
       expect(f).not.toMatch(/^src\/(benchmarking|insight)\//);
       expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|demo\/adjustmentSeed|demo\/requestSeed|insights)/);

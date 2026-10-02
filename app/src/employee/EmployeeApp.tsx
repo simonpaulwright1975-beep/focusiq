@@ -24,6 +24,8 @@ import { clearDemoServer } from './demoTransport.js';
 import { latestRequestFor, resetRequests, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
 import { resetRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
 import { MyRequests } from './MyRequests.js';
+import { MySummary } from './MySummary.js';
+import { resetReleases } from '../shared/summaryStore.js';
 import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
 
 const ACK_KEY = 'focusiq-demo-ack';
@@ -344,6 +346,7 @@ export function EmployeeApp() {
               clearDemoServer();
               resetRequests();
               resetRightsRequests();
+              resetReleases();
               window.location.reload();
             }}
           >
@@ -355,6 +358,7 @@ export function EmployeeApp() {
         <strong>Demo.</strong> Nothing you enter is sent anywhere.{' '}
         {placeholders.length > 0 && <>Highlighted text ({placeholders.length} items) must be completed by Walter Geering before go-live.</>}
       </div>
+      <MySummary employeeId={ME.employeeId} firstName={ME.fullName.split(' ')[0] ?? ME.fullName} onAsk={() => setAsking(true)} />
       {run && record ? (
         <Runner definition={DEMO_ASSESSMENT} options={run} />
       ) : (<>
