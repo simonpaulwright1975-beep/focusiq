@@ -1,0 +1,39 @@
+import { describe as suite, expect, it } from 'vitest';
+import { computeBenchmark } from '../src/benchmarking/index.js';
+import { organisationInsights } from '../src/insight/index.js';
+import { buildDemoData, DEMO_DIRECTOR, DEMO_NOW, METRICS } from '../app/src/demo/dataset.js';
+import { buildInsightReports } from '../app/src/insights.js';
+
+suite('dashboard demo data', () => {
+  const demo = buildDemoData();
+  const data = { employees: demo.employees, assessments: demo.assessments, metrics: METRICS, eligibility: demo.ledger.state() };
+
+  it('generates an insight report for every employee that passes the language safeguard', () => {
+    const reports = buildInsightReports(demo, DEMO_NOW);
+    expect(reports.size).toBe(demo.employees.length);
+    for (const { report } of reports.values()) expect(report.directorSummary).toHaveLength(12);
+  });
+
+  it('shows Stock Control as unavailable and Customer Service escalation as a shared pattern', () => {
+    const def = (d: 'Stock Control' | 'Customer Service') => ({
+      scope: { kind: 'department' as const, department: d },
+      include: { active: true, former: false, pilot: false, test: false },
+      window: { kind: 'latest' as const },
+      asOf: DEMO_NOW.toISOString(),
+    });
+    expect(computeBenchmark(data, def('Stock Control'), 'decide').available).toBe(false);
+    const reports = buildInsightReports(demo, DEMO_NOW);
+    const members = demo.employees
+      .filter((e) => e.status === 'active' && e.department === 'Customer Service')
+      .map((e) => ({ employeeId: e.id, group: e.department, findings: reports.get(e.id)!.report.findings }));
+    expect(organisationInsights(DEMO_DIRECTOR, members).map((o) => o.patternKey)).toContain('high_escalation');
+  });
+
+  it('seeds an audited test-account exclusion, a technical failure and a pending adjustment', () => {
+    expect(demo.ledger.auditLog().map((e) => e.action)).toEqual([
+      'employee_excluded',
+      'assessment_excluded',
+      'assessment_adjustment_flagged',
+    ]);
+  });
+});
