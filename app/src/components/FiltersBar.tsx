@@ -10,7 +10,7 @@ export function FiltersBar() {
   const versions = [...new Set(demo.assessments.map((a) => a.version))];
   const people = demo.employees.filter((e) => filters.department === 'all' || e.department === filters.department);
   return (
-    <div className="filters" role="search" aria-label="Dashboard filters">
+    <div className="card filters" role="search" aria-label="Dashboard filters">
       <div className="field">
         <label htmlFor="f-dept">Department</label>
         <select id="f-dept" value={filters.department} onChange={(e) => setFilters({ department: e.target.value as Department | 'all' })}>
@@ -55,7 +55,7 @@ export function FiltersBar() {
       </div>
       <div className="field">
         <span className="label">Staff shown</span>
-        <button className="btn" onClick={() => setHideOpen(true)}>
+        <button className="btn secondary" onClick={() => setHideOpen(true)}>
           {filters.hidden.length ? `${filters.hidden.length} hidden from view` : 'Hide staff from view…'}
         </button>
       </div>
@@ -80,8 +80,8 @@ export function FiltersBar() {
             ))}
           </div>
           <div className="actions">
-            <button className="btn" onClick={() => setFilters({ hidden: [] })}>Show everyone</button>
-            <button className="btn primary" onClick={() => setHideOpen(false)}>Done</button>
+            <button className="btn secondary" onClick={() => setFilters({ hidden: [] })}>Show everyone</button>
+            <button className="btn" onClick={() => setHideOpen(false)}>Done</button>
           </div>
         </Modal>
       )}

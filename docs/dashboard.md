@@ -51,11 +51,13 @@ One filter row scopes every tab (§201):
 
 ## Design
 
-- **Palette:** colours use the validated reference palette (`app/src/styles.css`), with light and dark tokens and a theme toggle.
-  - Absolute bands use a 3-step ordinal blue ramp.
-  - Heatmap medians use a single-hue sequential ramp.
-  - The confidence status uses an icon and a label, never colour alone.
-- **Charts:** hand-built SVG. One axis, hairline grid, hover tooltips, legends for two or more series, and a table view where values aren't otherwise listed.
+- **House style:** both apps use the Walter Geering design system (`app/src/design-system.css`); see `CLAUDE.md` for the rules.
+- **Charts:** the accent green is the single series colour and warm grey is used for context marks.
+  - Absolute bands use a validated 3-step green ordinal ramp.
+  - Heatmap medians use a single-hue green ramp.
+  - The confidence status uses the house green, amber and red with an icon and label.
+- **Chart construction:** hand-built SVG. One axis, hairline grid, hover tooltips, legends for two or more series, and a table view where values aren't otherwise listed.
+- **Theme:** light only, matching the house system.
 - **Phone width:** works at 390px with no horizontal page scroll.
 
 ## Next steps

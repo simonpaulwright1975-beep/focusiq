@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FiltersBar } from './components/FiltersBar.js';
 import { EligibilityView } from './views/EligibilityView.js';
 import { EmployeeView } from './views/EmployeeView.js';
@@ -11,11 +11,6 @@ type Tab = (typeof TABS)[number];
 export function App() {
   const [tab, setTab] = useState<Tab>('Overview');
   const [employeeId, setEmployeeId] = useState<string>('s1');
-  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
-  useEffect(() => {
-    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
   const openEmployee = (id: string) => {
     setEmployeeId(id);
     setTab('Employee report');
@@ -25,20 +20,13 @@ export function App() {
       <header className="topbar">
         <div className="brand">
           <h1>FocusiQ</h1>
-          <small>Director dashboard · Walter Geering</small>
+          <span className="lbl">Director dashboard · Walter Geering</span>
         </div>
         <nav className="tabs" role="tablist" aria-label="Dashboard sections">
           {TABS.map((t) => (
-            <button key={t} role="tab" className="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
+            <button key={t} role="tab" className={tab === t ? 'chip sel' : 'chip'} aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        <button
-          className="icon-btn"
-          aria-label="Change colour theme"
-          onClick={() => setTheme(theme === 'system' ? 'dark' : theme === 'dark' ? 'light' : 'system')}
-        >
-          Theme: {theme}
-        </button>
       </header>
       <div className="banner" role="note">
         <strong>Demo data.</strong> All names and results are fictional and generated for demonstration. Connect a

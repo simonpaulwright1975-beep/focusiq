@@ -98,8 +98,8 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
         actions={
           <div className="row">
             <label className="row small"><input type="checkbox" checked={blind} onChange={(e) => setBlind(e.target.checked)} />Blind comparison (hide names)</label>
-            <button className="btn primary" disabled={selected.length < 2} onClick={runCompare}>Compare {selected.length || ''} selected</button>
-            {comparison?.blind && <button className="btn" onClick={() => setComparison(revealNames(actor, data, comparison))}>Reveal names</button>}
+            <button className="btn" disabled={selected.length < 2} onClick={runCompare}>Compare {selected.length || ''} selected</button>
+            {comparison?.blind && <button className="btn secondary" onClick={() => setComparison(revealNames(actor, data, comparison))}>Reveal names</button>}
           </div>
         }
       >

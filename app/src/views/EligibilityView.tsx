@@ -59,10 +59,10 @@ export function EligibilityView() {
                         return (
                           <div key={a.id} className="row small" style={{ marginBottom: 4 }}>
                             <span style={{ minWidth: 92 }}>{dateOf(a.completedAt)}</span>
-                            <span className="chip">
+                            <span className="tag">
                               {reason ? `Excluded: ${reason === 'review_required' ? 'review required' : EXCLUSION_REASON_LABELS[reason]}` : 'Eligible'}
                             </span>
-                            {adj && <span className="chip">Adjusted · {adj.comparability.replace('_', ' ')}</span>}
+                            {adj && <span className="tag">Adjusted · {adj.comparability.replace('_', ' ')}</span>}
                             {ex ? (
                               <button className="btn link" onClick={() => setAction({ kind: 'restore-assessment', employee: e, assessment: a })}>Restore</button>
                             ) : a.complete && !empEx ? (
@@ -78,10 +78,10 @@ export function EligibilityView() {
                       {empEx ? (
                         <>
                           <div className="small">Excluded: {EXCLUSION_REASON_LABELS[empEx.reason]}{empEx.note ? ` – ${empEx.note}` : ''}</div>
-                          <button className="btn" onClick={() => setAction({ kind: 'restore-employee', employee: e })}>Restore to benchmark population</button>
+                          <button className="btn secondary" onClick={() => setAction({ kind: 'restore-employee', employee: e })}>Restore to benchmark population</button>
                         </>
                       ) : (
-                        <button className="btn" onClick={() => setAction({ kind: 'exclude-employee', employee: e })}>Exclude employee…</button>
+                        <button className="btn secondary" onClick={() => setAction({ kind: 'exclude-employee', employee: e })}>Exclude employee…</button>
                       )}
                     </td>
                   </tr>
@@ -233,8 +233,8 @@ function ActionModal({
         <p className="small muted">Recorded as {actor.name} at {now.toLocaleString('en-GB')} (demo clock).</p>
       </div>
       <div className="actions">
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" onClick={submit} disabled={excluding && !reason}>Confirm</button>
+        <button className="btn secondary" onClick={onClose}>Cancel</button>
+        <button className="btn" onClick={submit} disabled={excluding && !reason}>Confirm</button>
       </div>
     </Modal>
   );

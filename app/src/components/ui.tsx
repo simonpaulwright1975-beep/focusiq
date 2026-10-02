@@ -21,7 +21,7 @@ export function Card({ title, sub, actions, children }: { title: ReactNode; sub?
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="card stat">
-      <div className="label">{label}</div>
+      <div className="lbl">{label}</div>
       <div className="value">{value}</div>
       {sub && <div className="sub">{sub}</div>}
     </div>
@@ -38,7 +38,7 @@ const BAND_VAR: Record<string, string> = {
 export function BandChip({ band, status }: { band: string | null; status?: AbsoluteBandResult['status'] }) {
   if (!band) return <span className="muted small">No expectation set</span>;
   return (
-    <span className="chip" title={status === 'provisional' ? 'Provisional expectations – not yet validated' : undefined}>
+    <span className="tag" title={status === 'provisional' ? 'Provisional expectations – not yet validated' : undefined}>
       <span className="dot" style={{ background: `var(${BAND_VAR[band]})` }} />
       {band}
       {status === 'provisional' && <span className="muted">*</span>}

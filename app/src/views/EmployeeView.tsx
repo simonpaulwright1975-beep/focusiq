@@ -38,11 +38,11 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
               {data.employees.map((e) => <option key={e.id} value={e.id}>{e.displayName} – {e.department}</option>)}
             </select>
           </label>
-          <span className="chip">{employee.role}</span>
-          <span className="chip">{tenure?.label ?? '—'} service</span>
-          {employee.status !== 'active' && <span className="chip">{employee.status === 'former' ? 'Former employee' : 'Test user'}</span>}
-          {exclusion && <span className="chip">Excluded from benchmarks: {exclusion.reason.replaceAll('_', ' ')}</span>}
-          {employee.cohortTags.map((t) => <span key={t} className="chip">{t}</span>)}
+          <span className="tag">{employee.role}</span>
+          <span className="tag">{tenure?.label ?? '—'} service</span>
+          {employee.status !== 'active' && <span className="tag">{employee.status === 'former' ? 'Former employee' : 'Test user'}</span>}
+          {exclusion && <span className="tag">Excluded from benchmarks: {exclusion.reason.replaceAll('_', ' ')}</span>}
+          {employee.cohortTags.map((t) => <span key={t} className="tag">{t}</span>)}
         </div>
       </div>
 
@@ -188,7 +188,7 @@ function InsightSection(props: {
 
   if (props.employeeView) {
     return (
-      <Card title="Employee-facing summary (preview)" sub="What the employee sees: constructive, no percentiles, no Director-only interpretation" actions={<button className="btn" onClick={() => props.setEmployeeView(false)}>Back to Director report</button>}>
+      <Card title="Employee-facing summary (preview)" sub="What the employee sees: constructive, no percentiles, no Director-only interpretation" actions={<button className="btn secondary" onClick={() => props.setEmployeeView(false)}>Back to Director report</button>}>
         {report.employeeFacing.paragraphs.map((p) => <p key={p} className="statement">{p}</p>)}
       </Card>
     );
@@ -199,7 +199,7 @@ function InsightSection(props: {
       <Card
         title={`FocusiQ summary – ${props.name}`}
         sub={`Interpretation ${report.interpretationVersion} · generated from exercise evidence · a conversation starter, not unquestionable fact`}
-        actions={<button className="btn" onClick={() => props.setEmployeeView(true)}>Preview employee version</button>}
+        actions={<button className="btn secondary" onClick={() => props.setEmployeeView(true)}>Preview employee version</button>}
       >
         {q.overallSummary.map((s) => <p key={s.text} className="statement">{s.text}</p>)}
       </Card>
@@ -213,7 +213,7 @@ function InsightSection(props: {
           {q.howTheBusinessCanSupport.map((r) => (
             <div className="rec" key={r.id}>
               <div className="row"><strong>{r.priorityLabel}</strong></div>
-              <div><strong>{r.title}</strong> <span className="chip">{r.category}</span></div>
+              <div><strong>{r.title}</strong> <span className="tag">{r.category}</span></div>
               <p className="small" style={{ margin: '4px 0' }}>{r.detail}</p>
               {r.example && <p className="small secondary" style={{ margin: 0 }}>Example: {r.example}</p>}
               <p className="small muted" style={{ margin: '4px 0 0' }}>Impact {r.impact} · Effort {r.effort}</p>

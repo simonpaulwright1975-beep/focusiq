@@ -244,9 +244,9 @@ export function EmployeeApp() {
           <ul>{record.acknowledgedItems.map((i) => <li key={i.id}><Text>{i.text}</Text></li>)}</ul>
           <p className="small muted">Notice fingerprint (SHA-256): <span className="fingerprint">{record.noticeSha256}</span></p>
           <div className="nav no-print">
-            <button className="btn" onClick={() => window.print()}>Print or save a copy</button>
+            <button className="btn secondary" onClick={() => window.print()}>Print or save a copy</button>
             <button
-              className="btn primary"
+              className="btn"
               disabled={!check?.allowed || record.adjustmentRequested}
               title={record.adjustmentRequested ? 'Your adjustment request will be reviewed first' : undefined}
               onClick={() => alert('The assessment runner is the next part to be built.')}
@@ -263,8 +263,8 @@ export function EmployeeApp() {
   return (
     <div className="emp-shell">
       <header className="emp-top">
-        <strong>FocusiQ</strong>
-        <span className="muted small">Walter Geering</span>
+        <span className="brand-name">FocusiQ</span>
+        <span className="lbl">Walter Geering</span>
         <span className="who">Signed in as {ME.fullName} (demo)</span>
       </header>
       <div className="banner" role="note">
@@ -274,10 +274,10 @@ export function EmployeeApp() {
       {step < STEPS.length - 1 && (
         <>
           <div className="progress" aria-hidden="true">{STEPS.slice(0, -1).map((s, i) => <span key={s} className={i <= step ? 'done' : ''} />)}</div>
-          <div className="step-label">Step {step + 1} of {STEPS.length - 1}: {STEPS[step]}</div>
+          <div className="step-label lbl">Step {step + 1} of {STEPS.length - 1} · {STEPS[step]}</div>
         </>
       )}
-      <main className="panel">
+      <main className="card panel">
         {visibleErrors.length > 0 && (
           <div className="error-summary" id="error-summary" tabIndex={-1} role="alert">
             <h2>There is a problem</h2>
@@ -287,8 +287,8 @@ export function EmployeeApp() {
         {body}
         {step < STEPS.length - 1 && (
           <div className="nav">
-            {step > 0 ? <button className="btn" onClick={() => { setErrors({}); setStep(step - 1); }}>Back</button> : <span />}
-            <button className="btn primary" onClick={next}>{step === 5 ? 'Sign and submit' : step === 0 ? 'Start' : 'Continue'}</button>
+            {step > 0 ? <button className="btn secondary" onClick={() => { setErrors({}); setStep(step - 1); }}>Back</button> : <span />}
+            <button className="btn" onClick={next}>{step === 5 ? 'Sign and submit' : step === 0 ? 'Start' : 'Continue'}</button>
           </div>
         )}
       </main>
@@ -321,8 +321,8 @@ function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type
         <p className="small muted">This goes to the person responsible for FocusiQ at Walter Geering. You can still continue with the form.</p>
       </div>
       <div className="actions">
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" disabled={!message.trim()} onClick={() => onSend({ type, message })}>Send</button>
+        <button className="btn secondary" onClick={onClose}>Cancel</button>
+        <button className="btn" disabled={!message.trim()} onClick={() => onSend({ type, message })}>Send</button>
       </div>
     </Modal>
   );
