@@ -4,12 +4,16 @@ import { EligibilityView } from './views/EligibilityView.js';
 import { EmployeeView } from './views/EmployeeView.js';
 import { OverviewView } from './views/OverviewView.js';
 import { PeopleView } from './views/PeopleView.js';
+import { AdjustmentsView, useAdjustmentRequests } from './views/AdjustmentsView.js';
 
-const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit'] as const;
+const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments'] as const;
 type Tab = (typeof TABS)[number];
+/** Tabs that use the analytics filter row. */
+const FILTERED: Tab[] = ['Overview', 'People', 'Employee report', 'Eligibility & audit'];
 
 export function App() {
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [tab, setTab] = useState<Tab>(() => (window.location.hash === '#adjustments' ? 'Adjustments' : 'Overview'));
+  const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
   const [employeeId, setEmployeeId] = useState<string>('s1');
   const openEmployee = (id: string) => {
     setEmployeeId(id);
@@ -24,7 +28,12 @@ export function App() {
         </div>
         <nav className="tabs" role="tablist" aria-label="Dashboard sections">
           {TABS.map((t) => (
-            <button key={t} role="tab" className={tab === t ? 'chip sel' : 'chip'} aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
+            <button key={t} role="tab" className={tab === t ? 'chip sel' : 'chip'} aria-selected={tab === t} onClick={() => setTab(t)}>
+              {t}
+              {t === 'Adjustments' && pendingAdjustments > 0 && (
+                <span className="tab-count" aria-label={`${pendingAdjustments} awaiting a decision`}>{pendingAdjustments}</span>
+              )}
+            </button>
           ))}
         </nav>
       </header>
@@ -32,12 +41,13 @@ export function App() {
         <strong>Demo data.</strong> All names and results are fictional and generated for demonstration. Connect a
         FocusiQ Supabase project to use real assessments. Expectation bands marked * are provisional.
       </div>
-      <FiltersBar />
+      {FILTERED.includes(tab) && <FiltersBar />}
       <main role="tabpanel" aria-label={tab}>
         {tab === 'Overview' && <OverviewView onOpenEmployee={openEmployee} />}
         {tab === 'People' && <PeopleView onOpenEmployee={openEmployee} />}
         {tab === 'Employee report' && <EmployeeView employeeId={employeeId} onSelect={setEmployeeId} />}
         {tab === 'Eligibility & audit' && <EligibilityView />}
+        {tab === 'Adjustments' && <AdjustmentsView />}
       </main>
     </div>
   );

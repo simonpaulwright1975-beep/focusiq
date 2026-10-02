@@ -266,7 +266,8 @@ suite('images and bundle safety', () => {
       if (seen.has(file)) return;
       seen.add(file);
       const src = readFileSync(file, 'utf8');
-      for (const m of src.matchAll(/(?:import|export)[^'"]*from\s+['"](\.[^'"]+)['"]/g)) {
+      // Type-only imports are erased at build time and ship no code.
+      for (const m of src.matchAll(/^(?:import|export)(?!\s+type\b)[^'"]*?from\s+['"](\.[^'"]+)['"]/gm)) {
         let target = resolve(dirname(file), m[1]!).replace(/\.js$/, '');
         for (const ext of ['.ts', '.tsx', '/index.ts']) {
           try {
@@ -285,7 +286,7 @@ suite('images and bundle safety', () => {
     expect(files).toContain('src/runner/session.ts');
     for (const f of files) {
       expect(f).not.toMatch(/^src\/(benchmarking|insight)\//);
-      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|insights)/);
+      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|demo\/adjustmentSeed|insights)/);
     }
   });
 });

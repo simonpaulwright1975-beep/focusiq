@@ -2,7 +2,10 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   NOTICE_V1,
   RIGHTS_REQUEST_LABELS,
+  agreedTimeMultiplier,
   canStartAssessment,
+  employeeAdjustmentView,
+  type AdjustmentRequest,
   createAcknowledgement,
   emptyForm,
   placeholdersIn,
@@ -17,6 +20,7 @@ import {
 import { Modal } from '../components/Modal.js';
 import { DEMO_ASSESSMENT } from '../demo/assessment.js';
 import { clearDemoServer } from './demoTransport.js';
+import { latestRequestFor, resetRequests, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
 import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
 
 const ACK_KEY = 'focusiq-demo-ack';
@@ -76,8 +80,9 @@ export function EmployeeApp() {
   const [record, setRecord] = useState<AcknowledgementRecord | null>(() => readJson<AcknowledgementRecord>(ACK_KEY));
   const [step, setStep] = useState(() => (record ? STEPS.length - 1 : 0));
   const [run, setRun] = useState<RunOptions | null>(() => readJson<RunOptions>(RUN_KEY));
-  /** DEMO: stands in for a Director agreeing the adjustment request. */
-  const [agreedMultiplier, setAgreedMultiplier] = useState<number | null>(null);
+  const [adjustment, setAdjustment] = useState<AdjustmentRequest | null>(() => latestRequestFor(ME.employeeId));
+  // Live: a Director's decision (even in another tab) updates this page.
+  useEffect(() => subscribe(() => setAdjustment(latestRequestFor(ME.employeeId))), []);
   const [form, setForm] = useState<AcknowledgementForm>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [asking, setAsking] = useState(false);
@@ -104,6 +109,18 @@ export function EmployeeApp() {
     if (step === 5) {
       const created = await createAcknowledgement(form, NOTICE, ME);
       writeJson(ACK_KEY, created);
+      if (created.adjustmentRequested) {
+        upsertRequest({
+          id: created.id,
+          employeeId: ME.employeeId,
+          employeeName: ME.fullName,
+          department: ME.department,
+          description: created.adjustmentDescription!,
+          createdAt: created.acknowledgedAt,
+          status: 'pending',
+          history: [],
+        });
+      }
       setRecord(created);
     }
     setStep(step + 1);
@@ -248,13 +265,14 @@ export function EmployeeApp() {
       break;
     default: {
       const check = record ? canStartAssessment([record], NOTICE, ME.employeeId) : null;
+      const adjustmentView = record?.adjustmentRequested && adjustment ? employeeAdjustmentView(adjustment) : null;
       body = record && (
         <div className="record">
           <div className="row no-print">
             <div className="done-mark" aria-hidden="true">✓</div>
-            {heading(record.adjustmentRequested ? 'Thank you – your acknowledgement is saved' : 'Thank you – you are ready to start')}
+            {heading(adjustmentView && !adjustmentView.canStart ? 'Thank you – your acknowledgement is saved' : 'Thank you – you are ready to start')}
           </div>
-          {record.adjustmentRequested && (
+          {adjustmentView && !adjustmentView.canStart && (
             <p className="no-print">Your assessment will open once a Director has reviewed your adjustment request. You don't need to do anything else for now.</p>
           )}
           <h2 className="print-only">FocusiQ acknowledgement record</h2>
@@ -264,32 +282,44 @@ export function EmployeeApp() {
             <dt>Date and time</dt><dd>{new Date(record.acknowledgedAt).toLocaleString('en-GB')}</dd>
             <dt>Notice version</dt><dd>{record.noticeVersion}</dd>
             <dt>Details</dt><dd>{record.detailsCorrect ? 'Confirmed correct' : `Correction requested – HR will be in touch`}</dd>
-            <dt>Adjustment</dt><dd>{record.adjustmentRequested ? 'Requested – a Director will review it before your assessment' : 'None requested'}</dd>
+            <dt>Adjustment</dt><dd>{record.adjustmentRequested ? 'Requested' : 'None requested'}</dd>
           </dl>
           <h3>You confirmed</h3>
           <ul>{record.acknowledgedItems.map((i) => <li key={i.id}><Text>{i.text}</Text></li>)}</ul>
           <p className="small muted">Notice fingerprint (SHA-256): <span className="fingerprint">{record.noticeSha256}</span></p>
+          {adjustmentView && (
+            <div className={`adjustment-status adjustment-${adjustmentView.status} no-print`} role="status" aria-live="polite">
+              <strong>{adjustmentView.headline}</strong>
+              {adjustmentView.arrangements.length > 0 && (
+                <ul>{adjustmentView.arrangements.map((a) => <li key={a}>{a}</li>)}</ul>
+              )}
+              {adjustmentView.message && <p>{adjustmentView.message}</p>}
+              {adjustmentView.status === 'pending' && (
+                <p className="small">
+                  You will be able to start once a Director has reviewed it.{' '}
+                  <span className="muted">
+                    Demo: open the <a href="./index.html#adjustments" target="_blank" rel="noreferrer">Director dashboard → Adjustments</a> in another tab to decide it – this page updates automatically.
+                  </span>
+                </p>
+              )}
+              {adjustmentView.status === 'declined' && <p className="small">You can still take the assessment under the standard conditions.</p>}
+            </div>
+          )}
           <div className="nav no-print">
             <button className="btn secondary" onClick={() => window.print()}>Print or save a copy</button>
             <button
               className="btn"
-              disabled={!check?.allowed || (record.adjustmentRequested && agreedMultiplier === null)}
-              title={record.adjustmentRequested && agreedMultiplier === null ? 'Your adjustment request will be reviewed first' : undefined}
+              disabled={!check?.allowed || (adjustmentView !== null && !adjustmentView.canStart)}
+              title={adjustmentView && !adjustmentView.canStart ? 'Your adjustment request will be reviewed first' : undefined}
               onClick={() => {
-                const options = newDemoAssessment(agreedMultiplier ?? 1);
+                const options = newDemoAssessment(agreedTimeMultiplier(adjustment));
                 writeJson(RUN_KEY, options);
                 setRun(options);
               }}
             >
-              {record.adjustmentRequested && agreedMultiplier === null ? 'Assessment opens once your adjustment is reviewed' : 'Start my assessment'}
+              {adjustmentView && !adjustmentView.canStart ? 'Assessment opens once your adjustment is reviewed' : 'Start my assessment'}
             </button>
           </div>
-          {record.adjustmentRequested && agreedMultiplier === null && (
-            <p className="no-print small" style={{ marginTop: 12 }}>
-              <button className="btn link" onClick={() => setAgreedMultiplier(1.25)}>Demo: simulate a Director agreeing 25% extra time</button>
-            </p>
-          )}
-          {agreedMultiplier !== null && <p className="adjust-note no-print">Adjustment agreed: {Math.round((agreedMultiplier - 1) * 100)}% extra time on timed sections.</p>}
         </div>
       );
     }
@@ -309,6 +339,7 @@ export function EmployeeApp() {
               for (const k of [ACK_KEY, RUN_KEY]) localStorage.removeItem(k);
               clearSavedSession();
               clearDemoServer();
+              resetRequests();
               window.location.reload();
             }}
           >

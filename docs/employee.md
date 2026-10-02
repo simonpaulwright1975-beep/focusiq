@@ -106,9 +106,40 @@ After acknowledging the notice, the employee selects **Start my assessment**. Th
 - The demo assessment has 12 scored questions. That's enough to see the flow, but too few for most insight patterns to reach their minimum evidence, by design. A real assessment needs more exercises per pattern.
 - Storage policies were checked against a minimal stand-in for Supabase Storage, not a live project.
 
-## 3. Still to build
+## 3. Adjustment requests – Director decisions (built)
+
+**Director dashboard → Adjustments.** The tab shows a count of pending requests, and `index.html#adjustments` opens it directly.
+
+- **Confidentiality:** a reminder at the top. Requests may include health information, are Director-only, and internal notes are never shown to employees.
+- **Awaiting a decision:** oldest first, showing the employee's own words.
+- **Decided:** current arrangements, the message sent, who decided and when, **Change decision**, and the full **Decision history**, including internal notes and reasons for any change.
+
+**Deciding** (`src/participation/adjustments.ts`):
+- **Agree or Decline:** choose using the selectable chips.
+- **Agree:** choose one or more arrangements. Only extra time is applied automatically: choose 25%, 50% or 100%, or "Other" up to 200%. The rest (rest breaks, larger text, screen reader, quiet room, paper or assisted version, other) are arranged by HR.
+- **Message to the employee:** required. A suggested message updates with the choices until edited. The decline template has `[reason]` / `[alternative]` gaps that must be filled before sending.
+- **Internal note:** optional and Directors-only.
+- **Changing an earlier decision** requires a reason. Nothing is overwritten; every decision is appended.
+- **Preview:** shows exactly what the employee will see.
+- **Benchmarking:** agreed adjustments mark the assessment *Adjusted*. Comparability for benchmarking is decided separately in Eligibility & audit and is never automatic.
+
+**Employee side.** The confirmation page shows the decision live (even when decided in another tab):
+- **Pending:** the assessment is blocked.
+- **Agreed:** the arrangements and message are shown, and the extra time is applied automatically when they start.
+- **Declined:** the message is shown, and the employee can take the assessment under standard conditions.
+
+**Database** (`20261002090500_focusiq_adjustment_decisions.sql`):
+- **Decision function:** `decide_adjustment_request()` is the only way to decide. It is limited to Directors and authorised users, needs a reason to revise, and its checks match the app.
+- **History:** `adjustment_decisions` is append-only and Director-only, and holds internal notes and revision reasons.
+- **Employee-readable request row:** `adjustment_requests` holds only status, arrangements, extra time and the employee message. The old free-text `decision_note` column was removed.
+- **Audit:** each decision is written to `benchmark_audit_log` without copying the request text.
+
+In the demo, requests are shared between the employee page and the dashboard through this browser's local storage. Three fictional requests are seeded, one in each state.
+
+## 4. Still to build
 
 - **Employee summary page:** the constructive summary only (`my_insight_summaries()`).
-- **Director side of participation:** a Director can see who has acknowledged, agree or decline adjustment requests (with extra time), and respond to questions and rights requests.
+- **Questions & rights requests:** a Director inbox for "Questions or concerns" and correction requests.
+- **Acknowledgement overview:** who has and hasn't acknowledged the current notice.
 - **Supabase transport:** replace the demo transport with real inserts once a FocusiQ project exists.
 - **Scoring job:** turn submitted events into `assessment_scores` and `insight_findings`, using the server-side answer keys.
