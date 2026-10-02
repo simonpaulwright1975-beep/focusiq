@@ -8,8 +8,7 @@
  * an update of `assessments.complete`.
  */
 import type { Presentation, RunnerEvent, Transport } from '../../../src/runner/index.js';
-
-const KEY = 'focusiq-demo-server';
+import { DEMO_SERVER_KEY as KEY } from '../shared/participationStore.js';
 
 interface ServerCopy {
   presentations: Record<string, Presentation>;

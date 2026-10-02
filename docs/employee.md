@@ -229,5 +229,5 @@ A Director reviews and releases each employee's summary. Until then, the employe
 
 ## 6. Still to build
 
-- **Acknowledgement overview:** who has and hasn't acknowledged the current notice.
+- **Acknowledgement overview:** now covered by the Director's *Assessment day* tab (see `docs/dashboard.md`), which lists who still needs to acknowledge the current notice.
 - **Notifications:** email the employee when a reply or decision arrives, and remind Directors of deadlines. This needs an email service.

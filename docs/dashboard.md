@@ -29,6 +29,8 @@ One filter row scopes every tab (§201):
 | **People** | Individual heatmap coloured by **absolute band** (percentile on hover), sort by dimension, show/hide excluded records, no overall score; side-by-side comparison with **blind mode** and **Reveal names**; behaviour interpretation |
 | **Employee report** | See below |
 | **Eligibility & audit** | See below |
+| **Adjustments**, **Questions & concerns** | See `docs/employee.md` §3–§4 |
+| **Assessment day** | See below |
 
 **Employee report:**
 - Results table: score, absolute band, department percentile (subject removed), comparison size with confidence, outlier flag, and context note.
@@ -48,6 +50,33 @@ One filter row scopes every tab (§201):
 - An **exclusion preview** shows the benchmark before and after for the chosen dimension.
 - Flag an assessment as *Adjusted* and record the comparability decision.
 - The append-only **audit log** shows who, what, when and why.
+
+**Assessment day** (hash route `#day`) – plan one office day for everyone and follow it live:
+- **Settings:**
+  - date, first session, finish-by time;
+  - seats in the main room and in the quiet room;
+  - assessment length;
+  - under *More settings*: session length (automatic by default), gaps, settling-in time, rest-break allowance and lunch.
+- **Readiness for each active employee** (former and test accounts are left out). These stop a person starting:
+  - the current privacy notice is not acknowledged (waiting on the employee);
+  - an adjustment request is still pending (for a Director);
+  - an objection is open (for a Director).
+
+  A requested correction to record details is listed as a follow-up but doesn't block.
+- **Needs on the day:** agreed arrangements only, never the employee's own words or internal notes.
+  - Expected time = settling in + assessment length × agreed extra time + rest-break allowance.
+  - Quiet-room and paper or assisted arrangements go to the quiet room.
+- **Session plan:**
+  - People are dealt into sessions department by department, so each team keeps cover.
+  - Lunch is skipped.
+  - Warnings appear when a session takes more than half of a department of 3 or more, someone's expected time is longer than a session, a room is over capacity, or the day runs past the finish-by time.
+  - Move anyone with the Session column. **Fix sessions** locks the whole plan, so automatic sessions stop changing once it has been shared.
+- **On the day:** each person shows *Not started*, *Not arrived* (10 minutes after their session starts), *In progress* (with questions answered), *Check in* (no activity for 10 minutes) or *Finished*.
+- **Print day sheet:** a print layout of the stats, sessions and list.
+- **Code and database:**
+  - engine: `src/participation/readiness.ts`;
+  - database: `20261002090800_focusiq_assessment_day.sql`, which has `assessment_days`, `assessment_day_assignments` and the Director-only `assessment_day_readiness()`;
+  - demo: Grace Okafor's row is live from the employee page, and the other rows are generated.
 
 ## Design
 

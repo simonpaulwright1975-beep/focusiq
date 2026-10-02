@@ -26,24 +26,9 @@ import { resetRightsRequests, upsertRightsRequest } from '../shared/requestStore
 import { MyRequests } from './MyRequests.js';
 import { MySummary } from './MySummary.js';
 import { resetReleases } from '../shared/summaryStore.js';
+import { ACK_KEY, RUN_KEY, readJson, writeJson } from '../shared/participationStore.js';
 import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
 
-const ACK_KEY = 'focusiq-demo-ack';
-const RUN_KEY = 'focusiq-demo-run';
-const readJson = <T,>(key: string): T | null => {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? '') as T;
-  } catch {
-    return null;
-  }
-};
-const writeJson = (key: string, value: unknown) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* demo only */
-  }
-};
 type RunOptions = ReturnType<typeof newDemoAssessment>;
 
 /**

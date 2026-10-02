@@ -6,15 +6,22 @@ import { OverviewView } from './views/OverviewView.js';
 import { PeopleView } from './views/PeopleView.js';
 import { AdjustmentsView, useAdjustmentRequests } from './views/AdjustmentsView.js';
 import { QuestionsView, useRightsRequests } from './views/QuestionsView.js';
+import { AssessmentDayView } from './views/AssessmentDayView.js';
 
-const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments', 'Questions & concerns'] as const;
+const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments', 'Questions & concerns', 'Assessment day'] as const;
 type Tab = (typeof TABS)[number];
 /** Tabs that use the analytics filter row. */
 const FILTERED: Tab[] = ['Overview', 'People', 'Employee report', 'Eligibility & audit'];
 
 export function App() {
   const [tab, setTab] = useState<Tab>(() =>
-    window.location.hash === '#adjustments' ? 'Adjustments' : window.location.hash === '#questions' ? 'Questions & concerns' : 'Overview',
+    window.location.hash === '#adjustments'
+      ? 'Adjustments'
+      : window.location.hash === '#questions'
+        ? 'Questions & concerns'
+        : window.location.hash === '#day'
+          ? 'Assessment day'
+          : 'Overview',
   );
   const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
   const openQuestions = useRightsRequests().filter((r) => r.status !== 'closed').length;
@@ -56,6 +63,7 @@ export function App() {
         {tab === 'Eligibility & audit' && <EligibilityView />}
         {tab === 'Adjustments' && <AdjustmentsView />}
         {tab === 'Questions & concerns' && <QuestionsView />}
+        {tab === 'Assessment day' && <AssessmentDayView onOpen={setTab} />}
       </main>
     </div>
   );
