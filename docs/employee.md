@@ -54,12 +54,61 @@ The notice (`src/participation/notice.ts`) contains `[[placeholders]]`, highligh
 
 The employee page is a separate build entry. It loads none of the Director dashboard or benchmarking code.
 
-## 2. Still to build
+## 2. Assessment runner (built)
 
-- **Assessment runner:**
-  - shows each question version, with questions and options shuffled per person;
-  - records presentations and response events;
-  - timed sections;
-  - images from locked Supabase Storage.
+After acknowledging the notice, the employee selects **Start my assessment**. The engine is in `src/runner/` (pure, tested) and the screen in `app/src/employee/Runner.tsx`.
+
+**What the employee sees**
+- **Intro:** the sections, which ones are timed, any agreed extra time, and how it works. This includes that time taken, changed answers and revisits are recorded.
+- **Section intro:** instructions and the time allowed. Where a later question relies on it, there's a "Read carefully – you will need this later" box, which can't be viewed again.
+- **Questions:**
+  - single choice with text or image options, or ranking with accessible ↑/↓ buttons;
+  - numbered dots to move around the section, with answered questions shown;
+  - Previous/Next.
+- **Section review:** answered and unanswered questions, a warning before submitting with gaps, and no return to a submitted section.
+- **Timer:** for timed sections a pill shows the time left. It turns amber at 30 seconds and red at 10 seconds, with text. When time runs out, the answers given so far are submitted automatically.
+- **Save status:**
+  - "✓ All answers saved";
+  - "Saving…";
+  - "⚠ Not connected – your latest answers are kept on this device and will be sent automatically when you reconnect".
+- **Resume:** closing or reloading the page resumes exactly where the employee left off, with the same question and option order.
+
+**How it records evidence**
+- **Per-person order:** questions and options are shuffled per person from a seed set by the server. Sections are never reordered, and options are kept in order where order matters.
+- **What was shown:** the exact content each person saw, including option order, is recorded as `assessment_presentations.rendered_content`.
+- **Interaction events:** every interaction becomes a `response_event`:
+  - presented, viewed, left (with time on screen), revisited;
+  - answer selected, changed (with the previous answer), submitted;
+  - timer started or expired;
+  - focus lost or returned.
+
+  These are exactly the events the insight engine reads, and a test runs them end to end through `deriveExerciseEvidence`.
+- **Motivation:** the motivation ranking is captured separately and is never used as performance evidence.
+- **Images:** an image is shown only if its SHA-256 matches the fingerprint recorded with the question version. Otherwise the employee sees a message instead.
+
+**Safety**
+- **No answer keys in the browser:** the runner receives display content only. Answer keys and scoring tags stay server-side. A test walks the employee app's imports, and the built bundle is checked for answer keys.
+- **Reliable saving:** an outbox sends events in order and retries with backoff when offline. Saves are idempotent (deterministic presentation ids; events unique on `(assessment_id, client_sequence)`). Completion is sent only after every earlier event is saved.
+
+**Database** (`20261002090400_focusiq_runner.sql`)
+
+| Function / object | Purpose |
+|---|---|
+| `employee_start_assessment(version)` | Sets the seed and time multiplier server-side. Blocks while an adjustment is pending. Resumes an open assessment rather than starting a second. Flags the assessment *Adjusted* when an agreed adjustment applies. |
+| `assessment_content_for(id)` | Display content only, for the owner, while the assessment is open |
+| `employee_complete_assessment(id, at)` | Marks it complete once. Idempotent, and clamps a client clock that is ahead of the server. |
+| `adjustment_requests.time_multiplier` | Extra time a Director can agree (1–3×) |
+| Storage bucket `assessment-media` | Private. Directors can upload; nobody can replace or delete, so the exact image shown can always be reproduced. |
+
+**Demo limits**
+- The demo saves to this browser's local storage in place of Supabase, and "Reset demo" clears it.
+- A link simulates a Director agreeing 25% extra time.
+- The demo assessment has 12 scored questions. That's enough to see the flow, but too few for most insight patterns to reach their minimum evidence, by design. A real assessment needs more exercises per pattern.
+- Storage policies were checked against a minimal stand-in for Supabase Storage, not a live project.
+
+## 3. Still to build
+
 - **Employee summary page:** the constructive summary only (`my_insight_summaries()`).
-- **Director side of participation:** a Director can see who has acknowledged, decide adjustment requests (linking agreed ones to the *Adjusted Assessment* flag), and respond to rights requests.
+- **Director side of participation:** a Director can see who has acknowledged, agree or decline adjustment requests (with extra time), and respond to questions and rights requests.
+- **Supabase transport:** replace the demo transport with real inserts once a FocusiQ project exists.
+- **Scoring job:** turn submitted events into `assessment_scores` and `insight_findings`, using the server-side answer keys.

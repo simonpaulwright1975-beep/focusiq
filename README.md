@@ -7,7 +7,7 @@ This repository currently contains:
 - **Benchmarking, comparison & cohort management** (spec §149–§203) – [`docs/benchmarking.md`](docs/benchmarking.md)
 - **Employee Insight & Business Support** (Insight spec §201–§235) – [`docs/insight.md`](docs/insight.md)
 - **Director dashboard** (React, demo data) – [`docs/dashboard.md`](docs/dashboard.md)
-- **Employee side** – privacy notice and acknowledgement form – [`docs/employee.md`](docs/employee.md)
+- **Employee side** – privacy notice and acknowledgement form, and the assessment runner – [`docs/employee.md`](docs/employee.md)
 - The Supabase schema, including full response capture so any result can be reconstructed.
 
 ```bash

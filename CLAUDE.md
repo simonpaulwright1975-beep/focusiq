@@ -28,6 +28,8 @@ Every FocusiQ app and page uses the Walter Geering house design system. It is de
 ## Conventions
 
 - Engine code lives in `src/` (pure TypeScript, tested with Vitest).
-- Apps live in `app/` (Vite + React). There are separate entry points for Directors (`index.html`) and employees (`employee.html`). Employee bundles must not import Director or engine code.
+- Apps live in `app/` (Vite + React). There are separate entry points for Directors (`index.html`) and employees (`employee.html`).
+- The employee bundle may import only `src/participation`, `src/runner`, shared UI without engine imports (e.g. `components/Modal.tsx`) and display-only demo content (`app/src/demo/assessment.ts`). It must never import `src/benchmarking`, `src/insight`, Director views, or answer keys (`app/src/demo/scoring.ts`). `tests/runner.test.ts` enforces this.
+- Answer keys and scoring metadata never reach an employee's browser.
 - Never infer pronouns in generated text. Never add protected characteristics to the model.
 - Run before committing: `npm run typecheck`, `npm test`, `npm run build:app`.

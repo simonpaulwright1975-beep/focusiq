@@ -15,6 +15,27 @@ import {
   type RightsRequestType,
 } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
+import { DEMO_ASSESSMENT } from '../demo/assessment.js';
+import { clearDemoServer } from './demoTransport.js';
+import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
+
+const ACK_KEY = 'focusiq-demo-ack';
+const RUN_KEY = 'focusiq-demo-run';
+const readJson = <T,>(key: string): T | null => {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '') as T;
+  } catch {
+    return null;
+  }
+};
+const writeJson = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* demo only */
+  }
+};
+type RunOptions = ReturnType<typeof newDemoAssessment>;
 
 /**
  * DEMO: the notice is shown as published so the flow can be tried, with its
@@ -52,10 +73,13 @@ function Text({ children }: { children: string }) {
 const dateLong = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export function EmployeeApp() {
-  const [step, setStep] = useState(0);
+  const [record, setRecord] = useState<AcknowledgementRecord | null>(() => readJson<AcknowledgementRecord>(ACK_KEY));
+  const [step, setStep] = useState(() => (record ? STEPS.length - 1 : 0));
+  const [run, setRun] = useState<RunOptions | null>(() => readJson<RunOptions>(RUN_KEY));
+  /** DEMO: stands in for a Director agreeing the adjustment request. */
+  const [agreedMultiplier, setAgreedMultiplier] = useState<number | null>(null);
   const [form, setForm] = useState<AcknowledgementForm>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [record, setRecord] = useState<AcknowledgementRecord | null>(null);
   const [asking, setAsking] = useState(false);
   const [sent, setSent] = useState<{ type: RightsRequestType; message: string }[]>([]);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -78,7 +102,9 @@ export function EmployeeApp() {
       return;
     }
     if (step === 5) {
-      setRecord(await createAcknowledgement(form, NOTICE, ME));
+      const created = await createAcknowledgement(form, NOTICE, ME);
+      writeJson(ACK_KEY, created);
+      setRecord(created);
     }
     setStep(step + 1);
   };
@@ -247,13 +273,23 @@ export function EmployeeApp() {
             <button className="btn secondary" onClick={() => window.print()}>Print or save a copy</button>
             <button
               className="btn"
-              disabled={!check?.allowed || record.adjustmentRequested}
-              title={record.adjustmentRequested ? 'Your adjustment request will be reviewed first' : undefined}
-              onClick={() => alert('The assessment runner is the next part to be built.')}
+              disabled={!check?.allowed || (record.adjustmentRequested && agreedMultiplier === null)}
+              title={record.adjustmentRequested && agreedMultiplier === null ? 'Your adjustment request will be reviewed first' : undefined}
+              onClick={() => {
+                const options = newDemoAssessment(agreedMultiplier ?? 1);
+                writeJson(RUN_KEY, options);
+                setRun(options);
+              }}
             >
-              {record.adjustmentRequested ? 'Assessment opens once your adjustment is reviewed' : 'Start my assessment'}
+              {record.adjustmentRequested && agreedMultiplier === null ? 'Assessment opens once your adjustment is reviewed' : 'Start my assessment'}
             </button>
           </div>
+          {record.adjustmentRequested && agreedMultiplier === null && (
+            <p className="no-print small" style={{ marginTop: 12 }}>
+              <button className="btn link" onClick={() => setAgreedMultiplier(1.25)}>Demo: simulate a Director agreeing 25% extra time</button>
+            </p>
+          )}
+          {agreedMultiplier !== null && <p className="adjust-note no-print">Adjustment agreed: {Math.round((agreedMultiplier - 1) * 100)}% extra time on timed sections.</p>}
         </div>
       );
     }
@@ -265,12 +301,28 @@ export function EmployeeApp() {
       <header className="emp-top">
         <span className="brand-name">FocusiQ</span>
         <span className="lbl">Walter Geering</span>
-        <span className="who">Signed in as {ME.fullName} (demo)</span>
+        <span className="who">
+          Signed in as {ME.fullName} (demo) ·{' '}
+          <button
+            className="btn link"
+            onClick={() => {
+              for (const k of [ACK_KEY, RUN_KEY]) localStorage.removeItem(k);
+              clearSavedSession();
+              clearDemoServer();
+              window.location.reload();
+            }}
+          >
+            Reset demo
+          </button>
+        </span>
       </header>
       <div className="banner" role="note">
         <strong>Demo.</strong> Nothing you enter is sent anywhere.{' '}
         {placeholders.length > 0 && <>Highlighted text ({placeholders.length} items) must be completed by Walter Geering before go-live.</>}
       </div>
+      {run && record ? (
+        <Runner definition={DEMO_ASSESSMENT} options={run} />
+      ) : (<>
       {step < STEPS.length - 1 && (
         <>
           <div className="progress" aria-hidden="true">{STEPS.slice(0, -1).map((s, i) => <span key={s} className={i <= step ? 'done' : ''} />)}</div>
@@ -292,6 +344,7 @@ export function EmployeeApp() {
           </div>
         )}
       </main>
+      </>)}
       <p className="small no-print" style={{ marginTop: 16 }}>
         <button className="btn link" onClick={() => setAsking(true)}>Questions or concerns?</button>{' '}
         <span className="muted">Ask a question, request a copy of your information, or raise an objection.</span>
