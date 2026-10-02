@@ -15,6 +15,7 @@ import {
   scoredEvidence,
   verifyMedia,
   type Action,
+  type SessionOptions,
   type SessionState,
   type Transport,
 } from '../src/runner/index.js';
@@ -23,7 +24,7 @@ const T0 = Date.parse('2026-10-05T09:00:00Z');
 const at = (s: number) => new Date(T0 + s * 1000).toISOString();
 const opts = { definition: DEMO_ASSESSMENT, assessmentId: 'asmt-1', seed: 'seed-1' };
 
-function run(actions: Action[], o = opts): SessionState {
+function run(actions: Action[], o: SessionOptions = opts): SessionState {
   return actions.reduce(reduce, createSession(o));
 }
 const types = (s: SessionState) => s.events.map((e) => e.type);
