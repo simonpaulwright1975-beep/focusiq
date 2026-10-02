@@ -32,5 +32,6 @@ Every FocusiQ app and page uses the Walter Geering house design system. It is de
 - The employee bundle may import only `src/participation`, `src/runner`, shared UI without engine imports (e.g. `components/Modal.tsx`), `app/src/shared/` and display-only demo content (`app/src/demo/assessment.ts`). Type-only imports are allowed anywhere. It must never import `src/benchmarking`, `src/insight`, Director views, or answer keys (`app/src/demo/scoring.ts`). `tests/runner.test.ts` enforces this.
 - Answer keys and scoring metadata never reach an employee's browser.
 - Adjustment requests may contain health information: Director-only, internal notes never on employee-readable rows, no request text copied into audit logs.
+- Questions & data-rights requests: replies are sent as "Walter Geering" (no Director identities to employees); internal notes never reach employees; statutory deadlines (one calendar month, one extension of up to two months) live in `src/participation/requests.ts` and must stay in step with the SQL in `20261002090600_focusiq_rights_requests.sql`.
 - Never infer pronouns in generated text. Never add protected characteristics to the model.
 - Run before committing: `npm run typecheck`, `npm test`, `npm run build:app`.

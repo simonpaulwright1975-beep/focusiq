@@ -5,15 +5,19 @@ import { EmployeeView } from './views/EmployeeView.js';
 import { OverviewView } from './views/OverviewView.js';
 import { PeopleView } from './views/PeopleView.js';
 import { AdjustmentsView, useAdjustmentRequests } from './views/AdjustmentsView.js';
+import { QuestionsView, useRightsRequests } from './views/QuestionsView.js';
 
-const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments'] as const;
+const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments', 'Questions & concerns'] as const;
 type Tab = (typeof TABS)[number];
 /** Tabs that use the analytics filter row. */
 const FILTERED: Tab[] = ['Overview', 'People', 'Employee report', 'Eligibility & audit'];
 
 export function App() {
-  const [tab, setTab] = useState<Tab>(() => (window.location.hash === '#adjustments' ? 'Adjustments' : 'Overview'));
+  const [tab, setTab] = useState<Tab>(() =>
+    window.location.hash === '#adjustments' ? 'Adjustments' : window.location.hash === '#questions' ? 'Questions & concerns' : 'Overview',
+  );
   const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
+  const openQuestions = useRightsRequests().filter((r) => r.status !== 'closed').length;
   const [employeeId, setEmployeeId] = useState<string>('s1');
   const openEmployee = (id: string) => {
     setEmployeeId(id);
@@ -33,6 +37,9 @@ export function App() {
               {t === 'Adjustments' && pendingAdjustments > 0 && (
                 <span className="tab-count" aria-label={`${pendingAdjustments} awaiting a decision`}>{pendingAdjustments}</span>
               )}
+              {t === 'Questions & concerns' && openQuestions > 0 && (
+                <span className="tab-count" aria-label={`${openQuestions} open`}>{openQuestions}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -48,6 +55,7 @@ export function App() {
         {tab === 'Employee report' && <EmployeeView employeeId={employeeId} onSelect={setEmployeeId} />}
         {tab === 'Eligibility & audit' && <EligibilityView />}
         {tab === 'Adjustments' && <AdjustmentsView />}
+        {tab === 'Questions & concerns' && <QuestionsView />}
       </main>
     </div>
   );

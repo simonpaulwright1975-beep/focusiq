@@ -136,10 +136,64 @@ After acknowledging the notice, the employee selects **Start my assessment**. Th
 
 In the demo, requests are shared between the employee page and the dashboard through this browser's local storage. Three fictional requests are seeded, one in each state.
 
-## 4. Still to build
+## 4. Questions & concerns inbox (built)
+
+**Employee.** "Questions or concerns?" is on every page. The employee can:
+- ask a question;
+- request a copy of their information;
+- ask for a correction;
+- object.
+
+They're told when to expect a reply, and **Your questions and requests** shows each request's status, its reply-by date (marked if extended) and the conversation. They can add to an open request. They never see internal notes or which Director replied: replies come from "Walter Geering".
+
+**Director dashboard → Questions & concerns.** The tab shows a count of open requests, and `index.html#questions` opens it directly.
+
+- **List:** Open / Closed / All, soonest deadline first. Each request is labelled with its type, and data-rights requests are marked "legal deadline".
+- **Deadline status** (with icon and text): ✓ on track, ● due soon (7 days or less), ⚠ overdue.
+- **Thread:** the employee's messages, replies, updates the employee has been sent, and internal notes. Internal notes are marked 🔒 *Not visible to the employee*.
+- **Actions:**
+  - reply, or add an internal note;
+  - mark in progress;
+  - **Extend deadline** (see below);
+  - **Prepare data export (draft)**, for copy-of-data requests;
+  - **Close request**, with an outcome that fits the type and a closing message.
+
+**Extending a deadline:**
+- data-rights requests only;
+- once only, and before the original deadline passes;
+- by 1 or 2 months;
+- the reason is sent to the employee.
+
+**Closing a request:**
+- When an objection is "not upheld" or a copy of data is "partly provided", the employee is automatically told they can ask for a review or complain to the ICO.
+- An upheld objection can also exclude the employee from benchmarking, which is recorded in Eligibility & audit.
+
+**Deadlines** (`src/participation/requests.ts`, mirrored in SQL):
+
+| Request | Deadline |
+|---|---|
+| Copy of data, correction, objection | One calendar month from receipt. Clamped to the month end (31 Jan → 28/29 Feb); weekends roll forward to Monday. **Bank holidays are not modelled.** |
+| Question | Internal target of 5 working days (`QUESTION_TARGET_WORKING_DAYS`) – set to Walter Geering's policy |
+
+**Data export (draft).** A JSON file of what FocusiQ holds about the employee:
+- record;
+- acknowledgements;
+- adjustment requests and decisions as shown to them;
+- their requests;
+- assessments and scores;
+- response records.
+
+It's marked *DRAFT – review before sending*. Internal notes are **not** included; the export says how many exist, so a Director can take advice on disclosure.
+
+**Database** (`20261002090600_focusiq_rights_requests.sql`):
+- **Server-set deadline:** the server sets the received time and deadline, so a client can't forge them.
+- **Thread:** `rights_request_messages` is append-only; internal notes can never be visible to the employee.
+- **Director-only functions:** `respond_rights_request`, `mark_rights_request_in_progress`, `extend_rights_request` and `close_rights_request`. Authorised managers are excluded.
+- **Outcomes:** valid only for the request type, enforced by a constraint.
+- **Employee functions:** `my_rights_requests()` returns only messages meant for the employee, without Director identities, and `follow_up_rights_request()` covers their own open requests only.
+
+## 5. Still to build
 
 - **Employee summary page:** the constructive summary only (`my_insight_summaries()`).
-- **Questions & rights requests:** a Director inbox for "Questions or concerns" and correction requests.
 - **Acknowledgement overview:** who has and hasn't acknowledged the current notice.
-- **Supabase transport:** replace the demo transport with real inserts once a FocusiQ project exists.
-- **Scoring job:** turn submitted events into `assessment_scores` and `insight_findings`, using the server-side answer keys.
+- **Notifications:** email the employee when a reply or decision arrives, and remind Directors of deadlines. This needs an email service.

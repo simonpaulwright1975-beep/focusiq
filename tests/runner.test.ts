@@ -286,7 +286,7 @@ suite('images and bundle safety', () => {
     expect(files).toContain('src/runner/session.ts');
     for (const f of files) {
       expect(f).not.toMatch(/^src\/(benchmarking|insight)\//);
-      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|demo\/adjustmentSeed|insights)/);
+      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|demo\/adjustmentSeed|demo\/requestSeed|insights)/);
     }
   });
 });

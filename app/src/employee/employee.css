@@ -91,3 +91,17 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
 .adjustment-agreed { background: var(--green-bg); color: var(--green); }
 .adjustment-declined { background: #fffdfb; border: 1px solid var(--line); color: var(--ink); }
 .adjustment-status .muted { color: inherit; opacity: .85; }
+
+/* ---- Your questions and requests ---- */
+.my-requests { margin-top: 16px; }
+.my-requests h2 { font-size: 20px; margin-bottom: 10px; }
+.my-requests ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.my-request-head { width: 100%; text-align: left; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fffdfb; cursor: pointer; }
+.my-thread { padding: 10px 4px 4px; }
+.my-thread ol { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+.my-thread li { border-radius: 12px; padding: 10px 14px; }
+.my-thread li p { margin: 4px 0 0; white-space: pre-wrap; }
+.my-thread li.mine { background: #fffdfb; border: 1px solid var(--line); }
+.my-thread li.theirs { background: var(--accent-bg); }
+.tag-green { background: var(--green-bg); color: var(--green); border-color: transparent; }
+.tag-amber { background: var(--amber-bg); color: var(--amber); border-color: transparent; white-space: normal; }

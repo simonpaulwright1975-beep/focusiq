@@ -4,6 +4,7 @@ import {
   RIGHTS_REQUEST_LABELS,
   agreedTimeMultiplier,
   canStartAssessment,
+  createRequest,
   employeeAdjustmentView,
   type AdjustmentRequest,
   createAcknowledgement,
@@ -21,6 +22,8 @@ import { Modal } from '../components/Modal.js';
 import { DEMO_ASSESSMENT } from '../demo/assessment.js';
 import { clearDemoServer } from './demoTransport.js';
 import { latestRequestFor, resetRequests, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
+import { resetRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
+import { MyRequests } from './MyRequests.js';
 import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
 
 const ACK_KEY = 'focusiq-demo-ack';
@@ -86,7 +89,7 @@ export function EmployeeApp() {
   const [form, setForm] = useState<AcknowledgementForm>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [asking, setAsking] = useState(false);
-  const [sent, setSent] = useState<{ type: RightsRequestType; message: string }[]>([]);
+  const [lastSent, setLastSent] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const placeholders = placeholdersIn(NOTICE);
 
@@ -340,6 +343,7 @@ export function EmployeeApp() {
               clearSavedSession();
               clearDemoServer();
               resetRequests();
+              resetRightsRequests();
               window.location.reload();
             }}
           >
@@ -380,8 +384,19 @@ export function EmployeeApp() {
         <button className="btn link" onClick={() => setAsking(true)}>Questions or concerns?</button>{' '}
         <span className="muted">Ask a question, request a copy of your information, or raise an objection.</span>
       </p>
-      {sent.length > 0 && <p className="small secondary no-print">{sent.length} request(s) sent this session.</p>}
-      {asking && <AskModal onClose={() => setAsking(false)} onSend={(r) => { setSent([...sent, r]); setAsking(false); }} />}
+      {lastSent && <p className="small secondary no-print" role="status">{lastSent}</p>}
+      <MyRequests employeeId={ME.employeeId} />
+      {asking && (
+        <AskModal
+          onClose={() => setAsking(false)}
+          onSend={({ type, message }) => {
+            const created = createRequest({ employeeId: ME.employeeId, employeeName: ME.fullName, department: ME.department, type, message, now: new Date() });
+            upsertRightsRequest(created);
+            setLastSent(`Sent. Walter Geering will reply by ${new Date(`${created.dueAt}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`);
+            setAsking(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -402,7 +417,10 @@ function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type
           <label htmlFor="ask-msg">Your message</label>
           <textarea id="ask-msg" value={message} onChange={(e) => setMessage(e.target.value)} />
         </div>
-        <p className="small muted">This goes to the person responsible for FocusiQ at Walter Geering. You can still continue with the form.</p>
+        <p className="small muted">
+          This goes to the Directors responsible for FocusiQ. Questions are usually answered within 5 working days. Requests for a copy of your
+          information, a correction or an objection are answered within one month. You can follow progress below, and you can still carry on with the form.
+        </p>
       </div>
       <div className="actions">
         <button className="btn secondary" onClick={onClose}>Cancel</button>
