@@ -128,8 +128,8 @@ details.explain dt { color: var(--text-secondary); }
 
 .tooltip { position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface-1); padding: 6px 8px; border-radius: 6px; font-size: 12px; z-index: 50; max-width: 260px; }
 
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 40; }
-.modal { background: var(--surface-1); border-radius: var(--radius); padding: 20px; width: min(560px, 100%); max-height: 90vh; overflow: auto; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 40; }
+.modal { border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); background: var(--surface-1); border-radius: var(--radius); padding: 20px; width: min(560px, 100%); max-height: 90vh; overflow: auto; }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 .statement { margin: 0 0 6px; }

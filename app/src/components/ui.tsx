@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+export { Modal } from './Modal.js';
 import type { AbsoluteBandResult, BenchmarkResult, Confidence } from '../../../src/benchmarking/index.js';
 import { EXCLUSION_REASON_LABELS } from '../../../src/benchmarking/index.js';
 
@@ -108,22 +109,6 @@ export function useTooltip() {
     </div>
   ) : null;
   return { show: (x: number, y: number, content: ReactNode) => setTip({ x, y, content }), hide: () => setTip(null), node };
-}
-
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
-  return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
-        <h2 style={{ marginBottom: 12 }}>{title}</h2>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 export const fmt = (v: number | null | undefined, dp = 0) => (v == null || Number.isNaN(v) ? '—' : v.toFixed(dp));
