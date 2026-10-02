@@ -1,8 +1,27 @@
 /**
- * Default FocusiQ metric catalogue with comparability flags (§168).
- * Keys match the `metrics` table seed in supabase/migrations.
+ * Default FocusiQ metric catalogue – the seed for the `metrics` table.
+ *
+ * Comparability (§168) is a configurable property of every metric
+ * (`companyComparable`, `departmentComparable`, `requiresSameRole`), so it can
+ * be changed in the database later without touching the scoring engine.
+ *
+ * Absolute expectation bands below are PROVISIONAL starting points
+ * (`validated: false`). Results using them are labelled provisional until
+ * Directors confirm validated FocusiQ expectations for each measure.
  */
-import type { MetricDefinition } from './types.js';
+import type { AbsoluteBandThresholds, MetricDefinition } from './types.js';
+
+export const PROVISIONAL_EXPECTATIONS_VERSION = 'expectations/provisional-2026-10';
+
+const provisional = (development: number, strong: number): AbsoluteBandThresholds => ({
+  development,
+  strong,
+  version: PROVISIONAL_EXPECTATIONS_VERSION,
+  validated: false,
+});
+
+/** 0–100 scored measures: < 60 Development Opportunity, ≥ 75 Strong. */
+const SCORE_BANDS = provisional(60, 75);
 
 const core = (key: string, label: string): MetricDefinition => ({
   key,
@@ -11,7 +30,27 @@ const core = (key: string, label: string): MetricDefinition => ({
   higherIsBetter: true,
   companyComparable: true,
   departmentComparable: true,
+  requiresSameRole: false,
   coreDimension: true,
+  absoluteBands: SCORE_BANDS,
+});
+
+const measure = (
+  key: string,
+  label: string,
+  unit: MetricDefinition['unit'],
+  higherIsBetter: boolean,
+  absoluteBands: AbsoluteBandThresholds | null,
+  companyComparable = true,
+): MetricDefinition => ({
+  key,
+  label,
+  unit,
+  higherIsBetter,
+  companyComparable,
+  departmentComparable: true,
+  requiresSameRole: false,
+  absoluteBands,
 });
 
 export const DEFAULT_METRICS: MetricDefinition[] = [
@@ -27,19 +66,20 @@ export const DEFAULT_METRICS: MetricDefinition[] = [
   core('complete', 'Complete'),
   core('focus', 'Focus'),
   // Behavioural measures (§161, §176)
-  { key: 'decision_efficiency', label: 'Decision Efficiency', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'decision_confidence', label: 'Decision Confidence', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'information_retention', label: 'Information Retention', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'accuracy', label: 'Accuracy', unit: 'percent', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'avg_response_seconds', label: 'Average Response Time', unit: 'seconds', higherIsBetter: false, companyComparable: true, departmentComparable: true },
-  { key: 'recheck_rate', label: 'Re-check Rate', unit: 'percent', higherIsBetter: false, companyComparable: true, departmentComparable: true },
-  { key: 'unnecessary_recheck_rate', label: 'Unnecessary Re-checking', unit: 'percent', higherIsBetter: false, companyComparable: true, departmentComparable: true },
-  { key: 'unnecessary_review_seconds', label: 'Unnecessary Review Time', unit: 'seconds', higherIsBetter: false, companyComparable: true, departmentComparable: true },
-  { key: 'timed_performance', label: 'Timed Performance', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'untimed_performance', label: 'Untimed Performance', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
-  { key: 'assessment_reliability', label: 'Assessment Reliability', unit: 'score', higherIsBetter: true, companyComparable: true, departmentComparable: true },
+  measure('decision_efficiency', 'Decision Efficiency', 'score', true, SCORE_BANDS),
+  measure('decision_confidence', 'Decision Confidence', 'score', true, SCORE_BANDS),
+  measure('information_retention', 'Information Retention', 'score', true, SCORE_BANDS),
+  measure('accuracy', 'Accuracy', 'percent', true, provisional(75, 90)),
+  // Response time depends on the exercise mix – no absolute expectation yet.
+  measure('avg_response_seconds', 'Average Response Time', 'seconds', false, null),
+  measure('recheck_rate', 'Re-check Rate', 'percent', false, provisional(40, 15)),
+  measure('unnecessary_recheck_rate', 'Unnecessary Re-checking', 'percent', false, provisional(35, 15)),
+  measure('unnecessary_review_seconds', 'Unnecessary Review Time', 'seconds', false, null),
+  measure('timed_performance', 'Timed Performance', 'score', true, SCORE_BANDS),
+  measure('untimed_performance', 'Untimed Performance', 'score', true, SCORE_BANDS),
+  measure('assessment_reliability', 'Assessment Reliability', 'score', true, null),
   // Department-specific measures – §168: not comparable across departments.
-  { key: 'commercial_awareness', label: 'Commercial Awareness', unit: 'score', higherIsBetter: true, companyComparable: false, departmentComparable: true },
-  { key: 'customer_judgement', label: 'Customer Judgement', unit: 'score', higherIsBetter: true, companyComparable: false, departmentComparable: true },
-  { key: 'target_ownership', label: 'Target Ownership', unit: 'score', higherIsBetter: true, companyComparable: false, departmentComparable: true },
+  measure('commercial_awareness', 'Commercial Awareness', 'score', true, SCORE_BANDS, false),
+  measure('customer_judgement', 'Customer Judgement', 'score', true, SCORE_BANDS, false),
+  measure('target_ownership', 'Target Ownership', 'score', true, SCORE_BANDS, false),
 ];

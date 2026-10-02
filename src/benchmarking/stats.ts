@@ -32,10 +32,19 @@ export function standardDeviation(values: readonly number[]): number {
   return Math.sqrt(ss / (values.length - 1));
 }
 
+/** Median absolute deviation from the median (unscaled). Robust to outliers. */
+export function medianAbsoluteDeviation(values: readonly number[]): number {
+  if (values.length === 0) return NaN;
+  const m = median(values);
+  return median(values.map((v) => Math.abs(v - m)));
+}
+
 export function describe(values: readonly number[]): DescriptiveStats | null {
   if (values.length === 0) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
+  const p25 = quantile(values, 0.25);
+  const p75 = quantile(values, 0.75);
   return {
     n: values.length,
     mean: mean(values),
@@ -44,8 +53,10 @@ export function describe(values: readonly number[]): DescriptiveStats | null {
     max,
     range: max - min,
     standardDeviation: standardDeviation(values),
-    p25: quantile(values, 0.25),
-    p75: quantile(values, 0.75),
+    p25,
+    p75,
+    iqr: p75 - p25,
+    mad: medianAbsoluteDeviation(values),
   };
 }
 

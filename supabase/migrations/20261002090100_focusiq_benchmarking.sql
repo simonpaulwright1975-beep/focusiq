@@ -13,10 +13,11 @@ create table if not exists public.benchmark_audit_log (
   action text not null check (action in (
     'employee_excluded', 'employee_restored',
     'assessment_excluded', 'assessment_restored',
-    'assessment_validity_changed', 'cohort_changed',
+    'assessment_validity_changed', 'assessment_adjustment_flagged', 'assessment_adjustment_reviewed',
+    'cohort_changed',
     'benchmark_recalculated', 'role_changed', 'snapshot_saved'
   )),
-  target_type text not null check (target_type in ('employee', 'assessment', 'cohort', 'benchmark', 'user', 'snapshot')),
+  target_type text not null check (target_type in ('employee', 'assessment', 'cohort', 'benchmark', 'user', 'snapshot', 'report')),
   target_id text not null,
   actor_id uuid,                       -- Who
   at timestamptz not null default now(), -- When
@@ -149,6 +150,64 @@ create trigger assessment_validity_audit
   for each row execute function public.assessment_validity_audit();
 
 -- ---------------------------------------------------------------------------
+-- Adjusted Assessment: the person legitimately received different conditions
+-- (e.g. a reasonable adjustment). NOT an automatic exclusion – a Director
+-- decides whether the result remains comparable. Rows are never deleted.
+-- ---------------------------------------------------------------------------
+create table if not exists public.assessment_adjustments (
+  assessment_id uuid primary key references public.assessments (id) on delete restrict,
+  description text not null check (btrim(description) <> ''),
+  recorded_by uuid not null default auth.uid(),
+  recorded_at timestamptz not null default now(),
+  comparability text not null default 'pending_review'
+    check (comparability in ('pending_review', 'comparable', 'not_comparable')),
+  decided_by uuid,
+  decided_at timestamptz,
+  decision_reason text,
+  check (comparability = 'pending_review'
+         or (decided_by is not null and decided_at is not null and coalesce(btrim(decision_reason), '') <> ''))
+);
+
+create or replace function public.assessment_adjustments_guard()
+returns trigger language plpgsql as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'Adjusted assessment records are never deleted.';
+  end if;
+  if (new.assessment_id, new.description, new.recorded_by, new.recorded_at)
+     is distinct from (old.assessment_id, old.description, old.recorded_by, old.recorded_at) then
+    raise exception 'Only the comparability decision may be updated on an adjusted assessment.';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists assessment_adjustments_guard on public.assessment_adjustments;
+create trigger assessment_adjustments_guard
+  before update or delete on public.assessment_adjustments
+  for each row execute function public.assessment_adjustments_guard();
+
+create or replace function public.assessment_adjustments_audit()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason)
+    values ('assessment_adjustment_flagged', 'assessment', new.assessment_id::text,
+            new.recorded_by, new.recorded_at, new.description);
+  elsif new.comparability is distinct from old.comparability then
+    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, details)
+    values ('assessment_adjustment_reviewed', 'assessment', new.assessment_id::text,
+            new.decided_by, coalesce(new.decided_at, now()), new.decision_reason,
+            jsonb_build_object('from', old.comparability, 'to', new.comparability));
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists assessment_adjustments_audit on public.assessment_adjustments;
+create trigger assessment_adjustments_audit
+  after insert or update on public.assessment_adjustments
+  for each row execute function public.assessment_adjustments_audit();
+
+-- ---------------------------------------------------------------------------
 -- §198 Cohorts & cohort tags (do not change the formal department)
 -- ---------------------------------------------------------------------------
 create table if not exists public.cohorts (
@@ -193,16 +252,30 @@ create trigger employee_cohorts_audit
 create table if not exists public.benchmark_settings (
   id boolean primary key default true check (id), -- single row
   minimum_cohort_size int not null default 5 check (minimum_cohort_size >= 2),
+  -- §159: 1–4 Insufficient · 5–9 Limited · 10–19 Moderate · 20–29 Good · 30+ High
   confidence_moderate_from int not null default 10,
-  confidence_high_from int not null default 15,
-  development_band_below numeric not null default 25,
-  above_typical_band_from numeric not null default 75,
-  outlier_z numeric not null default 3,
+  confidence_good_from int not null default 20,
+  confidence_high_from int not null default 30,
+  -- §181 robust outliers
+  outlier_method text not null default 'mad' check (outlier_method in ('mad', 'iqr', 'sd')),
+  outlier_minimum_cohort_size int not null default 10,
+  outlier_mad_threshold numeric not null default 3.5,
+  outlier_iqr_multiplier numeric not null default 2.2,
+  outlier_sd_threshold numeric not null default 3,
   population_change_warning_overlap numeric not null default 0.8,
   minimum_correlation_pairs int not null default 8,
   minimum_calibration_responses int not null default 30,
+  -- Minimum question evidence within a dimension
+  evidence_minimum_count int not null default 4,
+  evidence_moderate_count int not null default 6,
+  evidence_moderate_consistency numeric not null default 0.6,
+  evidence_high_count int not null default 10,
+  evidence_high_consistency numeric not null default 0.7,
   updated_by uuid,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (minimum_cohort_size <= confidence_moderate_from
+         and confidence_moderate_from <= confidence_good_from
+         and confidence_good_from <= confidence_high_from)
 );
 insert into public.benchmark_settings (id) values (true) on conflict do nothing;
 
@@ -214,17 +287,18 @@ create table if not exists public.benchmark_snapshots (
   name text not null,
   created_by uuid not null default auth.uid(),
   created_at timestamptz not null default now(),
-  population_definition jsonb not null,
+  population_definition jsonb not null,  -- includes as_of date
   assessment_versions text[] not null default '{}',
-  members jsonb not null default '[]'::jsonb,
-  exclusions jsonb not null default '{}'::jsonb,
-  metrics_json jsonb not null
+  scoring_versions text[] not null default '{}',
+  engine_version text not null,
+  members jsonb not null default '[]'::jsonb, -- [{employee_id, assessment_id}]
+  metrics_json jsonb not null              -- stats, counts, exclusions and values per metric
 );
 
 create or replace function public.benchmark_snapshot_immutable()
 returns trigger language plpgsql as $$
 begin
-  raise exception 'Benchmark snapshots are frozen and cannot be altered (§171).';
+  raise exception '% is frozen and cannot be altered (§171).', tg_table_name;
 end $$;
 
 drop trigger if exists benchmark_snapshot_immutable on public.benchmark_snapshots;
@@ -232,12 +306,30 @@ create trigger benchmark_snapshot_immutable
   before update or delete on public.benchmark_snapshots
   for each row execute function public.benchmark_snapshot_immutable();
 
--- Reports link to the snapshot they were generated against.
-create table if not exists public.report_benchmarks (
-  report_id uuid not null,
-  snapshot_id uuid not null references public.benchmark_snapshots (id),
-  primary key (report_id, snapshot_id)
+-- §171 Employee reports – frozen at generation with every version identifier,
+-- so a report can always be reproduced exactly and never silently changes.
+create table if not exists public.employee_reports (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees (id) on delete restrict,
+  assessment_id uuid not null references public.assessments (id) on delete restrict,
+  assessment_version_id text not null references public.assessment_versions (id),
+  scoring_version_id text not null references public.scoring_versions (id),
+  interpretation_version_id text not null references public.interpretation_versions (id),
+  report_version_id text not null references public.report_versions (id),
+  engine_version text not null,
+  benchmark_snapshot_id uuid not null references public.benchmark_snapshots (id),
+  -- Absolute band, percentile and comparison context per metric, as shown.
+  results jsonb not null,
+  -- Rendered report content exactly as issued.
+  rendered_content jsonb not null,
+  generated_by uuid not null default auth.uid(),
+  generated_at timestamptz not null default now()
 );
+
+drop trigger if exists employee_reports_immutable on public.employee_reports;
+create trigger employee_reports_immutable
+  before update or delete on public.employee_reports
+  for each row execute function public.benchmark_snapshot_immutable();
 
 -- ---------------------------------------------------------------------------
 -- §173 Development actions (coaching effectiveness)
@@ -310,22 +402,34 @@ select
   e.department,
   e.job_role,
   e.status as employee_status,
-  a.version,
+  a.assessment_version_id,
+  a.current_scoring_version_id,
   a.assessment_type,
   a.completed_at,
   coalesce(v.status, 'valid') as validity,
+  adj.comparability as adjustment_comparability,
   case
     when ee.id is not null then ee.exclusion_reason
     when ae.id is not null then ae.exclusion_reason
     when not a.complete then 'incomplete_assessment'
     when v.status = 'invalidated' then 'assessment_invalidated'
     when v.status = 'review_required' then 'review_required'
+    when adj.comparability = 'not_comparable' then 'reasonable_adjustment'
   end as exclusion_reason,
   (ee.id is null and ae.id is null and a.complete
-    and coalesce(v.status, 'valid') not in ('invalidated', 'review_required')) as benchmark_eligible
+    and coalesce(v.status, 'valid') not in ('invalidated', 'review_required')
+    and coalesce(adj.comparability, 'comparable') <> 'not_comparable') as benchmark_eligible,
+  -- Benchmarks use one result per person: the latest eligible assessment.
+  -- Trend history uses every valid assessment regardless of this flag.
+  (a.completed_at = max(a.completed_at) filter (
+     where ee.id is null and ae.id is null and a.complete
+       and coalesce(v.status, 'valid') not in ('invalidated', 'review_required')
+       and coalesce(adj.comparability, 'comparable') <> 'not_comparable'
+   ) over (partition by a.employee_id)) as is_latest_eligible
 from public.assessments a
 join public.employees e on e.id = a.employee_id
 left join public.assessment_validity v on v.assessment_id = a.id
+left join public.assessment_adjustments adj on adj.assessment_id = a.id
 left join public.benchmark_eligibility ee
   on ee.employee_id = a.employee_id and ee.assessment_id is null and ee.restored_at is null
 left join public.benchmark_eligibility ae
@@ -341,7 +445,8 @@ alter table public.cohorts enable row level security;
 alter table public.employee_cohorts enable row level security;
 alter table public.benchmark_settings enable row level security;
 alter table public.benchmark_snapshots enable row level security;
-alter table public.report_benchmarks enable row level security;
+alter table public.employee_reports enable row level security;
+alter table public.assessment_adjustments enable row level security;
 alter table public.development_actions enable row level security;
 alter table public.question_calibration enable row level security;
 alter table public.kpi_observations enable row level security;
@@ -353,7 +458,8 @@ declare t text;
 begin
   foreach t in array array[
     'benchmark_audit_log', 'benchmark_eligibility', 'assessment_validity', 'cohorts',
-    'employee_cohorts', 'benchmark_settings', 'benchmark_snapshots', 'report_benchmarks',
+    'employee_cohorts', 'benchmark_settings', 'benchmark_snapshots', 'employee_reports',
+    'assessment_adjustments',
     'development_actions', 'question_calibration', 'kpi_observations', 'high_performance_cohorts'
   ] loop
     execute format('drop policy if exists %I on public.%I', t || '_director_read', t);
@@ -369,6 +475,14 @@ drop policy if exists benchmark_eligibility_restore on public.benchmark_eligibil
 create policy benchmark_eligibility_restore on public.benchmark_eligibility
   for update using (public.can_alter_benchmark_inclusion())
   with check (public.can_alter_benchmark_inclusion() and restored_by = auth.uid());
+
+drop policy if exists assessment_adjustments_insert on public.assessment_adjustments;
+create policy assessment_adjustments_insert on public.assessment_adjustments
+  for insert with check (public.can_alter_benchmark_inclusion() and recorded_by = auth.uid());
+drop policy if exists assessment_adjustments_review on public.assessment_adjustments;
+create policy assessment_adjustments_review on public.assessment_adjustments
+  for update using (public.can_alter_benchmark_inclusion())
+  with check (public.can_alter_benchmark_inclusion() and decided_by = auth.uid());
 
 drop policy if exists assessment_validity_write on public.assessment_validity;
 create policy assessment_validity_write on public.assessment_validity
@@ -392,9 +506,9 @@ end $$;
 drop policy if exists benchmark_snapshots_insert on public.benchmark_snapshots;
 create policy benchmark_snapshots_insert on public.benchmark_snapshots
   for insert with check (public.is_director() and created_by = auth.uid());
-drop policy if exists report_benchmarks_insert on public.report_benchmarks;
-create policy report_benchmarks_insert on public.report_benchmarks
-  for insert with check (public.is_director());
+drop policy if exists employee_reports_insert on public.employee_reports;
+create policy employee_reports_insert on public.employee_reports
+  for insert with check (public.is_director() and generated_by = auth.uid());
 
 -- Audit rows are written by triggers or explicitly by Directors; never edited.
 drop policy if exists benchmark_audit_insert on public.benchmark_audit_log;

@@ -1,6 +1,10 @@
 /**
  * Resolves a population definition (§150, §163, §165, §195) into the set of
  * eligible assessments, while counting what was excluded and why (§154).
+ *
+ * One result per person: each employee contributes only their most recent
+ * eligible assessment in the window. Earlier ones are counted as
+ * "superseded" and remain available for trend history.
  */
 import { DEFAULT_TENURE_BANDS, tenureBandFor, type TenureBand } from './tenure.js';
 import type {
@@ -25,14 +29,17 @@ export interface BenchmarkDataset {
 export interface ResolvedPopulation {
   definition: PopulationDefinition;
   label: string;
-  /** Eligible assessments grouped per employee, oldest first. */
-  byEmployee: Map<string, Assessment[]>;
+  /** The single assessment used per employee (their latest eligible one). */
+  byEmployee: Map<string, Assessment>;
   counts: PopulationCounts;
   /** Departments of the people actually in the population. */
   departments: Set<Department>;
   /** Departments the scope covers, whether or not they have eligible data. */
   scopeDepartments: Set<Department>;
+  /** Job roles in the scope ('' = no role recorded). */
+  scopeRoles: Set<string>;
   versions: Set<string>;
+  scoringVersions: Set<string>;
   dateRange: { from: string | null; to: string | null };
 }
 
@@ -105,9 +112,13 @@ function windowEnd(def: PopulationDefinition, asOf: Date): Date {
     const end = new Date(def.window.to);
     // A bare date means "to the end of that day".
     if (/^\d{4}-\d{2}-\d{2}$/.test(def.window.to)) end.setUTCHours(23, 59, 59, 999);
-    return end;
+    return end < asOf ? end : asOf;
   }
   return asOf;
+}
+
+export function validityOf(assessment: Assessment, eligibility: EligibilityState) {
+  return eligibility.validity?.get(assessment.id) ?? assessment.validity;
 }
 
 /**
@@ -117,21 +128,24 @@ function windowEnd(def: PopulationDefinition, asOf: Date): Date {
 export function exclusionReasonFor(
   assessment: Assessment,
   eligibility: EligibilityState,
-): ExclusionReason | 'invalid_or_incomplete' | null {
+): ExclusionReason | 'review_required' | null {
   const employeeExclusion = eligibility.employees.get(assessment.employeeId);
   if (employeeExclusion) return employeeExclusion.reason;
   const assessmentExclusion = eligibility.assessments.get(assessment.id);
   if (assessmentExclusion) return assessmentExclusion.reason;
   if (!assessment.complete) return 'incomplete_assessment';
-  const validity = eligibility.validity?.get(assessment.id) ?? assessment.validity;
+  const validity = validityOf(assessment, eligibility);
   if (validity === 'invalidated') return 'assessment_invalidated';
-  if (validity === 'review_required') return 'invalid_or_incomplete';
+  if (validity === 'review_required') return 'review_required';
+  // An adjusted assessment is only excluded once a Director decides it is not comparable.
+  if (eligibility.adjustments?.get(assessment.id)?.comparability === 'not_comparable') {
+    return 'reasonable_adjustment';
+  }
   return null;
 }
 
 function isPilot(assessment: Assessment, eligibility: EligibilityState): boolean {
-  const validity = eligibility.validity?.get(assessment.id) ?? assessment.validity;
-  return assessment.type === 'pilot' || validity === 'pilot';
+  return assessment.type === 'pilot' || validityOf(assessment, eligibility) === 'pilot';
 }
 
 export interface ResolveOptions {
@@ -155,16 +169,21 @@ export function resolvePopulation(
   const counts: PopulationCounts = {
     eligibleEmployees: 0,
     eligibleAssessments: 0,
+    supersededAssessments: 0,
     excludedAssessments: 0,
     excludedEmployees: 0,
     exclusionsByReason: {},
+    adjustedAssessments: 0,
+    adjustedPendingReview: 0,
   };
   const excludedEmployeeIds = new Set<string>();
-  const candidates = new Map<string, Assessment[]>();
+  const latest = new Map<string, Assessment>();
   const scopeDepartments = new Set<Department>();
+  const scopeRoles = new Set<string>();
   for (const e of data.employees) {
     if (inScope(e, definition.scope) && statusIncluded(e, definition.include)) {
       scopeDepartments.add(e.department);
+      scopeRoles.add(e.role ?? '');
     }
   }
 
@@ -195,40 +214,42 @@ export function resolvePopulation(
       if (data.eligibility.employees.has(a.employeeId)) excludedEmployeeIds.add(a.employeeId);
       continue;
     }
-    const list = candidates.get(a.employeeId) ?? [];
-    list.push(a);
-    candidates.set(a.employeeId, list);
+    const current = latest.get(a.employeeId);
+    if (current) counts.supersededAssessments += 1;
+    if (!current || a.completedAt > current.completedAt) latest.set(a.employeeId, a);
   }
 
-  const byEmployee = new Map<string, Assessment[]>();
   const departments = new Set<Department>();
   const versions = new Set<string>();
+  const scoringVersions = new Set<string>();
   let from: string | null = null;
   let to: string | null = null;
-
-  for (const [employeeId, list] of candidates) {
-    list.sort((x, y) => x.completedAt.localeCompare(y.completedAt));
-    const chosen = definition.window.kind === 'latest' ? [list[list.length - 1]!] : list;
-    byEmployee.set(employeeId, chosen);
+  for (const [employeeId, a] of latest) {
     departments.add(employeesById.get(employeeId)!.department);
-    for (const a of chosen) {
-      versions.add(a.version);
-      if (from === null || a.completedAt < from) from = a.completedAt;
-      if (to === null || a.completedAt > to) to = a.completedAt;
-      counts.eligibleAssessments += 1;
+    versions.add(a.version);
+    if (a.scoringVersion) scoringVersions.add(a.scoringVersion);
+    if (from === null || a.completedAt < from) from = a.completedAt;
+    if (to === null || a.completedAt > to) to = a.completedAt;
+    const adjustment = data.eligibility.adjustments?.get(a.id);
+    if (adjustment) {
+      counts.adjustedAssessments += 1;
+      if (adjustment.comparability === 'pending_review') counts.adjustedPendingReview += 1;
     }
   }
-  counts.eligibleEmployees = byEmployee.size;
+  counts.eligibleEmployees = latest.size;
+  counts.eligibleAssessments = latest.size;
   counts.excludedEmployees = excludedEmployeeIds.size;
 
   return {
     definition,
     label: populationLabel(definition.scope),
-    byEmployee,
+    byEmployee: latest,
     counts,
     departments,
     scopeDepartments,
+    scopeRoles,
     versions,
+    scoringVersions,
     dateRange: { from, to },
   };
 }
@@ -236,7 +257,7 @@ export function resolvePopulation(
 /**
  * True when a population compares people across departments – either by
  * definition (company scope, multi-department cohort) or because the people
- * actually resolved come from more than one department.
+ * in scope come from more than one department.
  */
 export function isCrossDepartment(population: ResolvedPopulation): boolean {
   const scope = population.definition.scope;
@@ -245,24 +266,38 @@ export function isCrossDepartment(population: ResolvedPopulation): boolean {
   return population.scopeDepartments.size > 1 || population.departments.size > 1;
 }
 
+/** True unless every person in scope shares one recorded job role. */
+export function isCrossRole(population: ResolvedPopulation): boolean {
+  if (population.definition.scope.kind === 'role') return false;
+  return population.scopeRoles.size !== 1 || population.scopeRoles.has('');
+}
+
 /**
- * §168 – A metric may only be benchmarked across departments when it is
- * `company_comparable`, and between colleagues when `department_comparable`.
+ * §168 – Comparability is a configurable property of every metric:
+ *  - `companyComparable`    – may be compared across departments
+ *  - `departmentComparable` – may be compared between colleagues in a department
+ *  - `requiresSameRole`     – may only be compared between people in the same role
  */
 export function metricComparableFor(
   metric: MetricDefinition,
-  crossDepartment: boolean,
+  shape: { crossDepartment: boolean; crossRole: boolean },
 ): { comparable: boolean; reason?: string } {
-  if (crossDepartment && !metric.companyComparable) {
+  if (shape.crossDepartment && !metric.companyComparable) {
     return {
       comparable: false,
       reason: `${metric.label} is not designed to be compared across departments.`,
     };
   }
-  if (!crossDepartment && !metric.departmentComparable) {
+  if (!shape.crossDepartment && !metric.departmentComparable) {
     return {
       comparable: false,
       reason: `${metric.label} is not designed to be compared between colleagues.`,
+    };
+  }
+  if (metric.requiresSameRole && shape.crossRole) {
+    return {
+      comparable: false,
+      reason: `${metric.label} is only comparable between people in the same job role.`,
     };
   }
   return { comparable: true };

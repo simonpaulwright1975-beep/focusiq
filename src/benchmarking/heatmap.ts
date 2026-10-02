@@ -3,7 +3,7 @@
  * summary (§190).
  */
 import { assertCanViewDirectorComparisons } from './audit.js';
-import { bandFor, benchmarkFromPopulation, type BenchmarkOptions } from './benchmark.js';
+import { absoluteBandFor, benchmarkFromPopulation, type BenchmarkOptions } from './benchmark.js';
 import { resolveConfig } from './config.js';
 import {
   exclusionReasonFor,
@@ -16,7 +16,7 @@ import {
   DEPARTMENTS,
   type Actor,
   type Assessment,
-  type BenchmarkBand,
+  type AbsoluteBand,
   type Department,
   type MetricDefinition,
   type PopulationDefinition,
@@ -108,8 +108,10 @@ export interface IndividualHeatmapRow {
   excluded: boolean;
   exclusionReason: string | null;
   values: Record<string, number | null>;
-  /** Cell shading relative to the included rows (no overall score is ever produced). */
-  bands: Record<string, BenchmarkBand | null>;
+  /** Cell shading = absolute band against FocusiQ expectations (no overall score is ever produced). */
+  bands: Record<string, AbsoluteBand | null>;
+  /** Relative context: percentile among the included rows shown, colleague removed. */
+  percentiles: Record<string, number | null>;
 }
 
 export interface IndividualHeatmapOptions {
@@ -158,20 +160,26 @@ export function individualHeatmap(
         metrics.map((m) => [m.key, Number.isFinite(latest.scores[m.key]) ? latest.scores[m.key]! : null]),
       ),
       bands: {},
+      percentiles: {},
     });
   }
 
   const included = rows.filter((r) => !r.excluded);
   for (const m of metrics) {
-    const pop = included.map((r) => r.values[m.key]).filter((v): v is number => v !== null);
     for (const r of rows) {
       const v = r.values[m.key];
-      if (v === null || v === undefined || pop.length < config.minimumCohortSize) {
+      if (v === null || v === undefined) {
         r.bands[m.key] = null;
+        r.percentiles[m.key] = null;
         continue;
       }
-      const p = percentileRank(v, pop);
-      r.bands[m.key] = bandFor(m.higherIsBetter ? p : 100 - p, config);
+      r.bands[m.key] = absoluteBandFor(m, v).band;
+      const others = included
+        .filter((x) => x.employeeId !== r.employeeId)
+        .map((x) => x.values[m.key])
+        .filter((x): x is number => x !== null && x !== undefined);
+      r.percentiles[m.key] =
+        others.length >= config.minimumCohortSize ? round(percentileRank(v, others), 0) : null;
     }
   }
 
@@ -242,7 +250,7 @@ export function departmentSummary(
   const valuesOf = (key: string, window?: PopulationDefinition['window']) => {
     const p = window ? resolvePopulation(data, { ...deptDef, window }, { now: options.now }) : pop;
     return [...p.byEmployee.values()]
-      .map((list) => list.at(-1)!.scores[key])
+      .map((a) => a.scores[key])
       .filter((v): v is number => Number.isFinite(v));
   };
   const acc = valuesOf(accuracyKey);

@@ -8,7 +8,7 @@ Implementation notes for spec sections §149–§203.
 
 | Path | Purpose |
 |---|---|
-| `src/benchmarking/types.ts` | Domain types (employees, assessments, metrics, population definitions, results). No protected characteristics exist in the model (§199). |
+| `src/benchmarking/types.ts` | Domain types. No protected characteristics exist in the model (§199). |
 | `src/benchmarking/config.ts` | Configurable thresholds: minimum cohort size, confidence, bands, outliers, correlation, calibration. |
 | `src/benchmarking/audit.ts` | `EligibilityLedger` (exclude / restore / validity) with reasons, permissions and an append-only audit log. |
 | `src/benchmarking/population.ts` | Resolves a population definition into eligible assessments with counts of what was excluded and why. |
@@ -20,73 +20,140 @@ Implementation notes for spec sections §149–§203.
 | `src/benchmarking/calibration.ts` | Question calibration statistics and difficulty-normalised (T-score) scoring. |
 | `src/benchmarking/correlation.ts` | External KPI correlation and evidence-based high-performance cohorts. |
 | `src/benchmarking/cohorts.ts` | Director-controlled cohort tags with protected-characteristic safeguard. |
-| `supabase/migrations/*_focusiq_core.sql` | Minimal core tables (employees, assessments, scores, metrics, roles) + RLS. |
+| `src/benchmarking/reports.ts` | Report-time benchmark freeze and "compare with current". |
+| `src/benchmarking/evidence.ts` | Minimum question evidence per dimension. |
+| `supabase/migrations/*_focusiq_core.sql` | People, roles, versioned content, metrics and expectations, assessments, versioned scores. |
+| `supabase/migrations/*_focusiq_response_capture.sql` | Presentations, response events, and answer-change / revisit / timing views. |
 | `supabase/migrations/*_focusiq_benchmarking.sql` | §202 tables, audit triggers, immutability guards, eligibility view, Director-only RLS. |
+
+## Core principle
+
+> **Absolute performance tells us whether the behaviour is effective.**
+> **Benchmarking tells us whether the behaviour is unusual compared with colleagues.**
+
+These are two separate outputs and are never merged:
+
+| Output | Question | Based on | Shown to |
+|---|---|---|---|
+| Absolute band – *Development Opportunity / Expected / Typical / Strong* | Is the behaviour effective? | Versioned FocusiQ expectation thresholds per metric (`metric_expectations`) | Director and employee |
+| Percentile – e.g. *41st* | How does it compare with the selected cohort? | The comparison population, with the subject removed | Director only |
+
+Example: *"Decision Efficiency: 78 – Strong. Sales percentile: 41st (compared with 12 colleagues, Moderate confidence)."* When the two diverge, the engine adds context, such as *"the comparison group is also performing strongly overall"* or *"the group's overall level may need attention"*.
+
+The expectation thresholds shipped today are **provisional** (`validated: false`), and every result using them is labelled as provisional. Replace them with validated versions in `metric_expectations`.
 
 ## How a benchmark is calculated (§192)
 
 1. **Scope**: company, department, role, custom cohort (departments and/or tags) or an explicit list of employees.
-2. **Population filters**: employee status (active / former / test), pilot inclusion, assessment type, assessment version, tenure band, and the assessment window: latest, last *n* months, or custom dates.
-3. **Eligibility**: an assessment is excluded when any of these apply:
-   - the employee is excluded;
-   - the assessment is excluded;
-   - the assessment is incomplete;
-   - the assessment is `invalidated` or `review_required`.
+2. **Filters**: employee status (active / former / test), pilot inclusion, assessment type, version, tenure band, and window (latest / last *n* months / custom dates).
+3. **Eligibility**, at two levels:
+   - **Employee**, e.g. *Simon Test Account – excluded completely*.
+   - **Assessment**, e.g. *Katie – Assessment 2 excluded (technical failure)*.
 
-   Excluded records are counted by reason but never removed.
-4. **One value per employee**: by default, the person's most recent eligible assessment in the window. Set `perEmployee: 'mean'` to use the average of their eligible assessments instead. This stops frequent test-takers from carrying extra weight.
-5. **Comparability (§168)**: a metric is benchmarked across departments only if `companyComparable`, and between colleagues only if `departmentComparable`. A population counts as cross-department when any of these hold:
-   - its scope is the company;
-   - it is a cohort covering more than one department;
-   - its members come from more than one department.
-6. **Minimum cohort (§155)**: fewer than `minimumCohortSize` people (default 5) gives *"Benchmark unavailable – insufficient comparison data."* The raw values are still returned so a Director can compare manually.
-7. **Statistics (§156)**: mean, median, range, standard deviation, P25/P75 and sample size.
-8. **Confidence (§159)**:
+   Every exclusion requires a reason and records who made it and when. Assessments are never deleted. Incomplete, `invalidated` and `review_required` assessments are also excluded.
+4. **Adjusted assessments**: an assessment taken under legitimately different conditions is flagged *Adjusted*, which does **not** exclude it. While a Director's comparability decision is pending, it stays in the benchmark with a warning. If the Director decides *not comparable*, it is excluded with reason `reasonable_adjustment`. Either way it stays in the person's own history.
+5. **One result per person**: the benchmark uses each employee's **latest eligible assessment** in the window. Earlier assessments are counted as `supersededAssessments` and remain available for:
+   - personal trend analysis (all valid assessments);
+   - before/after coaching comparisons;
+   - historical benchmark snapshots (period windows).
+6. **Comparability**: configurable per metric:
+   - `company_comparable`
+   - `department_comparable`
+   - `requires_same_role`
 
-   | Eligible people | Confidence |
-   |---|---|
-   | fewer than 5 | Insufficient |
-   | 5–9 | Limited |
-   | 10–14 | Moderate |
-   | 15 or more | High |
+   Commercial Awareness, Customer Judgement and Target Ownership are currently not comparable across departments.
+7. **Minimum cohort (§155)**: fewer than 5 people gives *"Benchmark unavailable – insufficient comparison data."*
+8. **Statistics**: mean, median, range, standard deviation, P25/P75, IQR and MAD.
+9. **Comparison context**: each individual position stores:
+   - comparison population size (the subject is excluded);
+   - eligible employees;
+   - exclusions by reason;
+   - benchmark date;
+   - engine version;
+   - assessment and scoring versions.
+10. **Confidence** (based on the comparison size):
 
-9. **Position (§157–§158)**: percentile is computed against colleagues, with the subject removed, and is shown to Directors only. It is oriented so that lower-is-better metrics, such as re-check rate, are handled correctly. Bands:
+    | Comparison size | Confidence |
+    |---|---|
+    | 1–4 | Insufficient |
+    | 5–9 | Limited |
+    | 10–19 | Moderate |
+    | 20–29 | Good |
+    | 30+ | High |
 
-   | Performance percentile | Band |
-   |---|---|
-   | below 25 | Development Range |
-   | 25–74 | Typical Range |
-   | 75 and above | Above Typical Range |
+11. **Outliers (§181)**:
+    - **Default method**: modified z-score using the Median Absolute Deviation, threshold 3.5. This falls back to IQR fences (2.2 × IQR) when the MAD is zero. IQR and SD methods are also available.
+    - **Comparison**: each person is tested against the others, excluding themselves.
+    - **Small groups**: detection is suppressed below 10 people.
+    - **Meaning**: *Significant Outlier* means only "statistically unusual compared with the eligible comparison group". It never implies a poor employee or problematic behaviour.
+    - **Standard deviation**: z-scores are still shown for analytics.
+12. **Normalisation (§169)**: difficulty-normalised T-scores are used only when every assessment in the population has one.
 
-10. **Normalisation (§169)**: with `normalisation: 'difficulty_t_score'`, normalised scores are used when *every* assessment in the population has one. Otherwise the engine falls back to raw scores and adds a warning. Mixing assessment versions without normalisation also raises a warning.
+## Minimum question evidence
 
-Every result carries `sampleSizeLabel` (e.g. *"Benchmark based on 14 eligible assessments from 14 employees."*) and an `explanation` object for the "How is this benchmark calculated?" panel.
+Each dimension carries:
+- an **evidence count**;
+- a **consistency** measure (exercises agreeing with the majority pattern);
+- an **interpretation confidence**:
+
+| Evidence | Confidence |
+|---|---|
+| Fewer than 4 exercises | Insufficient – no conclusion drawn |
+| 10 or more, at least 70 % consistent | High |
+| 6 or more, at least 60 % consistent | Moderate |
+| Anything else | Low – stated as tentative |
+
+Example: *"Evidence: 11 exercises · Consistent pattern: 8/11 · Interpretation confidence: High"*.
+
+## Report freeze (§171)
+
+`generateReportBenchmark` evaluates the benchmark **as at the assessment date** and freezes it. The saved record holds:
+- the population and members;
+- the values used;
+- the absolute bands and percentiles;
+- the comparison context;
+- report, interpretation, scoring, assessment and engine versions.
+
+In the database, `employee_reports` and `benchmark_snapshots` are immutable. `compareReportWithCurrent` is the optional *Compare with current benchmark* view, and it never changes the report.
+
+## Reconstruction (data architecture)
+
+| Need | Table |
+|---|---|
+| Assessment version | `assessment_versions` (immutable once published; may be retired) |
+| Question & question version | `questions`, `question_versions` (immutable once published; answer keys Director-only) |
+| Question family | `question_families` |
+| What the employee saw | `assessment_presentations.rendered_content` (append-only, includes shuffled option order) |
+| Response events | `response_events` (append-only, client sequence and client/server timestamps) |
+| Answer-change history | view `answer_change_history` |
+| Revisit history | view `revisit_history` |
+| Timing events | `response_events` (timer / focus / dwell) and view `question_timing` |
+| Scoring version | `scoring_versions`; `assessment_scores` keyed by scoring version and immutable (re-scoring adds rows) |
+| Dimension evidence | `assessment_scores.evidence_count / consistent_count / interpretation_confidence` |
+| Absolute expectations | `metric_expectations` (versioned, validation recorded) |
+| Benchmark eligibility & exclusion reason | `benchmark_eligibility`, `assessment_validity`, `assessment_adjustments`, view `benchmark_assessment_status` |
+| Benchmark snapshots | `benchmark_snapshots` |
+| Interpretation version | `interpretation_versions` |
+| Report version | `report_versions`; issued reports in `employee_reports` |
+| Every decision | `benchmark_audit_log` (append-only) |
 
 ## Language rules
 
-- Bands are only *Above Typical Range / Typical Range / Development Range*.
-- Outliers are labelled *Significant Outlier*, with a prompt to review the context.
-- The employee-facing view (`employeeFacingBenchmark`) exposes a band message only. It never shows a percentile, rank or position.
-- There is no overall score and no best/worst output anywhere. `sortByDimension` sorts a single dimension for analysis.
-- Behaviour comparisons describe working styles. For example: *"Both achieved similar accuracy. Donna reached comparable outcomes with substantially less additional review."*
-- Correlation analysis states plainly when no meaningful relationship has been found, and always includes a "not causation" caveat.
+- Absolute bands are only *Development Opportunity*, *Expected / Typical* and *Strong*.
+- Percentiles are Director-only context. Employees see the absolute band only (`employeeFacingResult`).
+- There is no overall score and no best/worst output. `sortByDimension` sorts one dimension for analysis.
+- Behaviour comparisons describe working styles rather than declaring a winner.
+- Correlation analysis states plainly when no meaningful relationship has been found.
 
 ## Permissions
 
 | Capability | Who |
 |---|---|
-| Alter benchmark inclusion / validity / cohort tags | Director, Super Admin, or a Manager with `benchmark_authority` |
-| Comparisons, heatmaps, percentiles, Focus Efficiency, KPI correlation | Director, Super Admin |
-| Own assessments and scores | The employee |
+| Alter benchmark inclusion / validity / adjustments / cohort tags | Director, Super Admin, or a Manager with `benchmark_authority` |
+| Comparisons, heatmaps, percentiles, Focus Efficiency, KPI correlation, reports | Director, Super Admin |
+| Own assessments, presentations, response events and scores | The employee (events only while the assessment is open) |
 
-These rules are enforced in TypeScript (`BenchmarkPermissionError`) and in Postgres RLS. The database also enforces:
-
-- exclusion rows cannot be deleted, only restored;
-- the audit log is append-only;
-- snapshots are immutable;
-- "Other" exclusions need a note;
-- restorations need a reason;
-- cohort names that describe protected characteristics are rejected.
+These rules are enforced in TypeScript and in Postgres RLS and triggers.
 
 ## Spec coverage
 
@@ -97,8 +164,8 @@ These rules are enforced in TypeScript (`BenchmarkPermissionError`) and in Postg
 | 154 Population counter | `sampleSizeLabel`, `explanation.counts` |
 | 155 Minimum cohort | `minimumCohortSize`, `INSUFFICIENT_DATA_MESSAGE` |
 | 156 Mean/median/range/SD | `describe` |
-| 157 Percentile | `positionAgainst().percentile` |
-| 158 Bands | `bandFor`, `BenchmarkBand` |
+| 157 Percentile | `positionAgainst().percentile` (relative context only) |
+| 158 Bands | `absoluteBandFor` – absolute expectations, not percentiles |
 | 159 Confidence | `confidenceFor` |
 | 160 By dimension | `compareEmployeeByDimension` |
 | 161–162 Side-by-side / multi | `compareEmployees` |
@@ -108,7 +175,7 @@ These rules are enforced in TypeScript (`BenchmarkPermissionError`) and in Postg
 | 166–167 New starter / tenure | `tenure.ts`, `tenureBands` |
 | 168 Incomparable metrics | `metricComparableFor`, `metrics.company_comparable` / `department_comparable` |
 | 169–170 Normalisation & calibration | `normalisedScore`, `calibrateQuestions` |
-| 171 Benchmark freeze | `createSnapshot`, `compareFrozenToCurrent`, `report_benchmarks` |
+| 171 Benchmark freeze | `generateReportBenchmark`, `compareReportWithCurrent`, `employee_reports` |
 | 172 ME vs ME | `personalImprovement` |
 | 173 Coaching effectiveness | `coachingEffectiveness`, `development_actions` |
 | 174–175 Heatmaps | `departmentHeatmap`, `individualHeatmap` |
@@ -116,7 +183,7 @@ These rules are enforced in TypeScript (`BenchmarkPermissionError`) and in Postg
 | 177 Focus Efficiency | `focusEfficiency` |
 | 178 High-performance cohort | `defineHighPerformanceCohort`, `high_performance_cohorts` |
 | 179–180 KPI correlation | `correlateWithKpi`, `kpi_observations` |
-| 181 Outliers | `detectOutliers`, `positionAgainst().outlier` |
+| 181 Outliers | `assessOutlier` (MAD / IQR / SD), `detectOutliers` |
 | 182 Exclusion preview | `previewExclusion` |
 | 183 Restore | `restoreEmployee` / `restoreAssessment` |
 | 184 Locking | `canAlterBenchmarkInclusion`, RLS |
@@ -128,7 +195,7 @@ These rules are enforced in TypeScript (`BenchmarkPermissionError`) and in Postg
 | 190 Department summary | `departmentSummary` |
 | 191 Context always | Comparisons return full dimension profiles; no single number |
 | 192 Explanation | `BenchmarkResult.explanation` |
-| 193 Employee visibility | `employeeFacingBenchmark` |
+| 193 Employee visibility | `employeeFacingResult` |
 | 194 Sort by dimension | `sortByDimension`, `individualHeatmap({ sortBy })` |
 | 195 Comparison builder | `PopulationDefinition` |
 | 196 Snapshots | `benchmark_snapshots` |

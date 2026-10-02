@@ -22,7 +22,19 @@ import {
   departmentHeatmap,
   departmentSummary,
   detectOutliers,
-  employeeFacingBenchmark,
+  employeeFacingResult,
+  absoluteBandFor,
+  confidenceFor,
+  resolveConfig,
+  DEFAULT_CONFIG,
+  DEFAULT_METRICS,
+  BENCHMARK_ENGINE_VERSION,
+  PROVISIONAL_EXPECTATIONS_VERSION,
+  assessDimensionEvidence,
+  supportsFirmConclusion,
+  generateReportBenchmark,
+  compareReportWithCurrent,
+  type BenchmarkResult,
   focusEfficiency,
   individualHeatmap,
   median,
@@ -38,12 +50,24 @@ import {
   spearman,
   correlationPValue,
   type Assessment,
+  type Employee,
   type QuestionResponse,
 } from '../src/benchmarking/index.js';
 import { NOW, assessment, buildDataset, director, employeeActor, manager, salesCurrent } from './fixtures.js';
 
 const metric = (data: ReturnType<typeof buildDataset>, key: string) =>
   data.metrics.find((m) => m.key === key)!;
+
+/** A ready-made available benchmark over arbitrary values, labelled "Sales". */
+function fakeBenchmark(values: number[]): BenchmarkResult {
+  const data = buildDataset();
+  const b = computeBenchmark(data, salesCurrent, 'decision_efficiency', { now: NOW });
+  return {
+    ...b,
+    available: true,
+    values: values.map((value, i) => ({ employeeId: `x${i}`, assessmentId: `ax${i}`, value, adjusted: false })),
+  };
+}
 
 suite('statistics', () => {
   it('computes median, quantiles and percentile rank', () => {
@@ -68,7 +92,7 @@ suite('benchmark population (§151–§156, §165)', () => {
     expect(b.explanation.counts.eligibleEmployees).toBe(6); // no test account, no former employee
     expect(b.explanation.counts.excludedAssessments).toBe(1); // incomplete attempt
     expect(b.stats!.median).toBe(71);
-    expect(b.sampleSizeLabel).toBe('Benchmark based on 6 eligible assessments from 6 employees.');
+    expect(b.sampleSizeLabel).toBe('Benchmark based on 6 eligible assessments (latest per employee, 6 employees).');
     expect(b.confidence).toBe('Limited');
   });
 
@@ -201,38 +225,77 @@ suite('eligibility ledger & audit (§151–§153, §182–§185)', () => {
   });
 });
 
-suite('positioning (§157–§160, §181, §193)', () => {
-  it('gives a Director percentile and an employee-friendly band', () => {
+suite('absolute band vs relative percentile (§157–§160, §193)', () => {
+  it('keeps the absolute band separate from the percentile', () => {
     const data = buildDataset();
+    const m = metric(data, 'decision_efficiency');
     const b = computeBenchmark(data, salesCurrent, 'decision_efficiency');
-    const pos = positionAgainst(b, metric(data, 'decision_efficiency'), 76, 'derry');
-    expect(pos.percentile).toBe(100);
-    expect(pos.band).toBe('Above Typical Range');
-    const facing = employeeFacingBenchmark(metric(data, 'decision_efficiency'), pos);
-    expect(facing.message).toBe('Above the typical range');
-    expect(JSON.stringify(facing)).not.toMatch(/percentile|rank/i);
+    const derry = positionAgainst(b, m, 76, 'derry');
+    expect(derry.absolute).toEqual({
+      band: 'Strong',
+      status: 'provisional',
+      thresholdsVersion: PROVISIONAL_EXPECTATIONS_VERSION,
+    });
+    expect(derry.percentile).toBe(100);
+    expect(derry.summary).toBe(
+      'Decision Efficiency: 76 – Strong (provisional expectations). Sales percentile: 100th (compared with 5 colleagues, Limited confidence).',
+    );
   });
 
-  it('orients lower-is-better metrics', () => {
-    const data = buildDataset();
-    const m = { ...metric(data, 'recheck_rate'), higherIsBetter: false };
-    const fake = {
-      ...computeBenchmark(data, salesCurrent, 'decision_efficiency'),
-      values: [10, 20, 30, 40, 50, 60].map((value, i) => ({ employeeId: `x${i}`, value, assessmentIds: [] })),
-    };
-    expect(positionAgainst(fake, m, 5).band).toBe('Above Typical Range');
-    expect(positionAgainst(fake, m, 65).band).toBe('Development Range');
+  it('a strong result in a strong team is still Strong, with a low percentile', () => {
+    const m = { ...DEFAULT_METRICS.find((x) => x.key === 'decision_efficiency')!, absoluteBands: { development: 60, strong: 75, version: 'v-test', validated: true } };
+    const strongTeam = fakeBenchmark([80, 82, 84, 85, 88, 90]);
+    const p = positionAgainst(strongTeam, m, 78);
+    expect(p.absolute.band).toBe('Strong');
+    expect(p.percentile).toBe(0);
+    expect(p.summary).toBe('Decision Efficiency: 78 – Strong. Sales percentile: 0th (compared with 6 colleagues, Limited confidence).');
+    expect(p.context).toMatch(/comparison group is also performing strongly/);
   });
 
-  it('flags statistical outliers neutrally', () => {
+  it('a weak result in a weak team is still a Development Opportunity, with a high percentile', () => {
+    const m = metric(buildDataset(), 'decision_efficiency');
+    const weakTeam = fakeBenchmark([40, 42, 45, 48, 50, 52]);
+    const p = positionAgainst(weakTeam, m, 54);
+    expect(p.absolute.band).toBe('Development Opportunity');
+    expect(p.percentile).toBe(100);
+    expect(p.context).toMatch(/group's overall level may need attention/);
+  });
+
+  it('applies absolute bands in the metric direction (lower is better)', () => {
+    const m = metric(buildDataset(), 'recheck_rate'); // provisional: > 40 development, ≤ 15 strong
+    expect(absoluteBandFor(m, 12).band).toBe('Strong');
+    expect(absoluteBandFor(m, 25).band).toBe('Expected / Typical');
+    expect(absoluteBandFor(m, 47).band).toBe('Development Opportunity');
+    expect(absoluteBandFor(metric(buildDataset(), 'avg_response_seconds'), 30)).toEqual({
+      band: null,
+      status: 'not_configured',
+      thresholdsVersion: null,
+    });
+  });
+
+  it('stores the comparison context with every position', () => {
     const data = buildDataset();
-    const b = computeBenchmark(data, salesCurrent, 'decision_efficiency');
-    const values = [...Array(20)].map((_, i) => ({ employeeId: `e${i}`, assessmentIds: [], value: 70 + (i % 3) }));
-    values.push({ employeeId: 'odd', assessmentIds: [], value: 200 });
-    const big = { ...b, stats: { ...b.stats!, mean: 75.5, standardDeviation: 28 }, values };
-    const out = detectOutliers(big, metric(data, 'decision_efficiency'));
-    expect(out.map((o) => o.employeeId)).toEqual(['odd']);
-    expect(out[0]!.flag.label).toBe('Significant Outlier');
+    data.ledger.excludeAssessment(director, 'ola-sep', 'technical_failure');
+    const b = computeBenchmark(data, salesCurrent, 'decision_efficiency', { now: NOW });
+    const p = positionAgainst(b, metric(data, 'decision_efficiency'), 68, 'katie');
+    expect(p.comparison).toMatchObject({
+      populationLabel: 'Sales',
+      comparisonPopulationSize: 4,
+      eligibleEmployees: 5,
+      confidence: 'Insufficient',
+      benchmarkCalculatedAt: NOW.toISOString(),
+      engineVersion: BENCHMARK_ENGINE_VERSION,
+      assessmentVersions: ['v1'],
+    });
+    expect(p.comparison.counts.exclusionsByReason).toEqual({ incomplete_assessment: 1, technical_failure: 1 });
+    // Only 4 colleagues – no percentile is given.
+    expect(p.percentile).toBeNull();
+    expect(p.absolute.band).toBe('Expected / Typical');
+  });
+
+  it('employee-facing results show the absolute band only', () => {
+    const r = employeeFacingResult(metric(buildDataset(), 'decision_efficiency'), 78);
+    expect(r).toEqual({ metricLabel: 'Decision Efficiency', band: 'Strong', message: 'A strength' });
   });
 
   it('compares an employee by dimension against a department benchmark (§160)', () => {
@@ -240,7 +303,54 @@ suite('positioning (§157–§160, §181, §193)', () => {
     const rows = compareEmployeeByDimension(data, 'katie', salesCurrent, ['absorb', 'prioritise', 'decision_efficiency']);
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({ metricLabel: 'Absorb', employeeValue: 73 });
-    expect(rows.every((r) => r.benchmarkMedian !== null)).toBe(true);
+    expect(rows[0]!.position!.comparison.comparisonPopulationSize).toBe(5);
+  });
+});
+
+suite('confidence levels (§159)', () => {
+  it('uses 1–4 / 5–9 / 10–19 / 20–29 / 30+', () => {
+    const c = resolveConfig();
+    expect([0, 4, 5, 9, 10, 19, 20, 29, 30, 80].map((n) => confidenceFor(n, c))).toEqual([
+      'Insufficient', 'Insufficient', 'Limited', 'Limited', 'Moderate', 'Moderate', 'Good', 'Good', 'High', 'High',
+    ]);
+  });
+});
+
+suite('robust outliers (§181)', () => {
+  const m = () => metric(buildDataset(), 'decision_efficiency');
+  const group = [68, 69, 70, 70, 71, 71, 72, 72, 73, 74, 75];
+
+  it('uses MAD by default and flags only statistically unusual results', () => {
+    const big = fakeBenchmark([...group, 140]);
+    const out = detectOutliers(big, m());
+    expect(out.map((o) => o.value)).toEqual([140]);
+    expect(out[0]!.flag).toMatchObject({ label: 'Significant Outlier', method: 'mad', direction: 'above' });
+    expect(out[0]!.flag.description).toContain('does not indicate poor performance or problematic behaviour');
+  });
+
+  it('is not masked by the outlier inflating the standard deviation', () => {
+    // Three extreme values inflate the SD so neither is 3 SDs from the mean, but MAD still flags them.
+    const values = [...group, 115, 120, 125];
+    const sdOut = detectOutliers(fakeBenchmark(values), m(), { outliers: { ...DEFAULT_CONFIG.outliers, method: 'sd' } });
+    const madOut = detectOutliers(fakeBenchmark(values), m());
+    expect(sdOut).toHaveLength(0);
+    expect(madOut.map((o) => o.value).sort()).toEqual([115, 120, 125]);
+  });
+
+  it('supports IQR fences', () => {
+    const out = detectOutliers(fakeBenchmark([...group, 140]), m(), {
+      outliers: { ...DEFAULT_CONFIG.outliers, method: 'iqr' },
+    });
+    expect(out[0]!.flag.method).toBe('iqr');
+  });
+
+  it('suppresses detection for small cohorts', () => {
+    const small = fakeBenchmark([70, 71, 72, 73, 74, 200]);
+    expect(detectOutliers(small, m())).toEqual([]);
+    const p = positionAgainst(small, m(), 200);
+    expect(p.outlier).toBeNull();
+    expect(p.outlierSuppressed).toMatch(/at least 10 people/);
+    expect(p.zScore).not.toBeNull(); // SD-based z still shown for analytics
   });
 });
 
@@ -266,7 +376,7 @@ suite('ME vs ME and change over time (§172–§173, §187–§189)', () => {
     const r = retestComparison(data, 'derry', 'decision_efficiency', salesCurrent);
     expect(r.benchmarkMedian).toBe(71);
     expect(r.interpretation).toBe(
-      "Improvement of 7; current result is above the department's typical range.",
+      'Improvement of 7; current result is Strong; Sales percentile 100th.',
     );
   });
 
@@ -480,5 +590,171 @@ suite('cohort tags (§198–§199)', () => {
     expect(() => addCohortTag(director, data.ledger, sam, 'Over 50s', 'x')).toThrow(ProtectedCharacteristicError);
     expect(() => addCohortTag(director, data.ledger, sam, 'Female staff', 'x')).toThrow(ProtectedCharacteristicError);
     expect(() => addCohortTag(director, data.ledger, sam, 'Manager', 'x')).not.toThrow();
+  });
+});
+
+suite('one result per person; full trend history (point 1)', () => {
+  it('benchmarks only the latest eligible assessment per person, even over a long window', () => {
+    const data = buildDataset();
+    const b = computeBenchmark(data, { ...salesCurrent, window: { kind: 'last_months', months: 12 } }, 'decision_efficiency');
+    const derry = b.values.filter((v) => v.employeeId === 'derry');
+    expect(derry).toEqual([{ employeeId: 'derry', assessmentId: 'derry-sep', value: 76, adjusted: false }]);
+    expect(b.explanation.counts.eligibleAssessments).toBe(b.explanation.counts.eligibleEmployees);
+    expect(b.explanation.counts.supersededAssessments).toBe(2); // Derry's Jan + Apr
+  });
+
+  it('keeps every valid assessment in personal trend history', () => {
+    const data = buildDataset();
+    data.ledger.excludeEmployee(director, 'derry', 'pilot_user');
+    data.ledger.excludeAssessment(director, 'derry-apr', 'reasonable_adjustment');
+    expect(personalImprovement(data, 'derry', 'decision_efficiency').series.map((s) => s.assessmentId)).toEqual([
+      'derry-jan',
+      'derry-apr',
+      'derry-sep',
+    ]);
+  });
+
+  it('drops results that are not genuine measurements from the trend', () => {
+    const data = buildDataset();
+    data.ledger.excludeAssessment(director, 'derry-apr', 'technical_failure', 'Timer froze');
+    expect(personalImprovement(data, 'derry', 'decision_efficiency').series.map((s) => s.value)).toEqual([61, 76]);
+  });
+});
+
+suite('eligibility at employee and assessment level (point 7)', () => {
+  it('Simon Test Account excluded completely; Katie normally included but one assessment excluded', () => {
+    const data = buildDataset();
+    (data.employees as Employee[]).push({ id: 'simon-test', displayName: 'Simon Test Account', department: 'Sales', status: 'active', startDate: '2020-01-01', cohortTags: [] });
+    (data.assessments as Assessment[]).push(
+      assessment('simon-test', '2026-09-01T10:00:00Z', { decision_efficiency: 99 }, { id: 'simon-1' }),
+      assessment('simon-test', '2026-09-20T10:00:00Z', { decision_efficiency: 98 }, { id: 'simon-2' }),
+      assessment('katie', '2026-09-25T10:00:00Z', { decision_efficiency: 20 }, { id: 'katie-2' }),
+    );
+    data.ledger.excludeEmployee(director, 'simon-test', 'test_account', 'Director demo account');
+    data.ledger.excludeAssessment(director, 'katie-2', 'technical_failure', 'Browser crashed mid-exercise');
+
+    const b = computeBenchmark(data, { ...salesCurrent, window: { kind: 'last_months', months: 12 } }, 'decision_efficiency');
+    expect(b.values.find((v) => v.employeeId === 'simon-test')).toBeUndefined();
+    expect(b.values.find((v) => v.employeeId === 'katie')).toMatchObject({ assessmentId: 'katie-sep', value: 68 });
+    expect(b.explanation.counts).toMatchObject({ excludedEmployees: 1 });
+    expect(b.explanation.counts.exclusionsByReason).toMatchObject({ test_account: 2, technical_failure: 1 });
+    // Nothing deleted; every decision carries reason, person and timestamp.
+    expect(data.assessments.map((a) => a.id)).toEqual(expect.arrayContaining(['simon-1', 'simon-2', 'katie-2']));
+    for (const id of ['simon-test', 'katie-2']) {
+      const [e] = data.ledger.historyFor(id);
+      expect(e).toMatchObject({ actorId: director.id, at: NOW.toISOString() });
+      expect(e!.reason).toBeTruthy();
+    }
+  });
+});
+
+suite('adjusted assessments (point 8)', () => {
+  it('flags an adjusted assessment without excluding it, then applies the decision', () => {
+    const data = buildDataset();
+    data.ledger.flagAdjustedAssessment(director, 'ola-sep', 'Extra time agreed as a reasonable adjustment');
+    let b = computeBenchmark(data, salesCurrent, 'decision_efficiency');
+    expect(b.values.find((v) => v.employeeId === 'ola')).toMatchObject({ adjusted: true });
+    expect(b.explanation.counts).toMatchObject({ adjustedAssessments: 1, adjustedPendingReview: 1 });
+    expect(b.warnings.join(' ')).toMatch(/await a comparability decision/);
+
+    data.ledger.reviewAdjustedAssessment(director, 'ola-sep', 'comparable', 'Extra time does not affect untimed measures');
+    b = computeBenchmark(data, salesCurrent, 'decision_efficiency');
+    expect(b.explanation.counts.adjustedPendingReview).toBe(0);
+    expect(b.values.some((v) => v.employeeId === 'ola')).toBe(true);
+
+    const data2 = buildDataset();
+    data2.ledger.flagAdjustedAssessment(director, 'ola-sep', 'Paper version used');
+    data2.ledger.reviewAdjustedAssessment(director, 'ola-sep', 'not_comparable', 'Different format');
+    const b2 = computeBenchmark(data2, salesCurrent, 'decision_efficiency');
+    expect(b2.values.some((v) => v.employeeId === 'ola')).toBe(false);
+    expect(b2.explanation.counts.exclusionsByReason.reasonable_adjustment).toBe(1);
+    // Still in Ola's own history.
+    expect(personalImprovement(data2, 'ola', 'decision_efficiency').current).toBe(70);
+    expect(data2.ledger.historyFor('ola-sep').map((e) => e.action)).toEqual([
+      'assessment_adjustment_flagged',
+      'assessment_adjustment_reviewed',
+    ]);
+  });
+});
+
+suite('report benchmark freeze (point 9)', () => {
+  it('saves the benchmark at the assessment date and never changes it', () => {
+    const data = buildDataset();
+    const { asOf: _a, ...population } = salesCurrent;
+    const report = generateReportBenchmark(
+      director,
+      data,
+      {
+        employeeId: 'derry',
+        assessmentId: 'derry-sep',
+        population,
+        metricKeys: ['decision_efficiency'],
+        versions: { reportVersion: 'report/1.0', interpretationVersion: 'interp/1.0' },
+        id: 'rep-1',
+      },
+      { now: NOW },
+    );
+    // Assessment date 2026-09-20: Sales results after that date are not in the population.
+    const frozen = report.results.decision_efficiency!;
+    expect(report.assessmentDate).toBe('2026-09-20T10:00:00Z');
+    expect(frozen.comparison.comparisonPopulationSize).toBe(5);
+    expect(report.snapshot.members.map((m) => m.employeeId).sort()).toEqual(['derry', 'donna', 'katie', 'ola', 'raj', 'sam']);
+    expect(report.snapshot.metrics.decision_efficiency!.stats!.median).toBe(71);
+    expect(Object.isFrozen(report.results)).toBe(true);
+
+    // Later: team grows and someone is excluded.
+    (data.employees as Employee[]).push(
+      ...['n1', 'n2', 'n3'].map((id) => ({ id, displayName: id, department: 'Sales' as const, status: 'active' as const, startDate: '2026-09-01', cohortTags: [] })),
+    );
+    (data.assessments as Assessment[]).push(
+      ...['n1', 'n2', 'n3'].map((id) => assessment(id, '2026-09-28T10:00:00Z', { decision_efficiency: 85 })),
+    );
+    data.ledger.excludeEmployee(director, 'sam', 'test_account');
+
+    expect(report.snapshot.metrics.decision_efficiency!.stats!.median).toBe(71); // unchanged
+    const cmp = compareReportWithCurrent(director, data, report, { now: new Date('2026-10-30T00:00:00Z') });
+    expect(cmp.rows[0]).toMatchObject({
+      atAssessmentDate: { median: 71, percentile: 100, comparisonPopulationSize: 5 },
+      current: { comparisonPopulationSize: 7 },
+    });
+    expect(cmp.rows[0]!.current.median).toBe(75); // [68,70,72,74,76,85,85,85]
+    expect(cmp.integrity.warning).toBe(POPULATION_CHANGED_WARNING);
+  });
+});
+
+suite('minimum question evidence (point 10)', () => {
+  const obs = (pattern: boolean[]) => pattern.map((showsPattern, i) => ({ exerciseId: `ex${i}`, showsPattern }));
+
+  it('reports evidence count, consistency and confidence', () => {
+    const e = assessDimensionEvidence('Decision Confidence', 'Hesitant decision-making', obs([true, true, true, true, true, true, true, true, false, false, false]));
+    expect(e.evidenceLabel).toBe('Evidence: 11 exercises · Consistent pattern: 8/11 · Interpretation confidence: High');
+    expect(supportsFirmConclusion(e)).toBe(true);
+  });
+
+  it('refuses a strong conclusion from two questions', () => {
+    const e = assessDimensionEvidence('Re-checking', 'High re-checking tendency', obs([true, true]));
+    expect(e.confidence).toBe('Insufficient');
+    expect(e.interpretation).toBe('Not enough consistent evidence to draw a conclusion about high re-checking tendency.');
+    expect(supportsFirmConclusion(e)).toBe(false);
+  });
+
+  it('treats mixed evidence as low confidence', () => {
+    const e = assessDimensionEvidence('Re-checking', 'High re-checking tendency', obs([true, false, true, false, true]));
+    expect(e.confidence).toBe('Low');
+    expect(e.interpretation).toMatch(/tentative/);
+  });
+});
+
+suite('configurable comparability (point 6)', () => {
+  it('supports role-level comparability', () => {
+    const data = buildDataset();
+    const roleOnly = data.metrics.map((m) => (m.key === 'decision_efficiency' ? { ...m, requiresSameRole: true } : m));
+    const withRoleMetric = { ...data, metrics: roleOnly, eligibility: data.eligibility };
+    const dept = computeBenchmark(withRoleMetric, salesCurrent, 'decision_efficiency');
+    expect(dept.available).toBe(true); // every Sales employee is a Salesperson
+    const company = computeBenchmark(withRoleMetric, { ...salesCurrent, scope: { kind: 'company' } }, 'decision_efficiency');
+    expect(company.unavailableReason).toMatch(/only comparable between people in the same job role/);
+    const role = computeBenchmark(withRoleMetric, { ...salesCurrent, scope: { kind: 'role', role: 'Salesperson' } }, 'decision_efficiency');
+    expect(role.available).toBe(true);
   });
 });

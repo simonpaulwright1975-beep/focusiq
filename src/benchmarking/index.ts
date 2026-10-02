@@ -13,3 +13,5 @@ export * from './snapshots.js';
 export * from './calibration.js';
 export * from './correlation.js';
 export * from './cohorts.js';
+export * from './reports.js';
+export * from './evidence.js';

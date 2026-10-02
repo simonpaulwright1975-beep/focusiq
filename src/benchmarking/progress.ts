@@ -3,15 +3,21 @@
  * coaching effectiveness (§173), benchmark history (§188) and team
  * development before/after analysis (§189).
  */
-import { computeBenchmark, positionAgainst, type BenchmarkOptions } from './benchmark.js';
+import {
+  computeBenchmark,
+  positionAgainst,
+  type BenchmarkOptions,
+  type BenchmarkPosition,
+  ordinal as ordinalOf,
+} from './benchmark.js';
 import { resolveConfig } from './config.js';
-import type { BenchmarkDataset } from './population.js';
+import { validityOf, type BenchmarkDataset } from './population.js';
 import { cohensD, mean, median, round, welchTTest } from './stats.js';
-import type {
-  Assessment,
-  BenchmarkBand,
-  MetricDefinition,
-  PopulationDefinition,
+import {
+  RESULT_COMPROMISING_REASONS,
+  type Assessment,
+  type MetricDefinition,
+  type PopulationDefinition,
 } from './types.js';
 
 function metricOf(data: BenchmarkDataset, key: string): MetricDefinition {
@@ -20,12 +26,21 @@ function metricOf(data: BenchmarkDataset, key: string): MetricDefinition {
   return m;
 }
 
-/** Assessments that count for someone's *own* history (§151: exclusion never hides history). */
+/**
+ * Trend history = ALL valid assessments for the person, regardless of
+ * benchmark eligibility. Benchmark exclusions (test account, pilot user,
+ * reasonable adjustment…) do not hide someone's own history; only results
+ * that are not genuine measurements are left out (incomplete, invalidated,
+ * technical failure, duplicate).
+ */
 export function personalHistory(data: BenchmarkDataset, employeeId: string): Assessment[] {
   return data.assessments
     .filter((a) => a.employeeId === employeeId && a.complete)
-    .filter((a) => (data.eligibility.validity?.get(a.id) ?? a.validity) !== 'invalidated')
-    .filter((a) => !data.eligibility.assessments.has(a.id))
+    .filter((a) => validityOf(a, data.eligibility) !== 'invalidated')
+    .filter((a) => {
+      const exclusion = data.eligibility.assessments.get(a.id);
+      return !exclusion || !RESULT_COMPROMISING_REASONS.includes(exclusion.reason);
+    })
     .sort((x, y) => x.completedAt.localeCompare(y.completedAt));
 }
 
@@ -118,15 +133,10 @@ export function personalImprovement(
 export interface RetestComparison extends PersonalImprovement {
   benchmarkMedian: number | null;
   benchmarkDifference: number | null;
-  band: BenchmarkBand | null;
+  /** Absolute band, percentile and comparison context for the current result. */
+  position: BenchmarkPosition | null;
   interpretation: string;
 }
-
-const BAND_PHRASES: Record<BenchmarkBand, string> = {
-  'Above Typical Range': "above the {pop}'s typical range",
-  'Typical Range': "within the {pop}'s typical range",
-  'Development Range': "below the {pop}'s typical range – a development opportunity",
-};
 
 /** §187 – Previous / Current / Difference / Benchmark Difference. */
 export function retestComparison(
@@ -144,11 +154,9 @@ export function retestComparison(
       ? null
       : positionAgainst(benchmark, metric, base.current, employeeId, options.config);
   const benchmarkMedian = benchmark.stats?.median ?? null;
-  const popName =
-    benchmarkDefinition.scope.kind === 'department' ? 'department' : benchmark.explanation.populationLabel;
 
   const parts: string[] = [];
-  if (base.improvement !== null && base.change !== null) {
+  if (base.change !== null) {
     const amount = formatChange(metric, Math.abs(base.change)).replace(/^[+−±]/, '');
     if (base.direction === 'improved') parts.push(`Improvement of ${amount}`);
     else if (base.direction === 'declined') parts.push(`Decrease of ${amount}`);
@@ -156,8 +164,9 @@ export function retestComparison(
   } else {
     parts.push('No previous assessment to compare against');
   }
-  if (position?.band) {
-    parts.push(`current result is ${BAND_PHRASES[position.band].replace('{pop}', popName)}`);
+  if (position?.absolute.band) parts.push(`current result is ${position.absolute.band}`);
+  if (position?.percentile !== null && position?.percentile !== undefined) {
+    parts.push(`${position.comparison.populationLabel} percentile ${ordinalOf(position.percentile)}`);
   } else if (!benchmark.available) {
     parts.push(benchmark.unavailableReason ?? 'benchmark unavailable');
   }
@@ -167,7 +176,7 @@ export function retestComparison(
     benchmarkMedian,
     benchmarkDifference:
       base.current !== null && benchmarkMedian !== null ? base.current - benchmarkMedian : null,
-    band: position?.band ?? null,
+    position,
     interpretation: `${parts.join('; ')}.`,
   };
 }

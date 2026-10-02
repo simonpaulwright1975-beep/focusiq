@@ -1,23 +1,37 @@
 /**
  * Benchmark calculation (§149–§160, §168, §181–§182, §192–§193).
+ *
+ * Two separate questions, never merged:
+ *  - Absolute band  – is the behaviour effective? (FocusiQ expectations per metric)
+ *  - Percentile     – is the behaviour unusual compared with colleagues? (context only)
  */
-import { confidenceFor, resolveConfig, type BenchmarkConfig } from './config.js';
+import {
+  BENCHMARK_ENGINE_VERSION,
+  confidenceFor,
+  resolveConfig,
+  type BenchmarkConfig,
+} from './config.js';
 import {
   isCrossDepartment,
+  isCrossRole,
   metricComparableFor,
   resolvePopulation,
+  validityOf,
   type BenchmarkDataset,
   type ResolvedPopulation,
 } from './population.js';
-import { describe, mean, percentileRank, round, zScore } from './stats.js';
+import { describe, mean, median, medianAbsoluteDeviation, percentileRank, quantile, round, standardDeviation, zScore } from './stats.js';
 import type { TenureBand } from './tenure.js';
 import type {
+  AbsoluteBand,
   Assessment,
-  BenchmarkBand,
   BenchmarkResult,
+  BenchmarkValue,
+  Confidence,
   EligibilityState,
   MetricDefinition,
   NormalisationMethod,
+  PopulationCounts,
   PopulationDefinition,
 } from './types.js';
 
@@ -41,21 +55,9 @@ export function getMetric(data: BenchmarkDataset, metricKey: string): MetricDefi
   return metric;
 }
 
-function scoreOf(a: Assessment, key: string, normalised: boolean): number | undefined {
+export function scoreOf(a: Assessment, key: string, normalised: boolean): number | undefined {
   const v = normalised ? a.normalisedScores?.[key] : a.scores[key];
   return Number.isFinite(v) ? v : undefined;
-}
-
-/** Combine one employee's eligible assessments into a single comparison value. */
-function employeeValue(
-  list: readonly Assessment[],
-  key: string,
-  perEmployee: PopulationDefinition['perEmployee'],
-  normalised: boolean,
-): number | undefined {
-  const vals = list.map((a) => scoreOf(a, key, normalised)).filter((v) => v !== undefined);
-  if (vals.length === 0) return undefined;
-  return perEmployee === 'mean' ? mean(vals) : vals[vals.length - 1];
 }
 
 /** Core benchmark calculation for one metric over one population definition. */
@@ -72,20 +74,23 @@ export function computeBenchmark(
     tenureBands: options.tenureBands,
     now: options.now,
   });
-  return benchmarkFromPopulation(population, metric, config, options);
+  return benchmarkFromPopulation(population, metric, config, {
+    ...options,
+    eligibility: data.eligibility,
+  });
 }
 
 export function benchmarkFromPopulation(
   population: ResolvedPopulation,
   metric: MetricDefinition,
   config: BenchmarkConfig,
-  options: Pick<BenchmarkOptions, 'normalisation' | 'now'> = {},
+  options: Pick<BenchmarkOptions, 'normalisation' | 'now'> & { eligibility?: EligibilityState } = {},
 ): BenchmarkComputation {
   const warnings: string[] = [];
-  const all = [...population.byEmployee.values()].flat();
+  const used = [...population.byEmployee.values()];
 
   let normalisation: NormalisationMethod = options.normalisation ?? 'none';
-  if (normalisation !== 'none' && !all.every((a) => scoreOf(a, metric.key, true) !== undefined)) {
+  if (normalisation !== 'none' && !used.every((a) => scoreOf(a, metric.key, true) !== undefined)) {
     warnings.push(
       'Normalised scores are not yet available for every assessment; raw scores have been used.',
     );
@@ -99,15 +104,35 @@ export function benchmarkFromPopulation(
         'without difficulty normalisation; differences may partly reflect version.',
     );
   }
+  if (population.scoringVersions.size > 1) {
+    warnings.push(
+      `Population spans scoring versions ${[...population.scoringVersions].sort().join(', ')}.`,
+    );
+  }
+  if (population.counts.adjustedPendingReview > 0) {
+    warnings.push(
+      `${population.counts.adjustedPendingReview} adjusted assessment(s) await a comparability decision.`,
+    );
+  }
 
-  const values: BenchmarkResult['values'] = [];
-  for (const [employeeId, list] of population.byEmployee) {
-    const v = employeeValue(list, metric.key, population.definition.perEmployee, useNormalised);
-    if (v !== undefined) values.push({ employeeId, assessmentIds: list.map((a) => a.id), value: v });
+  const values: BenchmarkValue[] = [];
+  for (const [employeeId, a] of population.byEmployee) {
+    const v = scoreOf(a, metric.key, useNormalised);
+    if (v !== undefined) {
+      values.push({
+        employeeId,
+        assessmentId: a.id,
+        value: v,
+        adjusted: options.eligibility?.adjustments?.has(a.id) ?? false,
+      });
+    }
   }
 
   const people = values.length;
-  const comparability = metricComparableFor(metric, isCrossDepartment(population));
+  const comparability = metricComparableFor(metric, {
+    crossDepartment: isCrossDepartment(population),
+    crossRole: isCrossRole(population),
+  });
   const enough = people >= config.minimumCohortSize;
   const available = comparability.comparable && enough;
   const unavailableReason = !comparability.comparable
@@ -116,10 +141,9 @@ export function benchmarkFromPopulation(
       ? INSUFFICIENT_DATA_MESSAGE
       : undefined;
 
-  const assessments = population.counts.eligibleAssessments;
   const sampleSizeLabel =
-    `Benchmark based on ${assessments} eligible assessment${assessments === 1 ? '' : 's'} ` +
-    `from ${people} employee${people === 1 ? '' : 's'}.`;
+    `Benchmark based on ${people} eligible assessment${people === 1 ? '' : 's'} ` +
+    `(latest per employee, ${people} employee${people === 1 ? '' : 's'}).`;
 
   return {
     metricKey: metric.key,
@@ -134,14 +158,15 @@ export function benchmarkFromPopulation(
       definition: population.definition,
       counts: population.counts,
       assessmentVersions: [...population.versions].sort(),
+      scoringVersions: [...population.scoringVersions].sort(),
       sampleSize: people,
       normalisation,
       dateRange: population.dateRange,
       minimumCohortSize: config.minimumCohortSize,
       statisticBasis:
-        population.definition.perEmployee === 'mean'
-          ? "One value per employee: the mean of their eligible assessments in the window."
-          : "One value per employee: their most recent eligible assessment in the window.",
+        'One value per employee: their most recent eligible assessment in the window. ' +
+        'Earlier assessments are kept for trend history but do not count towards the benchmark.',
+      engineVersion: BENCHMARK_ENGINE_VERSION,
     },
     values,
     calculatedAt: (options.now ?? new Date()).toISOString(),
@@ -150,40 +175,145 @@ export function benchmarkFromPopulation(
 }
 
 // ---------------------------------------------------------------------------
-// Individual position against a benchmark (§157–§158, §181)
+// Absolute band – based on FocusiQ expectations, never on the cohort
 // ---------------------------------------------------------------------------
 
-export interface BenchmarkPosition {
-  value: number;
-  /** §157 Director-only: share of the comparison population this result is above. */
-  percentile: number | null;
-  /** Percentile oriented so higher always means "more of the desired behaviour". */
-  performancePercentile: number | null;
-  band: BenchmarkBand | null;
-  differenceFromMedian: number | null;
-  zScore: number | null;
-  outlier: OutlierFlag | null;
-  /** People in the comparison population (excluding the subject). */
-  comparisonSize: number;
+export interface AbsoluteBandResult {
+  band: AbsoluteBand | null;
+  /** 'not_configured' until expectation thresholds exist for the metric. */
+  status: 'validated' | 'provisional' | 'not_configured';
+  thresholdsVersion: string | null;
+}
+
+export function absoluteBandFor(metric: MetricDefinition, value: number): AbsoluteBandResult {
+  const t = metric.absoluteBands;
+  if (!t) return { band: null, status: 'not_configured', thresholdsVersion: null };
+  let band: AbsoluteBand;
+  if (metric.higherIsBetter) {
+    band = value >= t.strong ? 'Strong' : value < t.development ? 'Development Opportunity' : 'Expected / Typical';
+  } else {
+    band = value <= t.strong ? 'Strong' : value > t.development ? 'Development Opportunity' : 'Expected / Typical';
+  }
+  return { band, status: t.validated ? 'validated' : 'provisional', thresholdsVersion: t.version };
+}
+
+// ---------------------------------------------------------------------------
+// Relative position (§157) and robust outliers (§181)
+// ---------------------------------------------------------------------------
+
+/** Everything needed to reproduce / explain a comparison, stored with each result. */
+export interface ComparisonContext {
+  populationLabel: string;
+  /** People the subject was compared against (subject removed). */
+  comparisonPopulationSize: number;
+  /** Eligible employees in the benchmark (including the subject, if eligible). */
+  eligibleEmployees: number;
+  counts: PopulationCounts;
+  confidence: Confidence;
+  benchmarkCalculatedAt: string;
+  engineVersion: string;
+  assessmentVersions: string[];
+  scoringVersions: string[];
 }
 
 export interface OutlierFlag {
-  /** §181 – always "Significant Outlier", never "Problem Employee". */
+  /** Internal label. Means ONLY "statistically unusual compared with the eligible comparison group". */
   label: 'Significant Outlier';
+  method: 'mad' | 'iqr' | 'sd';
   direction: 'above' | 'below';
-  zScore: number;
+  /** Modified z (MAD), fence distance in IQRs (IQR) or z (SD). */
+  score: number;
   description: string;
 }
 
-export function bandFor(performancePercentile: number, config: BenchmarkConfig): BenchmarkBand {
-  if (performancePercentile >= config.bands.aboveTypicalFrom) return 'Above Typical Range';
-  if (performancePercentile < config.bands.developmentBelow) return 'Development Range';
-  return 'Typical Range';
+export const OUTLIER_MEANING =
+  'Statistically unusual compared with the eligible comparison group. ' +
+  'This does not indicate poor performance or problematic behaviour – review the context.';
+
+export interface BenchmarkPosition {
+  metricKey: string;
+  value: number;
+  /** Is the behaviour effective? */
+  absolute: AbsoluteBandResult;
+  /** How does it compare with the selected cohort? Director-only context. */
+  percentile: number | null;
+  differenceFromMedian: number | null;
+  /** Shown for analytics only; not used for outlier decisions. */
+  zScore: number | null;
+  outlier: OutlierFlag | null;
+  /** Why outlier detection did not run, if it didn't. */
+  outlierSuppressed?: string;
+  adjustedAssessment: boolean;
+  comparison: ComparisonContext;
+  /** e.g. "Decision Efficiency: 78 – Strong. Sales percentile: 41st." */
+  summary: string;
+  /** Extra context when absolute and relative positions diverge. */
+  context: string | null;
+}
+
+export function ordinal(n: number): string {
+  const r = Math.round(n);
+  const mod100 = r % 100;
+  const suffix =
+    mod100 >= 11 && mod100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[r % 10] ?? 'th';
+  return `${r}${suffix}`;
 }
 
 /**
- * Position a value against a benchmark. The subject's own record is removed
- * from the comparison population so they are compared with colleagues.
+ * Robust outlier test of `value` against a comparison group (subject excluded).
+ * Default method is the modified z-score using the Median Absolute Deviation;
+ * when MAD is zero it falls back to IQR fences. Suppressed for small groups.
+ */
+export function assessOutlier(
+  metric: MetricDefinition,
+  value: number,
+  comparison: readonly number[],
+  config: BenchmarkConfig,
+): { flag: OutlierFlag | null; suppressed?: string } {
+  const o = config.outliers;
+  if (comparison.length < o.minimumCohortSize) {
+    return {
+      flag: null,
+      suppressed: `Outlier detection needs at least ${o.minimumCohortSize} people in the comparison group.`,
+    };
+  }
+  const med = median(comparison);
+  const build = (method: OutlierFlag['method'], score: number): OutlierFlag => {
+    const direction = value > med ? 'above' : 'below';
+    return {
+      label: 'Significant Outlier',
+      method,
+      direction,
+      score: round(score, 1),
+      description: `${metric.label}: statistically unusual (${direction} the eligible comparison group). ${OUTLIER_MEANING}`,
+    };
+  };
+  const iqrTest = () => {
+    const q1 = quantile(comparison, 0.25);
+    const q3 = quantile(comparison, 0.75);
+    const iqr = q3 - q1;
+    if (iqr === 0) return { flag: null, suppressed: 'Too little variation in the group to assess unusual results.' };
+    const lo = q1 - o.iqrMultiplier * iqr;
+    const hi = q3 + o.iqrMultiplier * iqr;
+    if (value >= lo && value <= hi) return { flag: null };
+    const distance = (value > hi ? value - q3 : q1 - value) / iqr;
+    return { flag: build('iqr', distance) };
+  };
+
+  if (o.method === 'sd') {
+    const z = zScore(value, mean(comparison), standardDeviation(comparison));
+    return { flag: Math.abs(z) >= o.sdThreshold ? build('sd', Math.abs(z)) : null };
+  }
+  if (o.method === 'iqr') return iqrTest();
+  const mad = medianAbsoluteDeviation(comparison);
+  if (mad === 0) return iqrTest();
+  const modifiedZ = (0.6745 * (value - med)) / mad;
+  return { flag: Math.abs(modifiedZ) >= o.madThreshold ? build('mad', Math.abs(modifiedZ)) : null };
+}
+
+/**
+ * Position a value. The subject's own result is removed from the comparison
+ * population so they are compared with colleagues only.
  */
 export function positionAgainst(
   benchmark: BenchmarkResult,
@@ -191,67 +321,91 @@ export function positionAgainst(
   value: number,
   subjectEmployeeId?: string,
   configOverrides?: Partial<BenchmarkConfig>,
+  subjectAssessmentAdjusted = false,
 ): BenchmarkPosition {
   const config = resolveConfig(configOverrides);
   const others = benchmark.values
     .filter((v) => v.employeeId !== subjectEmployeeId)
     .map((v) => v.value);
-  const base: BenchmarkPosition = {
-    value,
-    percentile: null,
-    performancePercentile: null,
-    band: null,
-    differenceFromMedian: null,
-    zScore: null,
-    outlier: null,
-    comparisonSize: others.length,
+  const absolute = absoluteBandFor(metric, value);
+  const comparison: ComparisonContext = {
+    populationLabel: benchmark.explanation.populationLabel,
+    comparisonPopulationSize: others.length,
+    eligibleEmployees: benchmark.explanation.counts.eligibleEmployees,
+    counts: benchmark.explanation.counts,
+    confidence: confidenceFor(others.length, config),
+    benchmarkCalculatedAt: benchmark.calculatedAt,
+    engineVersion: benchmark.explanation.engineVersion,
+    assessmentVersions: benchmark.explanation.assessmentVersions,
+    scoringVersions: benchmark.explanation.scoringVersions,
   };
-  // When the subject is part of the population, colleagues number n − 1.
-  const subjectInPopulation = benchmark.values.some((v) => v.employeeId === subjectEmployeeId);
-  const needed = subjectInPopulation ? config.minimumCohortSize - 1 : config.minimumCohortSize;
-  if (!benchmark.available || others.length === 0 || others.length < needed) {
-    return base;
+  const comparable = benchmark.available && others.length >= config.minimumCohortSize;
+
+  let percentile: number | null = null;
+  let differenceFromMedian: number | null = null;
+  let z: number | null = null;
+  let outlier: OutlierFlag | null = null;
+  let outlierSuppressed: string | undefined;
+  if (comparable) {
+    percentile = round(percentileRank(value, others), 0);
+    differenceFromMedian = value - median(others);
+    z = round(zScore(value, mean(others), standardDeviation(others)), 2);
+    const o = assessOutlier(metric, value, others, config);
+    outlier = o.flag;
+    outlierSuppressed = o.suppressed;
+  } else {
+    outlierSuppressed = 'No valid comparison group.';
   }
-  const stats = describe(others)!;
-  const percentile = percentileRank(value, others);
-  const performancePercentile = metric.higherIsBetter ? percentile : 100 - percentile;
-  const z = zScore(value, stats.mean, stats.standardDeviation);
+
+  const bandText = absolute.band
+    ? `${absolute.band}${absolute.status === 'provisional' ? ' (provisional expectations)' : ''}`
+    : 'no expectation band configured';
+  const pctText =
+    percentile !== null
+      ? `${comparison.populationLabel} percentile: ${ordinal(percentile)} (compared with ${others.length} colleagues, ${comparison.confidence} confidence).`
+      : `${comparison.populationLabel} comparison: ${benchmark.unavailableReason ?? INSUFFICIENT_DATA_MESSAGE}`;
+  const summary = `${metric.label}: ${round(value, 1)} – ${bandText}. ${pctText}`;
+
+  let context: string | null = null;
+  if (percentile !== null && absolute.band) {
+    // "Better than colleagues" in the metric's own direction.
+    const favourable = metric.higherIsBetter ? percentile : 100 - percentile;
+    if (absolute.band === 'Strong' && favourable < 50) {
+      context = 'Strong result in absolute terms; the comparison group is also performing strongly overall.';
+    } else if (absolute.band === 'Development Opportunity' && favourable >= 50) {
+      context =
+        "Above most colleagues, but below FocusiQ expectations – the group's overall level may need attention.";
+    }
+  }
+
   return {
-    ...base,
-    percentile: round(percentile, 0),
-    performancePercentile: round(performancePercentile, 0),
-    band: bandFor(performancePercentile, config),
-    differenceFromMedian: value - (benchmark.stats?.median ?? stats.median),
-    zScore: round(z, 2),
-    outlier: outlierFlag(metric, z, config),
+    metricKey: metric.key,
+    value,
+    absolute,
+    percentile,
+    differenceFromMedian,
+    zScore: z,
+    outlier,
+    ...(outlierSuppressed ? { outlierSuppressed } : {}),
+    adjustedAssessment: subjectAssessmentAdjusted,
+    comparison,
+    summary,
+    context,
   };
 }
 
-function outlierFlag(metric: MetricDefinition, z: number, config: BenchmarkConfig): OutlierFlag | null {
-  if (Math.abs(z) < config.outlierZ) return null;
-  const direction = z > 0 ? 'above' : 'below';
-  return {
-    label: 'Significant Outlier',
-    direction,
-    zScore: round(z, 1),
-    description:
-      `${metric.label}: ${round(Math.abs(z), 1)} standard deviations ${direction} ` +
-      'the eligible cohort. Review the context before drawing conclusions.',
-  };
-}
-
-/** §181 – every Significant Outlier inside a benchmark population. */
+/** §181 – every Significant Outlier in a benchmark, each tested against the others (leave-one-out). */
 export function detectOutliers(
   benchmark: BenchmarkResult,
   metric: MetricDefinition,
   configOverrides?: Partial<BenchmarkConfig>,
 ): { employeeId: string; value: number; flag: OutlierFlag }[] {
   const config = resolveConfig(configOverrides);
-  if (!benchmark.available || !benchmark.stats) return [];
-  const { mean: m, standardDeviation: sd } = benchmark.stats;
+  if (!benchmark.available) return [];
   const out: { employeeId: string; value: number; flag: OutlierFlag }[] = [];
   for (const v of benchmark.values) {
-    const flag = outlierFlag(metric, zScore(v.value, m, sd), config);
+    const others = benchmark.values.filter((x) => x.employeeId !== v.employeeId).map((x) => x.value);
+    const { flag } = assessOutlier(metric, v.value, others, config);
     if (flag) out.push({ employeeId: v.employeeId, value: v.value, flag });
   }
   return out;
@@ -266,7 +420,6 @@ export interface DimensionComparisonRow {
   metricLabel: string;
   employeeValue: number | null;
   benchmarkMedian: number | null;
-  benchmarkMean: number | null;
   position: BenchmarkPosition | null;
   benchmark: BenchmarkComputation;
 }
@@ -282,25 +435,33 @@ export function compareEmployeeByDimension(
   return metricKeys.map((key) => {
     const metric = getMetric(data, key);
     const benchmark = computeBenchmark(data, definition, key, options);
-    const raw = subject ? scoreOf(subject, key, benchmark.explanation.normalisation !== 'none') : undefined;
-    const value = raw ?? null;
+    const value =
+      (subject ? scoreOf(subject, key, benchmark.explanation.normalisation !== 'none') : undefined) ?? null;
     return {
       metricKey: key,
       metricLabel: metric.label,
       employeeValue: value,
       benchmarkMedian: benchmark.stats?.median ?? null,
-      benchmarkMean: benchmark.stats?.mean ?? null,
       position:
-        value === null ? null : positionAgainst(benchmark, metric, value, employeeId, options.config),
+        value === null
+          ? null
+          : positionAgainst(
+              benchmark,
+              metric,
+              value,
+              employeeId,
+              options.config,
+              subject ? (data.eligibility.adjustments?.has(subject.id) ?? false) : false,
+            ),
       benchmark,
     };
   });
 }
 
 /**
- * Most recent assessment for an employee. With `ignoreEmployeeExclusion` the
- * person's own (non-invalid) result is still shown even if they are excluded
- * from *population* benchmarks – exclusion never hides someone's own history.
+ * Most recent valid assessment for an employee. With `ignoreEmployeeExclusion`
+ * the person's own result is still shown even if they are excluded from
+ * *population* benchmarks – exclusion never hides someone's own history.
  */
 export function latestEligibleAssessment(
   assessments: readonly Assessment[],
@@ -310,7 +471,7 @@ export function latestEligibleAssessment(
 ): Assessment | undefined {
   return assessments
     .filter((a) => a.employeeId === employeeId && a.complete)
-    .filter((a) => (eligibility.validity?.get(a.id) ?? a.validity) !== 'invalidated')
+    .filter((a) => validityOf(a, eligibility) !== 'invalidated')
     .filter((a) => !eligibility.assessments.has(a.id))
     .filter((a) => ignoreEmployeeExclusion || !eligibility.employees.has(employeeId))
     .sort((x, y) => x.completedAt.localeCompare(y.completedAt))
@@ -326,7 +487,7 @@ export interface ExclusionPreview {
   withoutSelected: BenchmarkComputation;
   medianChange: number | null;
   meanChange: number | null;
-  /** True when excluding the record moves the median by ≥ 1 point or the band cut-offs materially. */
+  /** True when excluding the record moves the median by ≥ 1 point or changes availability. */
   material: boolean;
   summary: string;
 }
@@ -374,30 +535,22 @@ export function previewExclusion(
 }
 
 // ---------------------------------------------------------------------------
-// §193 Employee-facing benchmark (no percentiles, ranks or league tables)
+// §193 Employee-facing result (absolute band only – no percentiles or ranks)
 // ---------------------------------------------------------------------------
 
-export interface EmployeeFacingBenchmark {
+export interface EmployeeFacingResult {
   metricLabel: string;
-  /** e.g. "Within typical range" */
+  band: AbsoluteBand | null;
   message: string | null;
-  band: BenchmarkBand | null;
 }
 
-const EMPLOYEE_BAND_MESSAGES: Record<BenchmarkBand, string> = {
-  'Above Typical Range': 'Above the typical range',
-  'Typical Range': 'Within the typical range',
-  'Development Range': 'A development opportunity compared with the typical range',
+const EMPLOYEE_BAND_MESSAGES: Record<AbsoluteBand, string> = {
+  Strong: 'A strength',
+  'Expected / Typical': 'Within the expected range',
+  'Development Opportunity': 'A development opportunity',
 };
 
-export function employeeFacingBenchmark(
-  metric: MetricDefinition,
-  position: BenchmarkPosition | null,
-): EmployeeFacingBenchmark {
-  const band = position?.band ?? null;
-  return {
-    metricLabel: metric.label,
-    band,
-    message: band ? EMPLOYEE_BAND_MESSAGES[band] : null,
-  };
+export function employeeFacingResult(metric: MetricDefinition, value: number): EmployeeFacingResult {
+  const { band } = absoluteBandFor(metric, value);
+  return { metricLabel: metric.label, band, message: band ? EMPLOYEE_BAND_MESSAGES[band] : null };
 }

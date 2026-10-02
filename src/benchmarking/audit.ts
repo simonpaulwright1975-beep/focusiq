@@ -7,6 +7,7 @@
 import {
   EXCLUSION_REASONS,
   type Actor,
+  type AdjustmentState,
   type AssessmentValidity,
   type EligibilityState,
   type ExclusionReason,
@@ -19,6 +20,8 @@ export type AuditAction =
   | 'assessment_excluded'
   | 'assessment_restored'
   | 'assessment_validity_changed'
+  | 'assessment_adjustment_flagged'
+  | 'assessment_adjustment_reviewed'
   | 'cohort_changed'
   | 'benchmark_recalculated'
   | 'role_changed'
@@ -88,6 +91,7 @@ export class EligibilityLedger {
   private readonly employees = new Map<string, ExclusionState>();
   private readonly assessments = new Map<string, ExclusionState>();
   private readonly validity = new Map<string, AssessmentValidity>();
+  private readonly adjustments = new Map<string, AdjustmentState>();
   private readonly log: AuditEvent[] = [];
   private readonly now: () => Date;
   private readonly newId: () => string;
@@ -138,6 +142,56 @@ export class EligibilityLedger {
     });
   }
 
+  /**
+   * Flag an Adjusted Assessment: the person legitimately received different
+   * conditions. This does NOT exclude the assessment – it marks it for a
+   * comparability decision (pending review until a Director decides).
+   */
+  flagAdjustedAssessment(actor: Actor, assessmentId: string, description: string): void {
+    assertCanAlterInclusion(actor);
+    requireText(description, 'Describe the adjusted conditions.');
+    if (this.adjustments.has(assessmentId)) {
+      throw new BenchmarkValidationError('This assessment is already flagged as adjusted.');
+    }
+    const at = this.now().toISOString();
+    this.adjustments.set(assessmentId, {
+      description,
+      recordedBy: actor.id,
+      recordedAt: at,
+      comparability: 'pending_review',
+    });
+    this.record(actor, 'assessment_adjustment_flagged', 'assessment', assessmentId, description);
+  }
+
+  /** Decide whether an adjusted assessment remains comparable for benchmarking. */
+  reviewAdjustedAssessment(
+    actor: Actor,
+    assessmentId: string,
+    comparability: 'comparable' | 'not_comparable',
+    reason: string,
+  ): void {
+    assertCanAlterInclusion(actor);
+    requireText(reason, 'A reason is required for the comparability decision.');
+    const current = this.adjustments.get(assessmentId);
+    if (!current) throw new BenchmarkValidationError('This assessment is not flagged as adjusted.');
+    const at = this.now().toISOString();
+    this.adjustments.set(assessmentId, {
+      ...current,
+      comparability,
+      decidedBy: actor.id,
+      decidedAt: at,
+      decisionReason: reason,
+    });
+    this.record(actor, 'assessment_adjustment_reviewed', 'assessment', assessmentId, reason, undefined, {
+      from: current.comparability,
+      to: comparability,
+    });
+  }
+
+  adjustmentFor(assessmentId: string): AdjustmentState | undefined {
+    return this.adjustments.get(assessmentId);
+  }
+
   /** Record any other auditable benchmark action (§185). */
   recordEvent(
     actor: Actor,
@@ -168,6 +222,7 @@ export class EligibilityLedger {
       employees: new Map(this.employees),
       assessments: new Map(this.assessments),
       validity: new Map(this.validity),
+      adjustments: new Map(this.adjustments),
     };
   }
 

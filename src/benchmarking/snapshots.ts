@@ -15,19 +15,23 @@ export interface BenchmarkSnapshot {
   createdAt: string;
   populationDefinition: PopulationDefinition;
   assessmentVersions: string[];
+  scoringVersions: string[];
+  engineVersion: string;
   /** Exact employees / assessments used, so the snapshot is reproducible. */
-  members: { employeeId: string; assessmentIds: string[] }[];
-  /** Exclusions in force at the time, by reason. */
-  exclusions: BenchmarkComputation['explanation']['counts'];
+  members: { employeeId: string; assessmentId: string }[];
   metrics: Record<
     string,
     {
       label: string;
       available: boolean;
+      unavailableReason?: string;
       stats: BenchmarkComputation['stats'];
       confidence: BenchmarkComputation['confidence'];
       sampleSizeLabel: string;
-      values: { employeeId: string; value: number }[];
+      /** Eligible / excluded / superseded / adjusted counts at the time. */
+      counts: BenchmarkComputation['explanation']['counts'];
+      calculatedAt: string;
+      values: { employeeId: string; assessmentId: string; value: number; adjusted: boolean }[];
     }
   >;
 }
@@ -40,15 +44,13 @@ export function createSnapshot(
 ): BenchmarkSnapshot {
   if (benchmarks.length === 0) throw new Error('A snapshot needs at least one benchmark.');
   const first = benchmarks[0]!;
-  const members = new Map<string, Set<string>>();
+  const members = new Map<string, string>();
   const versions = new Set<string>();
+  const scoringVersions = new Set<string>();
   for (const b of benchmarks) {
     b.explanation.assessmentVersions.forEach((v) => versions.add(v));
-    for (const v of b.values) {
-      const set = members.get(v.employeeId) ?? new Set<string>();
-      v.assessmentIds.forEach((id) => set.add(id));
-      members.set(v.employeeId, set);
-    }
+    b.explanation.scoringVersions.forEach((v) => scoringVersions.add(v));
+    for (const v of b.values) members.set(v.employeeId, v.assessmentId);
   }
   const snapshot: BenchmarkSnapshot = {
     id: options.id ?? globalThis.crypto.randomUUID(),
@@ -57,18 +59,22 @@ export function createSnapshot(
     createdAt: (options.now ?? new Date()).toISOString(),
     populationDefinition: structuredClone(first.explanation.definition),
     assessmentVersions: [...versions].sort(),
-    members: [...members].map(([employeeId, ids]) => ({ employeeId, assessmentIds: [...ids].sort() })),
-    exclusions: structuredClone(first.explanation.counts),
+    scoringVersions: [...scoringVersions].sort(),
+    engineVersion: first.explanation.engineVersion,
+    members: [...members].map(([employeeId, assessmentId]) => ({ employeeId, assessmentId })),
     metrics: Object.fromEntries(
       benchmarks.map((b) => [
         b.metricKey,
         {
           label: b.metricLabel,
           available: b.available,
+          ...(b.unavailableReason ? { unavailableReason: b.unavailableReason } : {}),
           stats: b.stats ? { ...b.stats } : null,
           confidence: b.confidence,
           sampleSizeLabel: b.sampleSizeLabel,
-          values: b.values.map((v) => ({ employeeId: v.employeeId, value: v.value })),
+          counts: structuredClone(b.explanation.counts),
+          calculatedAt: b.calculatedAt,
+          values: b.values.map((v) => ({ ...v })),
         },
       ]),
     ),
@@ -76,7 +82,7 @@ export function createSnapshot(
   return deepFreeze(snapshot);
 }
 
-function deepFreeze<T>(o: T): T {
+export function deepFreeze<T>(o: T): T {
   if (o && typeof o === 'object') {
     Object.values(o as Record<string, unknown>).forEach(deepFreeze);
     Object.freeze(o);
