@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { compareEmployees, individualHeatmap, revealNames, type EmployeeComparison } from '../../../src/benchmarking/index.js';
 import { Card, bandStyle, fmt } from '../components/ui.js';
-import { CORE_KEYS, metricLabel, useStore } from '../state.js';
+import { CORE_KEYS, expectationBands, metricLabel, useStore } from '../state.js';
 
 const COMPARE_KEYS = ['accuracy', 'avg_response_seconds', 'recheck_rate', ...CORE_KEYS];
 
@@ -26,6 +26,9 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
     [data, filters, showExcluded, sortBy],
   );
 
+  // Heatmap columns are core dimensions, which share one set of expectations.
+  const bands = expectationBands(CORE_KEYS[0]!);
+
   const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const runCompare = () => setComparison(compareEmployees(actor, data, selected, COMPARE_KEYS, { blind, blindSeed: selected.join('|') }));
 
@@ -33,7 +36,7 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
     <div className="stack">
       <Card
         title="Individual heatmap"
-        sub="Cells show the score and its absolute band (FocusiQ expectations, not a ranking). Hover a cell for the colleague percentile."
+        sub="Cells show the score, shaded by FocusiQ expectations as on the charts (not a ranking). Hover a cell for the band and colleague percentile."
         actions={
           <div className="row">
             <label className="row small">
@@ -85,10 +88,14 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
           </table>
         </div>
         <div className="legend">
-          <span><span className="swatch" style={{ background: 'var(--ord-1)' }} />Development Opportunity</span>
-          <span><span className="swatch" style={{ background: 'var(--ord-2)' }} />Expected / Typical</span>
-          <span><span className="swatch" style={{ background: 'var(--ord-3)' }} />Strong</span>
-          <span>Bands use provisional expectations. There is deliberately no overall score or ranking.</span>
+          {bands && (
+            <>
+              <span><span className="swatch" style={{ background: 'var(--zone-develop)', border: '1px solid var(--muted)' }} />Development &lt; {bands.development} (unshaded)</span>
+              <span><span className="swatch" style={{ background: 'var(--zone-expected)', border: '1px solid var(--line)' }} />Expected {bands.development} to under {bands.strong}</span>
+              <span><span className="swatch" style={{ background: 'var(--zone-strong)', border: '1px solid var(--line)' }} />Strong ≥ {bands.strong}</span>
+            </>
+          )}
+          <span>{bands?.note === 'provisional' ? 'Bands use provisional expectations. ' : ''}There is deliberately no overall score or ranking.</span>
         </div>
       </Card>
 

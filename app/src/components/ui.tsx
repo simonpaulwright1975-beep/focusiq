@@ -28,28 +28,29 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
   );
 }
 
+/** Absolute bands use the same pale expectation zones as the charts (Development is unshaded). */
 const BAND_VAR: Record<string, string> = {
-  'Development Opportunity': '--ord-1',
-  'Expected / Typical': '--ord-2',
-  Strong: '--ord-3',
+  'Development Opportunity': '--zone-develop',
+  'Expected / Typical': '--zone-expected',
+  Strong: '--zone-strong',
 };
 
-/** Absolute band: ordinal swatch + text label (never colour alone). */
+/** Absolute band: zone swatch + text label (never colour alone). */
 export function BandChip({ band, status }: { band: string | null; status?: AbsoluteBandResult['status'] }) {
   if (!band) return <span className="muted small">No expectation set</span>;
   return (
     <span className="tag" title={status === 'provisional' ? 'Provisional expectations – not yet validated' : undefined}>
-      <span className="dot" style={{ background: `var(${BAND_VAR[band]})` }} />
+      <span className="dot" style={{ background: `var(${BAND_VAR[band]})`, border: '1px solid var(--muted)' }} />
       {band}
       {status === 'provisional' && <span className="muted">*</span>}
     </span>
   );
 }
 
+/** Heatmap cell shading by absolute band; the score is always printed in the cell. */
 export function bandStyle(band: string | null) {
   if (!band) return {};
-  const v = BAND_VAR[band]!;
-  return { background: `var(${v})`, color: `var(${v}-ink)` };
+  return { background: `var(${BAND_VAR[band]!})`, color: 'var(--ink)' };
 }
 
 const CONF_ICON: Record<Confidence, { fill: string; label: string }> = {
