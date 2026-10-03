@@ -65,19 +65,18 @@ Employee emails come from **Walter Geering** and greet the person by their first
 
 Do this once the Supabase project exists.
 
-1. **Add the sending domain** in Resend. A subdomain such as `mail.waltergeering.co.uk` keeps FocusiQ's sending separate from normal company email.
-   - Choose the **EU (Ireland)** region.
-   - Add the DNS records Resend shows (SPF and DKIM), plus a DMARC record if the domain doesn't have one.
-   - Wait for *Verified*.
-2. **Turn off open and click tracking** for the domain. FocusiQ doesn't track whether people open emails, and click tracking would rewrite the sign-in links.
-3. **Create an API key** with *Sending access* for that domain only.
-4. **Add a webhook** pointing at `https://<project-ref>.supabase.co/functions/v1/resend-webhook`.
+**FocusiQ uses the Walter Geering Hub's Resend account.** The Hub (`wg-hub`) already sends through Resend from the verified domain `wghub.uk`, both for its Supabase Auth emails and its Edge Functions. FocusiQ uses the same account and domain, so there's no new domain and no DNS work.
+
+1. **Sending domain.** Use `wghub.uk`, which is already verified. FocusiQ sends as `Walter Geering <focusiq@wghub.uk>`; any address on a verified domain works.
+2. **Open and click tracking** is a per-domain setting in Resend. Make sure it's off for `wghub.uk`: FocusiQ doesn't track whether people open emails, and click tracking would rewrite the sign-in links. This also applies to the Hub's emails.
+3. **Create a separate API key for FocusiQ** with *Sending access* for `wghub.uk` only. Don't reuse the Hub's key: each app can then be revoked on its own, and Resend shows which app sent what.
+4. **Add a webhook** pointing at `https://<project-ref>.supabase.co/functions/v1/resend-webhook`. Resend webhooks cover the whole account, so this one also receives events for the Hub's emails; FocusiQ ignores message ids it didn't send.
    - Events: `email.delivered`, `email.delivery_delayed`, `email.bounced` and `email.complained`.
    - Copy its signing secret (`whsec_…`).
 5. **Set the secrets and deploy.** Both functions check their own credentials, so JWT checks are off:
    ```
    supabase secrets set RESEND_API_KEY=re_… RESEND_WEBHOOK_SECRET=whsec_… \
-     EMAIL_FROM="Walter Geering <focusiq@mail.waltergeering.co.uk>" \
+     EMAIL_FROM="Walter Geering <focusiq@wghub.uk>" \
      EMPLOYEE_APP_URL=https://…/employee.html DIRECTOR_APP_URL=https://…/ \
      CRON_SECRET=<long random string> \
      EMAIL_REDIRECT_TO=<your own address>   # test mode: remove before go-live
@@ -104,7 +103,8 @@ Do this once the Supabase project exists.
    - Sign Resend's data processing agreement.
    - Confirm the safeguard for the transfer to a US provider under UK GDPR, for example the UK Addendum or the UK Extension to the Data Privacy Framework if Resend is certified.
    - List Resend as a processor in the FocusiQ privacy notice; one of its placeholders covers this.
-   - Check Resend's current plan limits against the number of emails an assessment day sends (about two per person).
+   - Resend may already be covered for the Hub; extend the same paperwork to FocusiQ.
+   - Check the plan's limits. The Hub and FocusiQ share the account's quota, and an assessment day sends about two emails per person.
 
 ## Demo
 

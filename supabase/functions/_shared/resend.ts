@@ -16,7 +16,7 @@ export interface OutgoingEmail {
 
 export interface ResendConfig {
   apiKey: string;
-  /** A verified sender, e.g. "Walter Geering <focusiq@waltergeering.co.uk>". */
+  /** A verified sender, e.g. "Walter Geering <focusiq@wghub.uk>". */
   from: string;
   employeeUrl: string;
   directorUrl: string;

@@ -8,7 +8,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY – provided by Supabase
 //   CRON_SECRET        – shared secret the scheduler sends as a Bearer token
 //   RESEND_API_KEY     – a sending-only Resend API key; without it nothing is sent
-//   EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@waltergeering.co.uk>"
+//   EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@wghub.uk>"
 //   EMPLOYEE_APP_URL   – link in employee emails
 //   DIRECTOR_APP_URL   – link in Director emails
 //   EMAIL_REDIRECT_TO  – optional test mode: every email goes to this address instead
