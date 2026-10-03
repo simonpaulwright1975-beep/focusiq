@@ -80,7 +80,7 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
   .nav .btn { padding: 12px 22px; }
   .card.panel { padding: 18px; }
 }
-.panel .ranking, .panel .review-list, .panel .section-plan { padding-left: 0; }
+.panel .ranking, .panel .review-list, .panel .section-plan, .panel .done-sections { padding-left: 0; }
 .btn.secondary:disabled { background: var(--card); opacity: .4; }
 
 /* ---- Adjustment decision shown to the employee ---- */
