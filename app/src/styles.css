@@ -246,3 +246,17 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 .donut-key .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 .donut-num { font-size: 1.15rem; font-weight: 800; text-align: right; }
 details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+
+/* Landing screen (same layout as the other WG apps, e.g. Lead iQ) */
+.landing { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+.landing-card.card { max-width: 540px; width: 100%; padding: 0; overflow: hidden; }
+.landing-illustration { background: var(--accent-bg); padding: 24px 24px 0; }
+.landing-illustration img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.landing-body { padding: 28px 40px 32px; text-align: center; }
+.landing-logo { margin: 0 0 6px; line-height: 0; }
+.landing-logo img { height: 64px; width: auto; max-width: 100%; }
+.landing-tagline { font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--accent-lt); margin-bottom: 24px; }
+.landing-note { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
+.landing-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: .2em; color: var(--accent-lt); }
+@media (max-width: 480px) { .landing-body { padding: 24px 20px 28px; } .landing-logo img { height: 48px; } }
+.brand-logo { height: 40px; width: auto; display: block; }

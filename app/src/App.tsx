@@ -8,6 +8,7 @@ import { AdjustmentsView, useAdjustmentRequests } from './views/AdjustmentsView.
 import { QuestionsView, useRightsRequests } from './views/QuestionsView.js';
 import { AssessmentDayView } from './views/AssessmentDayView.js';
 import { NotificationsView } from './views/NotificationsView.js';
+import { LOGO_SRC } from './shared/Landing.js';
 
 const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
 type Tab = (typeof TABS)[number];
@@ -37,7 +38,7 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <div className="brand">
-          <h1>FocusiQ</h1>
+          <h1 style={{ margin: 0, lineHeight: 0 }}><img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" /></h1>
           <span className="lbl">Director dashboard · Walter Geering</span>
         </div>
         <nav className="tabs" role="tablist" aria-label="Dashboard sections">

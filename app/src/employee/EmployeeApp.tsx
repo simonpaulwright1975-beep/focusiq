@@ -28,6 +28,7 @@ import { MySummary } from './MySummary.js';
 import { resetReleases } from '../shared/summaryStore.js';
 import { ACK_KEY, RUN_KEY, readJson, writeJson } from '../shared/participationStore.js';
 import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
+import { LOGO_SRC } from '../shared/Landing.js';
 
 type RunOptions = ReturnType<typeof newDemoAssessment>;
 
@@ -319,7 +320,7 @@ export function EmployeeApp() {
   return (
     <div className="emp-shell">
       <header className="emp-top">
-        <span className="brand-name">FocusiQ</span>
+        <img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" />
         <span className="lbl">Walter Geering</span>
         <span className="who">
           Signed in as {ME.fullName} (demo) ·{' '}
