@@ -60,7 +60,15 @@ export interface Notification {
   note: string | null;
   /** e.g. the booking a day email was about, to tell whether it changed. */
   context?: Record<string, string>;
+  /** From Resend's delivery webhooks, once sent. */
+  deliveryStatus?: DeliveryStatus;
 }
+
+/** Delivery reported by Resend. "complained" means the recipient marked it as spam. */
+export type DeliveryStatus = 'delivered' | 'delayed' | 'bounced' | 'complained';
+
+/** Not received: failed after retries, or bounced. */
+export const undelivered = (n: Notification) => n.status === 'failed' || n.deliveryStatus === 'bounced';
 
 /** The token replaced with the employee or Director app address at send time. */
 export const LINK_TOKEN = '{{link}}';
@@ -158,6 +166,8 @@ export interface DigestCounts {
   dueSoonRequests: number;
   /** The next assessment day within 3 days, if any. */
   upcomingDay: { date: string; notReady: number } | null;
+  /** Emails that failed after retries or bounced in the last 7 days. */
+  undeliveredEmails: number;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -171,6 +181,7 @@ export function digestLines(c: DigestCounts): string[] {
   if (c.upcomingDay && c.upcomingDay.notReady > 0) {
     lines.push(`Assessment day on ${dayDate(c.upcomingDay.date)}: ${plural(c.upcomingDay.notReady, 'person', 'people')} not ready yet`);
   }
+  if (c.undeliveredEmails) lines.push(`${plural(c.undeliveredEmails, 'email', 'emails')} not delivered in the last 7 days`);
   return lines;
 }
 

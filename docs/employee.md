@@ -230,4 +230,4 @@ A Director reviews and releases each employee's summary. Until then, the employe
 ## 6. Still to build
 
 - **Acknowledgement overview:** now covered by the Director's *Assessment day* tab (see `docs/dashboard.md`), which lists who still needs to acknowledge the current notice.
-- **Notifications:** built. See `docs/notifications.md`. Sending still needs an email provider to be chosen.
+- **Notifications:** built. See `docs/notifications.md`. Emails are sent through Resend once the Supabase project is set up.

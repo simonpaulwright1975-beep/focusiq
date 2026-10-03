@@ -25,7 +25,9 @@ import {
   type Notification,
 } from '../src/participation/index.js';
 
-const SQL = readFileSync(new URL('../supabase/migrations/20261002090900_focusiq_notifications.sql', import.meta.url), 'utf8');
+const SQL = ['20261002090900_focusiq_notifications.sql', '20261002091000_focusiq_resend_delivery.sql']
+  .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
+  .join('\n');
 const NOW = new Date('2026-10-03T09:00:00Z');
 const booking = { date: '2026-10-05', start: '09:30', end: '10:15', room: 'Boardroom', minutes: 29, acknowledged: true };
 
@@ -56,14 +58,15 @@ suite('notification emails', () => {
   });
 
   it('the Director summary lists counts only, and is not sent when there is nothing to do', () => {
-    expect(directorDigest({ pendingAdjustments: 0, overdueRequests: 0, dueSoonRequests: 0, upcomingDay: null })).toBeNull();
-    expect(digestLines({ pendingAdjustments: 1, overdueRequests: 2, dueSoonRequests: 1, upcomingDay: { date: '2026-10-05', notReady: 1 } })).toEqual([
+    expect(directorDigest({ pendingAdjustments: 0, overdueRequests: 0, dueSoonRequests: 0, upcomingDay: null, undeliveredEmails: 0 })).toBeNull();
+    expect(digestLines({ pendingAdjustments: 1, overdueRequests: 2, dueSoonRequests: 1, upcomingDay: { date: '2026-10-05', notReady: 1 }, undeliveredEmails: 3 })).toEqual([
       '1 adjustment request awaiting a decision',
       '2 questions or requests overdue',
       '1 question or request due within 7 days',
       'Assessment day on Monday 5 October 2026: 1 person not ready yet',
+      '3 emails not delivered in the last 7 days',
     ]);
-    const d = directorDigest({ pendingAdjustments: 2, overdueRequests: 0, dueSoonRequests: 0, upcomingDay: { date: '2026-10-05', notReady: 0 } })!;
+    const d = directorDigest({ pendingAdjustments: 2, overdueRequests: 0, dueSoonRequests: 0, upcomingDay: { date: '2026-10-05', notReady: 0 }, undeliveredEmails: 0 })!;
     expect(d.subject).toBe('FocusiQ: 1 thing needs your attention');
     expect(d.text).toMatch(/^Hello,\n\nToday in FocusiQ:\n\n- 2 adjustment requests awaiting a decision\n\nSign in/);
   });
@@ -75,7 +78,7 @@ suite('notification emails', () => {
     }
     for (const line of [EMAIL_FOOTER, DAY_ACKNOWLEDGE_LINE, DAY_CHANGES_LINE, 'Your FocusiQ assessment is booked:', 'Your FocusiQ assessment time has changed. Your new booking is:',
       'A computer will be ready for you. There is nothing to prepare.', 'Today in FocusiQ:', 'Sign in to the FocusiQ dashboard to deal with them:',
-      ' awaiting a decision', ' overdue', ' due within 7 days', ' not ready yet', ' minutes, including time to settle in']) {
+      ' awaiting a decision', ' overdue', ' due within 7 days', ' not ready yet', ' minutes, including time to settle in', ' not delivered in the last 7 days']) {
       expect(SQL).toContain(line);
     }
     expect(SQL).toContain("to_char(d, 'FMDay FMDD FMMonth YYYY')");

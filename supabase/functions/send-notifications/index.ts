@@ -1,67 +1,56 @@
-// FocusiQ: send queued notification emails.
+// FocusiQ: send queued notification emails through Resend.
 //
-// Run every minute by pg_cron (see docs/notifications.md). Claims pending
-// emails from notification_outbox, sends each one and records the result.
-// Failures are retried with back-off by complete_notification().
+// Run every minute by pg_cron (see docs/notifications.md). Claims waiting
+// emails from notification_outbox, sends each through Resend within its rate
+// limit and records the result with complete_notification().
 //
-// Environment:
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   – provided by Supabase
-//   CRON_SECRET          – shared secret the scheduler sends as a Bearer token
-//   EMAIL_PROVIDER       – "resend" to send; anything else (default "log") sends nothing
-//   RESEND_API_KEY       – when EMAIL_PROVIDER=resend
-//   EMAIL_FROM           – e.g. "Walter Geering <focusiq@waltergeering.co.uk>"
-//   EMPLOYEE_APP_URL     – link in employee emails, e.g. https://focusiq.waltergeering.co.uk/employee.html
-//   DIRECTOR_APP_URL     – link in Director emails, e.g. https://focusiq.waltergeering.co.uk/
+// Secrets:
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY – provided by Supabase
+//   CRON_SECRET        – shared secret the scheduler sends as a Bearer token
+//   RESEND_API_KEY     – a sending-only Resend API key; without it nothing is sent
+//   EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@waltergeering.co.uk>"
+//   EMPLOYEE_APP_URL   – link in employee emails
+//   DIRECTOR_APP_URL   – link in Director emails
+//   EMAIL_REDIRECT_TO  – optional test mode: every email goes to this address instead
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { sendBatch, type OutgoingEmail, type SendOutcome } from '../_shared/resend.ts';
 
-interface Claimed {
-  id: string;
-  kind: string;
-  audience: 'employee' | 'director';
-  email: string;
-  subject: string;
-  body: string;
-}
-
-const env = (k: string, fallback = '') => Deno.env.get(k) ?? fallback;
-
-async function sendWithResend(to: string, subject: string, text: string): Promise<void> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env('EMAIL_FROM'), to: [to], subject, text }),
-  });
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 300)}`);
-}
+const env = (k: string) => Deno.env.get(k) ?? '';
 
 Deno.serve(async (req) => {
-  if (req.headers.get('Authorization') !== `Bearer ${env('CRON_SECRET')}` || !env('CRON_SECRET')) {
+  if (!env('CRON_SECRET') || req.headers.get('Authorization') !== `Bearer ${env('CRON_SECRET')}`) {
     return new Response('Unauthorised', { status: 401 });
   }
   const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
-  const provider = env('EMAIL_PROVIDER', 'log');
-
   await db.rpc('release_stuck_notifications');
-  if (provider !== 'resend') {
-    // Not configured: leave emails queued (Directors can see them in the dashboard).
-    return Response.json({ provider, sent: 0, note: 'Email sending is not configured; nothing was sent.' });
+
+  if (!env('RESEND_API_KEY') || !env('EMAIL_FROM')) {
+    // Not configured: emails stay queued (Directors can see them on the Notifications tab).
+    return Response.json({ sent: 0, note: 'Resend is not configured; nothing was sent.' });
   }
 
   const { data, error } = await db.rpc('claim_notifications', { p_limit: 50 });
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  let sent = 0;
-  for (const n of (data ?? []) as Claimed[]) {
-    const link = n.audience === 'director' ? env('DIRECTOR_APP_URL') : env('EMPLOYEE_APP_URL');
-    try {
-      await sendWithResend(n.email, n.subject, n.body.replaceAll('{{link}}', link));
-      await db.rpc('complete_notification', { p_id: n.id, p_ok: true });
-      sent++;
-    } catch (e) {
-      // Never log addresses or content; the id is enough to investigate.
-      console.error(`notification ${n.id} failed: ${(e as Error).message}`);
-      await db.rpc('complete_notification', { p_id: n.id, p_ok: false, p_error: (e as Error).message });
-    }
-  }
-  return Response.json({ provider, sent, claimed: data?.length ?? 0 });
+  const record = async (id: string, r: SendOutcome) => {
+    const { error: e } = await db.rpc('complete_notification', {
+      p_id: id,
+      p_outcome: r.outcome,
+      p_detail: r.outcome === 'sent' ? null : r.detail,
+      p_message_id: r.outcome === 'sent' ? r.messageId || null : null,
+      p_retry_after_seconds: r.outcome === 'requeue' ? r.retryAfterSeconds : null,
+    });
+    // Never log addresses or content; the id is enough to investigate.
+    if (r.outcome !== 'sent') console.error(`notification ${id}: ${r.outcome} – ${r.detail}`);
+    if (e) console.error(`notification ${id}: could not record result – ${e.message}`);
+  };
+
+  const totals = await sendBatch((data ?? []) as OutgoingEmail[], {
+    apiKey: env('RESEND_API_KEY'),
+    from: env('EMAIL_FROM'),
+    employeeUrl: env('EMPLOYEE_APP_URL'),
+    directorUrl: env('DIRECTOR_APP_URL'),
+    redirectTo: env('EMAIL_REDIRECT_TO') || undefined,
+  }, record);
+  return Response.json({ claimed: data?.length ?? 0, ...totals, testMode: !!env('EMAIL_REDIRECT_TO') });
 });

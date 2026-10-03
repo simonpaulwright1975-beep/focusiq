@@ -10,6 +10,7 @@ import {
   markSent,
   queueNotification,
   type DayBooking,
+  type DeliveryStatus,
   type EmployeeNotificationKind,
   type Notification,
   type QueueInput,
@@ -63,6 +64,11 @@ export function cancel(coalesceKey: string, note: string) {
 export function markAllSent() {
   const all = listOutbox();
   save(markSent(all, all.filter((n) => n.status === 'pending').map((n) => n.id), new Date()));
+}
+
+/** Demo stand-in for Resend's delivery webhooks. */
+export function setDelivery(id: string, status: DeliveryStatus) {
+  save(listOutbox().map((n) => (n.id === id && n.status === 'sent' ? { ...n, deliveryStatus: status } : n)));
 }
 
 export function resetOutbox() {

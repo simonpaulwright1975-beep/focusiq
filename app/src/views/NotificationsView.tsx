@@ -9,6 +9,8 @@ import {
   directorDigest,
   dueState,
   employeeEmail,
+  undelivered,
+  type DeliveryStatus,
   type DigestCounts,
   type EmployeeNotificationKind,
   type Notification,
@@ -16,7 +18,7 @@ import {
 } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
-import { markAllSent, queue } from '../demo/outboxStore.js';
+import { markAllSent, queue, setDelivery } from '../demo/outboxStore.js';
 import { readJson, writeJson } from '../shared/participationStore.js';
 import { useStore } from '../state.js';
 import { currentDaySettings, localDate, useNow, useOutbox, useReadiness } from './dayData.js';
@@ -30,6 +32,13 @@ const STATUS: Record<NotificationStatus, { cls: string; label: string }> = {
   cancelled: { cls: 'tag', label: '✕ Cancelled' },
   skipped: { cls: 'tag', label: '– Not sent' },
   failed: { cls: 'tag tag-red', label: '⚠ Failed' },
+};
+
+const DELIVERY: Record<DeliveryStatus, { cls: string; label: string }> = {
+  delivered: { cls: 'tag tag-green', label: '✓ Delivered' },
+  delayed: { cls: 'tag tag-amber', label: '● Delivery delayed' },
+  bounced: { cls: 'tag tag-red', label: '⚠ Bounced' },
+  complained: { cls: 'tag tag-red', label: '⚠ Marked as spam' },
 };
 
 type Filter = 'all' | 'pending' | 'sent' | 'not_sent';
@@ -56,7 +65,8 @@ export function NotificationsView() {
   const settings = useMemo(currentDaySettings, []);
   const { people, adjustments, rightsRequests } = useReadiness(settings, now);
   const [filter, setFilter] = useState<Filter>('all');
-  const [preview, setPreview] = useState<{ subject: string; text: string; to?: string } | null>(null);
+  const [preview, setPreview] = useState<{ subject: string; text: string; to?: string; id?: string } | null>(null);
+  const previewed = preview?.id ? outbox.find((n) => n.id === preview.id) : undefined;
   const [digestOn, setDigestOn] = useState(() => readJson<boolean>(DIGEST_PREF_KEY) ?? true);
 
   const today = localDate(now);
@@ -66,6 +76,7 @@ export function NotificationsView() {
     overdueRequests: rightsRequests.filter((r) => dueState(r, now).state === 'overdue').length,
     dueSoonRequests: rightsRequests.filter((r) => dueState(r, now).state === 'due_soon').length,
     upcomingDay: daysToDay >= 0 && daysToDay <= 3 ? { date: settings.date, notReady: people.filter((p) => !p.ready).length } : null,
+    undeliveredEmails: outbox.filter((n) => undelivered(n) && now.getTime() - Date.parse(n.sentAt ?? n.createdAt) < 7 * 86_400_000).length,
   };
   const digest = directorDigest(counts);
   const digestKey = coalesceKeys.digest(actor.id, today);
@@ -76,7 +87,7 @@ export function NotificationsView() {
       filter === 'all' ||
       (filter === 'pending' && n.status === 'pending') ||
       (filter === 'sent' && n.status === 'sent') ||
-      (filter === 'not_sent' && ['cancelled', 'skipped', 'failed'].includes(n.status)),
+      (filter === 'not_sent' && (['cancelled', 'skipped', 'failed'].includes(n.status) || undelivered(n))),
   );
   const waiting = outbox.filter((n) => n.status === 'pending').length;
 
@@ -87,9 +98,10 @@ export function NotificationsView() {
         sub="FocusiQ emails people when something needs their attention. Emails never include request text, replies, adjustments, summaries or anyone else’s name: they ask people to sign in."
       >
         <div className="row">
-          <span className="tag tag-amber">● Email sending not set up yet</span>
+          <span className="tag tag-amber">● Resend not connected yet</span>
           <span className="small secondary">
-            Emails wait here until an email service is connected (see docs/notifications.md). Demo: “Mark as sent” stands in for sending.
+            Emails are sent through Resend once the FocusiQ Supabase project is set up (see docs/notifications.md). Until then they wait here, and
+            Resend reports back whether each one was delivered. Demo: “Mark as sent” stands in for sending.
           </span>
         </div>
       </Card>
@@ -187,9 +199,10 @@ export function NotificationsView() {
                     <td>
                       <span className={STATUS[n.status].cls}>{STATUS[n.status].label}</span>
                       {n.sentAt && <div className="small muted">{dateTime(n.sentAt)}</div>}
+                      {n.deliveryStatus && <div style={{ marginTop: 4 }}><span className={DELIVERY[n.deliveryStatus].cls}>{DELIVERY[n.deliveryStatus].label}</span></div>}
                       {n.note && <div className="small muted">{n.note}</div>}
                     </td>
-                    <td><button className="btn link" onClick={() => setPreview({ subject: n.subject, text: n.text, to: n.recipientName })}>Preview</button></td>
+                    <td><button className="btn link" onClick={() => setPreview({ subject: n.subject, text: n.text, to: n.recipientName, id: n.id })}>Preview</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -203,7 +216,14 @@ export function NotificationsView() {
 
       {preview && (
         <Modal title="Email preview" onClose={() => setPreview(null)}>
-          <EmailPreview {...preview} />
+          <EmailPreview subject={preview.subject} text={preview.text} to={preview.to} />
+          {previewed?.status === 'sent' && (
+            <div className="row small" style={{ marginTop: 12 }}>
+              <span className="muted">Demo, as if Resend reported:</span>
+              <button className="btn link" onClick={() => setDelivery(previewed.id, 'delivered')}>Delivered</button>
+              <button className="btn link" onClick={() => setDelivery(previewed.id, 'bounced')}>Bounced</button>
+            </div>
+          )}
           <div className="actions"><button className="btn" onClick={() => setPreview(null)}>Close</button></div>
         </Modal>
       )}
