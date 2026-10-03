@@ -24,8 +24,31 @@ export interface ExpectationBands {
   note?: string;
 }
 
-const bandName = (b: ExpectationBands, v: number) =>
+export const bandName = (b: ExpectationBands, v: number) =>
   v >= b.strong ? 'Strong' : v < b.development ? 'Development opportunity' : 'Expected';
+
+/** The expectation zones that fall inside [min, max]: pale shading, always named in text. */
+function expectationZones(bands: ExpectationBands | undefined, min: number, max: number) {
+  if (!bands) return [];
+  return [
+    { key: 'develop', from: min, to: bands.development, label: 'Development', legend: `Development < ${bands.development}`, fill: 'var(--zone-develop)' },
+    { key: 'expected', from: bands.development, to: bands.strong, label: 'Expected', legend: `Expected ${bands.development} to under ${bands.strong}`, fill: 'var(--zone-expected)' },
+    { key: 'strong', from: bands.strong, to: max, label: 'Strong', legend: `Strong ≥ ${bands.strong}`, fill: 'var(--zone-strong)' },
+  ]
+    .map((z) => ({ ...z, from: Math.max(min, z.from), to: Math.min(max, z.to) }))
+    .filter((z) => z.to > z.from);
+}
+
+function ZoneLegend({ bands, zones }: { bands?: ExpectationBands; zones: ReturnType<typeof expectationZones> }) {
+  return (
+    <>
+      {zones.map((z) => (
+        <span key={z.key}><span className="swatch" style={{ background: z.fill, border: '1px solid var(--line)' }} />{z.legend}</span>
+      ))}
+      {bands?.note && <span className="muted">Expectations: {bands.note}</span>}
+    </>
+  );
+}
 
 /**
  * Dumbbell: series dot (filled) vs context ring (hollow) per dimension, e.g. a
@@ -55,13 +78,7 @@ export function Dumbbell({
   const min = Math.max(0, Math.floor((Math.min(...vals, bands ? bands.development - 5 : 60) - 5) / 5) * 5);
   const max = Math.min(100, Math.ceil((Math.max(...vals, bands ? bands.strong + 5 : 80) + 5) / 5) * 5);
   const x = (v: number) => left + ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * (W - left - right);
-  const zones = bands
-    ? [
-        { key: 'develop', from: min, to: bands.development, label: 'Development', legend: `Development < ${bands.development}`, fill: 'var(--zone-develop)' },
-        { key: 'expected', from: bands.development, to: bands.strong, label: 'Expected', legend: `Expected ${bands.development} to under ${bands.strong}`, fill: 'var(--zone-expected)' },
-        { key: 'strong', from: bands.strong, to: max, label: 'Strong', legend: `Strong ≥ ${bands.strong}`, fill: 'var(--zone-strong)' },
-      ].filter((z) => z.to > z.from)
-    : [];
+  const zones = expectationZones(bands, min, max);
   const withBand = (v: number | null) => (v == null ? 'unavailable' : bands ? `${v} (${bandName(bands, v)})` : v);
   return (
     <div>
@@ -109,10 +126,7 @@ export function Dumbbell({
         {rows.some((r) => r.context != null) && (
           <span><span className="swatch" style={{ border: `2px solid ${bands ? 'var(--ink-soft)' : 'var(--text-muted)'}`, borderRadius: '50%' }} />{contextLabel}</span>
         )}
-        {zones.map((z) => (
-          <span key={z.key}><span className="swatch" style={{ background: z.fill, border: '1px solid var(--line)' }} />{z.legend}</span>
-        ))}
-        {bands?.note && <span className="muted">Expectations: {bands.note}</span>}
+        <ZoneLegend bands={bands} zones={zones} />
       </div>
       {tip.node}
     </div>
@@ -224,8 +238,8 @@ export function Scatter({
   );
 }
 
-/** Single-series trend with crosshair tooltip and endpoint label. */
-export function Trend({ points, label }: { points: { date: string; value: number }[]; label: string }) {
+/** Single-series trend with crosshair tooltip and endpoint label; optionally shaded by expectation zones. */
+export function Trend({ points, label, bands }: { points: { date: string; value: number }[]; label: string; bands?: ExpectationBands }) {
   const tip = useTooltip();
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -233,8 +247,10 @@ export function Trend({ points, label }: { points: { date: string; value: number
   const pad = { l: 36, r: 40, t: 14, b: 28 };
   if (points.length === 0) return <p className="empty">No valid assessments for this measure.</p>;
   const vals = points.map((p) => p.value);
-  const yMin = Math.floor((Math.min(...vals) - 8) / 5) * 5;
-  const yMax = Math.ceil((Math.max(...vals) + 8) / 5) * 5;
+  // With bands, keep the zone boundaries in view (as in the Dumbbell).
+  const yMin = Math.max(bands ? 0 : -Infinity, Math.floor((Math.min(...vals, ...(bands ? [bands.development - 5] : [])) - 8) / 5) * 5);
+  const yMax = Math.min(bands ? 100 : Infinity, Math.ceil((Math.max(...vals, ...(bands ? [bands.strong + 5] : [])) + 8) / 5) * 5);
+  const zones = expectationZones(bands, yMin, yMax);
   const t0 = Date.parse(points[0]!.date);
   const t1 = Math.max(Date.parse(points.at(-1)!.date), t0 + 1);
   const sx = (d: string) => (points.length === 1 ? (pad.l + W - pad.r) / 2 : pad.l + ((Date.parse(d) - t0) / (t1 - t0)) * (W - pad.l - pad.r));
@@ -248,11 +264,22 @@ export function Trend({ points, label }: { points: { date: string; value: number
     points.forEach((p, i) => { if (Math.abs(sx(p.date) - mx) < Math.abs(sx(points[best]!.date) - mx)) best = i; });
     setActive(best);
     const p = points[best]!;
-    tip.show(e.clientX, e.clientY, <><strong>{new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong><br />{label}: {p.value}</>);
+    tip.show(e.clientX, e.clientY, <><strong>{new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong><br />{label}: {p.value}{bands ? ` (${bandName(bands, p.value)})` : ''}</>);
   };
   return (
     <div>
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${label} over time`} onMouseMove={onMove} onMouseLeave={() => { setActive(null); tip.hide(); }}>
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${label} over time${bands ? ', shaded by FocusiQ expectations' : ''}`} onMouseMove={onMove} onMouseLeave={() => { setActive(null); tip.hide(); }}>
+        {zones.map((z) => (
+          <g key={z.key}>
+            <rect x={pad.l} y={sy(z.to)} width={W - pad.l - pad.r} height={sy(z.from) - sy(z.to)} fill={z.fill} />
+            {sy(z.from) - sy(z.to) >= 16 && (
+              <text x={pad.l + 6} y={sy(z.to) + 13} fontSize="11" fontWeight="700" fill="var(--text-secondary)">{z.label}</text>
+            )}
+          </g>
+        ))}
+        {bands && [bands.development, bands.strong].filter((v) => v > yMin && v < yMax).map((v) => (
+          <line key={`b${v}`} x1={pad.l} x2={W - pad.r} y1={sy(v)} y2={sy(v)} stroke="var(--text-muted)" strokeDasharray="3 3" />
+        ))}
         {ticks(yMin, yMax, 4).map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={sy(t)} y2={sy(t)} stroke="var(--grid)" />
@@ -271,6 +298,7 @@ export function Trend({ points, label }: { points: { date: string; value: number
         ))}
         <text x={sx(last.date) + 8} y={sy(last.value) + 4} fontSize="12" fill="var(--text-primary)">{last.value}</text>
       </svg>
+      {zones.length > 0 && <div className="legend"><ZoneLegend bands={bands} zones={zones} /></div>}
       {tip.node}
     </div>
   );

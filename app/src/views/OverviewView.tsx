@@ -11,7 +11,7 @@ import { MOTIVATORS, organisationInsights } from '../../../src/insight/index.js'
 import { BarList, Dumbbell, Scatter } from '../components/charts.js';
 import { Card, ConfidenceBadge, Explanation, Stat, fmt } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
-import { baseDefinition, CORE_KEYS, definitionFor, metricLabel, metricOf, useStore } from '../state.js';
+import { baseDefinition, CORE_KEYS, definitionFor, expectationBands, metricLabel, useStore } from '../state.js';
 
 const SEQ = ['--seq-100', '--seq-200', '--seq-300', '--seq-400', '--seq-500', '--seq-600'];
 
@@ -90,10 +90,7 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
   const personScores = person ? population.byEmployee.get(person.id)!.scores : null;
 
   // FocusiQ expectations (the same thresholds for every core dimension).
-  const expectations = metricOf(CORE_KEYS[0]!).absoluteBands;
-  const bands = expectations
-    ? { development: expectations.development, strong: expectations.strong, note: expectations.validated ? undefined : 'provisional' }
-    : undefined;
+  const bands = expectationBands(CORE_KEYS[0]!);
 
   const scopeMedian = (k: string) => {
     const st = benchmarks.get(k)!.scope.stats;

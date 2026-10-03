@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
-import { Trend } from '../components/charts.js';
+import { Dumbbell, Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
 import { BandChip, Card, ConfidenceBadge, Explanation, fmt, ordinal } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
-import { CORE_KEYS, definitionFor, metricLabel, useStore } from '../state.js';
+import { CORE_KEYS, definitionFor, expectationBands, metricLabel, useStore } from '../state.js';
 
 const DETAIL_KEYS = [...CORE_KEYS, 'decision_efficiency', 'accuracy', 'recheck_rate', 'avg_response_seconds', 'commercial_awareness', 'customer_judgement'];
 const TREND_KEYS = ['decision_efficiency', 'accuracy', 'recheck_rate', ...CORE_KEYS];
@@ -28,6 +28,16 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
   const exclusion = data.eligibility.employees.get(employeeId);
   const tenure = tenureBandFor(employee, now);
 
+  // Core dimensions: this person against the department median, shaded by FocusiQ expectations.
+  const dimensionRows = rows
+    .filter((r) => CORE_KEYS.includes(r.metricKey))
+    .map((r) => ({
+      label: r.metricLabel,
+      value: r.employeeValue == null ? null : Math.round(r.employeeValue),
+      context: r.benchmark.available && r.benchmarkMedian != null ? Math.round(r.benchmarkMedian) : null,
+      note: r.benchmark.available ? undefined : `${employee.department} median unavailable: ${r.benchmark.unavailableReason ?? 'too few colleagues'}`,
+    }));
+
   return (
     <div className="stack">
       <div className="card">
@@ -47,47 +57,26 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
       </div>
 
       <div className="grid cols-3-1">
-        <Card
-          title="Results against expectations and colleagues"
-          sub={`Absolute band = is the behaviour effective? Percentile = how unusual compared with ${employee.department} colleagues (the employee is not in their own comparison group).`}
-        >
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Measure</th><th className="num">Score</th><th>Absolute band</th><th className="num">{employee.department} percentile</th><th>Comparison</th><th>Notes</th></tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const p = r.position!;
-                  return (
-                    <tr key={r.metricKey}>
-                      <td>{r.metricLabel}</td>
-                      <td className="num">{fmt(r.employeeValue)}</td>
-                      <td><BandChip band={p.absolute.band} status={p.absolute.status} /></td>
-                      <td className="num">{p.percentile != null ? ordinal(p.percentile) : '—'}</td>
-                      <td className="small">
-                        {p.comparison.comparisonPopulationSize} colleagues <ConfidenceBadge confidence={p.comparison.confidence} />
-                      </td>
-                      <td className="small secondary">
-                        {p.outlier && <div><strong>Significant Outlier</strong> – statistically unusual ({p.outlier.direction} the group, {p.outlier.method.toUpperCase()}). Not a judgement of performance.</div>}
-                        {p.context && <div>{p.context}</div>}
-                        {p.percentile == null && <div>{r.benchmark.unavailableReason ?? 'Too few colleagues for a percentile.'}</div>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="small muted">* Provisional expectations – not yet validated.</p>
-          {rows[0] && <Explanation benchmark={rows[0].benchmark} />}
-        </Card>
-
+        {dimensionRows.length > 0 ? (
+          <Card
+            title="Dimensions against expectations"
+            sub={`${employee.displayName} vs ${employee.department} median · shaded by FocusiQ expectations · bands in words in the table below`}
+          >
+            <Dumbbell
+              rows={dimensionRows}
+              seriesLabel={employee.displayName}
+              contextLabel={`${employee.department} median`}
+              bands={expectationBands(CORE_KEYS[0]!)}
+            />
+          </Card>
+        ) : (
+          <Card title="Dimensions against expectations"><p className="empty">No core dimension results for this employee.</p></Card>
+        )}
         <Card title="ME vs ME" sub="Every valid assessment – earlier results stay in the trend even though benchmarks use only the latest">
           <select value={trendKey} onChange={(e) => setTrendKey(e.target.value)} aria-label="Trend measure">
             {TREND_KEYS.map((k) => <option key={k} value={k}>{metricLabel(k)}</option>)}
           </select>
-          <Trend points={trend.series.map((s) => ({ date: s.completedAt, value: s.value }))} label={trend.metricLabel} />
+          <Trend points={trend.series.map((s) => ({ date: s.completedAt, value: s.value }))} label={trend.metricLabel} bands={expectationBands(trendKey)} />
           {trend.change != null ? (
             <p className="small">
               Previous {fmt(trend.previous)} → current {fmt(trend.current)} ({trend.changeLabel}) –{' '}
@@ -99,6 +88,42 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
           )}
         </Card>
       </div>
+
+      <Card
+        title="Results against expectations and colleagues"
+        sub={`Absolute band = is the behaviour effective? Percentile = how unusual compared with ${employee.department} colleagues (the employee is not in their own comparison group).`}
+      >
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Measure</th><th className="num">Score</th><th>Absolute band</th><th className="num">{employee.department} percentile</th><th>Comparison</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const p = r.position!;
+                return (
+                  <tr key={r.metricKey}>
+                    <td>{r.metricLabel}</td>
+                    <td className="num">{fmt(r.employeeValue)}</td>
+                    <td><BandChip band={p.absolute.band} status={p.absolute.status} /></td>
+                    <td className="num">{p.percentile != null ? ordinal(p.percentile) : '—'}</td>
+                    <td className="small">
+                      {p.comparison.comparisonPopulationSize} colleagues <ConfidenceBadge confidence={p.comparison.confidence} />
+                    </td>
+                    <td className="small secondary">
+                      {p.outlier && <div><strong>Significant Outlier</strong> – statistically unusual ({p.outlier.direction} the group, {p.outlier.method.toUpperCase()}). Not a judgement of performance.</div>}
+                      {p.context && <div>{p.context}</div>}
+                      {p.percentile == null && <div>{r.benchmark.unavailableReason ?? 'Too few colleagues for a percentile.'}</div>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="small muted">* Provisional expectations – not yet validated.</p>
+        {rows[0] && <Explanation benchmark={rows[0].benchmark} />}
+      </Card>
 
       {!insight ? (
         <Card title="Insight report"><p className="empty">No exercise evidence is available for this employee.</p></Card>
