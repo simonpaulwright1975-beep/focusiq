@@ -78,16 +78,18 @@ FocusiQ uses the Hub's Resend account and its verified domain `wghub.uk`, so the
 4. **Project Settings → Data API → Exposed schemas:** add `focusiq` and save.
 5. **Edge Functions → Secrets:** add these. Each one is a name and a value.
 
+   Leave the existing `RESEND_API_KEY` alone: it belongs to the Hub's functions. Secrets are shared by every function in WG Main, so FocusiQ's all start with `FOCUSIQ_`.
+
    | Name | Value |
    |---|---|
-   | `RESEND_API_KEY` | the `re_…` key from step 2 |
-   | `RESEND_WEBHOOK_SECRET` | the `whsec_…` secret from step 3 |
-   | `EMAIL_FROM` | `Walter Geering <focusiq@wghub.uk>` |
-   | `EMPLOYEE_APP_URL` | FocusiQ's web address followed by `/employee.html` |
-   | `DIRECTOR_APP_URL` | FocusiQ's web address |
-   | `EMAIL_REDIRECT_TO` | your own email address (test mode, see below) |
+   | `FOCUSIQ_RESEND_API_KEY` | the `re_…` key from step 2 |
+   | `FOCUSIQ_RESEND_WEBHOOK_SECRET` | the `whsec_…` secret from step 3 |
+   | `FOCUSIQ_EMAIL_FROM` | `Walter Geering <focusiq@wghub.uk>` |
+   | `FOCUSIQ_EMPLOYEE_APP_URL` | FocusiQ's web address followed by `/employee.html` |
+   | `FOCUSIQ_DIRECTOR_APP_URL` | FocusiQ's web address |
+   | `FOCUSIQ_EMAIL_REDIRECT_TO` | your own email address (test mode, see below) |
 
-   **Test mode:** while `EMAIL_REDIRECT_TO` is set, every email goes to you instead of staff, with the intended recipient shown in the subject. Delete that secret when you're ready to go live.
+   **Test mode:** while `FOCUSIQ_EMAIL_REDIRECT_TO` is set, every email goes to you instead of staff, with the intended recipient shown in the subject. Delete that secret when you're ready to go live.
 
 6. **Deploy the two email functions and schedule them.** Claude can do this through the Supabase tools. To do it by hand:
    ```
@@ -119,7 +121,7 @@ FocusiQ uses the Hub's Resend account and its verified domain `wghub.uk`, so the
 **Things to know:**
 - Employee email addresses come from their WG login. Someone without a login isn't emailed, and the email shows as *Not sent*.
 - The Hub and FocusiQ share one Resend quota. An assessment day sends about two emails per person.
-- Nothing is sent until `RESEND_API_KEY` and `EMAIL_FROM` are set; emails wait in the outbox.
+- Nothing is sent until `FOCUSIQ_RESEND_API_KEY` and `FOCUSIQ_EMAIL_FROM` are set; emails wait in the outbox.
 
 ## Demo
 

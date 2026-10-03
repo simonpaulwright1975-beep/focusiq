@@ -4,14 +4,14 @@
 // delivery status in notification_outbox, so Directors can see when an email
 // did not arrive. Open and click events are ignored: FocusiQ does not track them.
 //
-// Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_WEBHOOK_SECRET (whsec_…)
+// Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FOCUSIQ_RESEND_WEBHOOK_SECRET (whsec_…)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { deliveryUpdate, verifyWebhook } from '../_shared/resend.ts';
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const body = await req.text();
-  const ok = await verifyWebhook(Deno.env.get('RESEND_WEBHOOK_SECRET') ?? '', {
+  const ok = await verifyWebhook(Deno.env.get('FOCUSIQ_RESEND_WEBHOOK_SECRET') ?? '', {
     id: req.headers.get('svix-id'),
     timestamp: req.headers.get('svix-timestamp'),
     signature: req.headers.get('svix-signature'),

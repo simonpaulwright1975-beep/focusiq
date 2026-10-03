@@ -4,15 +4,16 @@
 // emails from notification_outbox, sends each through Resend within its rate
 // limit and records the result with complete_notification().
 //
-// Secrets:
+// Secrets (prefixed FOCUSIQ_ because WG Main's Edge Function secrets are shared
+// with the Hub's functions, which already use RESEND_API_KEY):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY – provided by Supabase
 //   (The scheduler's token lives in Supabase Vault as 'focusiq_cron_secret' and
 //    is checked by focusiq.cron_token_valid(); nothing to set here.)
-//   RESEND_API_KEY     – a sending-only Resend API key; without it nothing is sent
-//   EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@wghub.uk>"
-//   EMPLOYEE_APP_URL   – link in employee emails
-//   DIRECTOR_APP_URL   – link in Director emails
-//   EMAIL_REDIRECT_TO  – optional test mode: every email goes to this address instead
+//   FOCUSIQ_RESEND_API_KEY     – a sending-only Resend API key; without it nothing is sent
+//   FOCUSIQ_EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@wghub.uk>"
+//   FOCUSIQ_EMPLOYEE_APP_URL   – link in employee emails
+//   FOCUSIQ_DIRECTOR_APP_URL   – link in Director emails
+//   FOCUSIQ_EMAIL_REDIRECT_TO  – optional test mode: every email goes to this address instead
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { sendBatch, type OutgoingEmail, type SendOutcome } from '../_shared/resend.ts';
 
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
   if (allowed !== true) return new Response('Unauthorised', { status: 401 });
   await db.rpc('release_stuck_notifications');
 
-  if (!env('RESEND_API_KEY') || !env('EMAIL_FROM')) {
+  if (!env('FOCUSIQ_RESEND_API_KEY') || !env('FOCUSIQ_EMAIL_FROM')) {
     // Not configured: emails stay queued (Directors can see them on the Notifications tab).
     return Response.json({ sent: 0, note: 'Resend is not configured; nothing was sent.' });
   }
@@ -47,11 +48,11 @@ Deno.serve(async (req) => {
   };
 
   const totals = await sendBatch((data ?? []) as OutgoingEmail[], {
-    apiKey: env('RESEND_API_KEY'),
-    from: env('EMAIL_FROM'),
-    employeeUrl: env('EMPLOYEE_APP_URL'),
-    directorUrl: env('DIRECTOR_APP_URL'),
-    redirectTo: env('EMAIL_REDIRECT_TO') || undefined,
+    apiKey: env('FOCUSIQ_RESEND_API_KEY'),
+    from: env('FOCUSIQ_EMAIL_FROM'),
+    employeeUrl: env('FOCUSIQ_EMPLOYEE_APP_URL'),
+    directorUrl: env('FOCUSIQ_DIRECTOR_APP_URL'),
+    redirectTo: env('FOCUSIQ_EMAIL_REDIRECT_TO') || undefined,
   }, record);
-  return Response.json({ claimed: data?.length ?? 0, ...totals, testMode: !!env('EMAIL_REDIRECT_TO') });
+  return Response.json({ claimed: data?.length ?? 0, ...totals, testMode: !!env('FOCUSIQ_EMAIL_REDIRECT_TO') });
 });
