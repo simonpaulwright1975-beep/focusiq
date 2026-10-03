@@ -63,14 +63,14 @@ Employee emails come from **Walter Geering** and greet the person by their first
 
 ## Setting up Resend
 
-Do this once the Supabase project exists.
+FocusiQ's database is in the WG Main project (see `docs/database.md`). Add `focusiq` to its exposed API schemas first.
 
 **FocusiQ uses the Walter Geering Hub's Resend account.** The Hub (`wg-hub`) already sends through Resend from the verified domain `wghub.uk`, both for its Supabase Auth emails and its Edge Functions. FocusiQ uses the same account and domain, so there's no new domain and no DNS work.
 
 1. **Sending domain.** Use `wghub.uk`, which is already verified. FocusiQ sends as `Walter Geering <focusiq@wghub.uk>`; any address on a verified domain works.
 2. **Open and click tracking** is a per-domain setting in Resend. Make sure it's off for `wghub.uk`: FocusiQ doesn't track whether people open emails, and click tracking would rewrite the sign-in links. This also applies to the Hub's emails.
 3. **Create a separate API key for FocusiQ** with *Sending access* for `wghub.uk` only. Don't reuse the Hub's key: each app can then be revoked on its own, and Resend shows which app sent what.
-4. **Add a webhook** pointing at `https://<project-ref>.supabase.co/functions/v1/resend-webhook`. Resend webhooks cover the whole account, so this one also receives events for the Hub's emails; FocusiQ ignores message ids it didn't send.
+4. **Add a webhook** pointing at `https://hlfhyzqkzqgyuohhmzzu.supabase.co/functions/v1/resend-webhook`. Resend webhooks cover the whole account, so this one also receives events for the Hub's emails; FocusiQ ignores message ids it didn't send.
    - Events: `email.delivered`, `email.delivery_delayed`, `email.bounced` and `email.complained`.
    - Copy its signing secret (`whsec_…`).
 5. **Set the secrets and deploy.** Both functions check their own credentials, so JWT checks are off:
@@ -90,7 +90,7 @@ Do this once the Supabase project exists.
    ```sql
    select cron.schedule('focusiq-send-notifications', '* * * * *', $$
      select net.http_post(
-       url := 'https://<project-ref>.supabase.co/functions/v1/send-notifications',
+       url := 'https://hlfhyzqkzqgyuohhmzzu.supabase.co/functions/v1/send-notifications',
        headers := jsonb_build_object('Authorization', 'Bearer ' ||
          (select decrypted_secret from vault.decrypted_secrets where name = 'focusiq_cron_secret')))
    $$);

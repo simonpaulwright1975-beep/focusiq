@@ -27,6 +27,7 @@ Every FocusiQ app and page uses the Walter Geering house design system. It is de
 
 ## Conventions
 
+- Database: the shared WG Main Supabase project, schema `focusiq` only (see `docs/database.md`). Never create or change anything in `public` (other apps' `public.employees` and `public.is_director()` live there). Sign-ins are shared across WG apps: gate access on `focusiq.is_focusiq_user()` / `focusiq.is_director()`, never on just being signed in.
 - Engine code lives in `src/` (pure TypeScript, tested with Vitest).
 - Apps live in `app/` (Vite + React). There are separate entry points for Directors (`index.html`) and employees (`employee.html`).
 - The employee bundle may import only `src/participation`, `src/runner`, shared UI without engine imports (e.g. `components/Modal.tsx`), `app/src/shared/` and display-only demo content (`app/src/demo/assessment.ts`). Type-only imports are allowed anywhere. It must never import `src/benchmarking`, `src/insight`, Director views, or answer keys (`app/src/demo/scoring.ts`). `tests/runner.test.ts` enforces this.
