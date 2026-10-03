@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
-import { Dumbbell, Trend } from '../components/charts.js';
+import { bandKey, emptyCounts, personHeadline } from '../bands.js';
+import { BandDonut, Headline, ScoreBars } from '../components/bandCharts.js';
+import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
 import { BandChip, Card, ConfidenceBadge, Explanation, fmt, ordinal } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
@@ -34,9 +36,14 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
     .map((r) => ({
       label: r.metricLabel,
       value: r.employeeValue == null ? null : Math.round(r.employeeValue),
-      context: r.benchmark.available && r.benchmarkMedian != null ? Math.round(r.benchmarkMedian) : null,
+      marker: r.benchmark.available && r.benchmarkMedian != null ? Math.round(r.benchmarkMedian) : null,
       note: r.benchmark.available ? undefined : `${employee.department} median unavailable: ${r.benchmark.unavailableReason ?? 'too few colleagues'}`,
     }));
+  const bands = expectationBands(CORE_KEYS[0]!);
+  const banded = bands
+    ? dimensionRows.flatMap((r) => (r.value == null ? [] : [{ label: r.label, band: bandKey(bands, r.value) }]))
+    : [];
+  const bandCounts = banded.reduce((c, r) => ({ ...c, [r.band]: c[r.band] + 1 }), emptyCounts());
 
   return (
     <div className="stack">
@@ -56,18 +63,26 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
         </div>
       </div>
 
+      {banded.length > 0 && (
+        <Card title="At a glance" sub={bands?.note === 'provisional' ? 'Against FocusiQ expectations (provisional)' : 'Against FocusiQ expectations'}>
+          <div className="glance">
+            <Headline>{personHeadline(employee.displayName, banded)}</Headline>
+            <BandDonut
+              counts={bandCounts}
+              noun={banded.length === 1 ? 'area' : 'areas'}
+              centre={{ value: `${bandCounts.strong + bandCounts.expected}/${banded.length}`, label: 'expected or above' }}
+            />
+          </div>
+        </Card>
+      )}
+
       <div className="grid cols-3-1">
-        {dimensionRows.length > 0 ? (
+        {bands && dimensionRows.length > 0 ? (
           <Card
             title="Dimensions against expectations"
-            sub={`${employee.displayName} vs ${employee.department} median · shaded by FocusiQ expectations · bands in words in the table below`}
+            sub={`${employee.displayName}'s score in each dimension, with the ${employee.department} median marked`}
           >
-            <Dumbbell
-              rows={dimensionRows}
-              seriesLabel={employee.displayName}
-              contextLabel={`${employee.department} median`}
-              bands={expectationBands(CORE_KEYS[0]!)}
-            />
+            <ScoreBars rows={dimensionRows} bands={bands} valueLabel={employee.displayName} markerLabel={`${employee.department} median`} />
           </Card>
         ) : (
           <Card title="Dimensions against expectations"><p className="empty">No core dimension results for this employee.</p></Card>
@@ -90,9 +105,14 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
       </div>
 
       <Card
-        title="Results against expectations and colleagues"
-        sub={`Absolute band = is the behaviour effective? Percentile = how unusual compared with ${employee.department} colleagues (the employee is not in their own comparison group).`}
+        title="Full results"
+        sub="Every measure with its band, percentile and notes"
       >
+        <details className="more">
+        <summary>Show full details</summary>
+        <p className="small secondary">
+          Band = is the behaviour effective? Percentile = how unusual compared with {employee.department} colleagues (the employee is not in their own comparison group).
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -123,6 +143,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
         </div>
         <p className="small muted">* Provisional expectations – not yet validated.</p>
         {rows[0] && <Explanation benchmark={rows[0].benchmark} />}
+        </details>
       </Card>
 
       {!insight ? (

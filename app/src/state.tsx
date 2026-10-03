@@ -7,7 +7,7 @@ import {
   type PopulationDefinition,
 } from '../../src/benchmarking/index.js';
 import { buildDemoData, DEMO_DIRECTOR, DEMO_NOW, METRICS, type DemoData } from './demo/dataset.js';
-import type { ExpectationBands } from './components/charts.js';
+import type { ExpectationBands } from './bands.js';
 
 export type DateWindow = 'latest' | 'last_6' | 'last_12' | 'custom';
 

@@ -20,7 +20,8 @@ Every FocusiQ app and page uses the Walter Geering house design system. It is de
 - **Status:** use the green / amber / red token pairs, always with an icon or text label, never colour alone.
 - **Charts:**
   - single series in `--accent`, other context marks in `#cfc2b6`;
-  - absolute bands in the Director app (charts, People heatmap, band chips) use the expectation zones `--zone-develop` (unshaded) / `--zone-expected #ddf2e4` / `--zone-strong #b3dfc1`, always with a text label, threshold or printed score; the employee summary's band chips keep the ordinal green ramp `#72b88d → #2f8f5a → #0d5a3b`;
+  - absolute bands in the Director app (score bars, donuts, % splits, People heatmap, band chips) use `--band-strong #1e7a46` / `--band-expected #5fb57f` / `--band-develop #e09a1f` (validated; amber, never red), always with the score or band name printed; line charts use their pale `--zone-*` tints. Shared pieces live in `app/src/bands.ts` and `app/src/components/bandCharts.tsx`. The employee summary's band chips keep the ordinal green ramp `#72b88d → #2f8f5a → #0d5a3b`;
+  - lead Director reports with a plain-English headline (no pronouns) and keep detailed tables behind "Show full details";
   - heatmaps use `#ddf2e4 → #0d5a3b`;
   - validate any new chart palette with the dataviz validator before use.
 - **Theme:** light only. The house system defines no dark palette, so don't invent one without asking.

@@ -24,8 +24,13 @@
   --ord-1-ink: var(--ink); --ord-2-ink: #ffffff; --ord-3-ink: #ffffff;
   /* Heatmap medians – sequential green ramp ending at the house accent. */
   --seq-100: #ddf2e4; --seq-200: #b3dfc1; --seq-300: #82c39b; --seq-400: #4ea474; --seq-500: #1e7a46; --seq-600: #0d5a3b;
-  /* Expectation zones behind dot charts: kept pale so dots stay ≥ 5.6:1; zones are always named in text. */
-  --zone-develop: transparent; --zone-expected: #ddf2e4; --zone-strong: #b3dfc1;
+  /* Expectation bands in the Director app (validated: Strong / Expected / Development, amber never red).
+     Every mark also prints its score or band name. */
+  --band-strong: #1e7a46; --band-strong-ink: #ffffff;
+  --band-expected: #5fb57f; --band-expected-ink: var(--ink);
+  --band-develop: #e09a1f; --band-develop-ink: var(--ink);
+  /* Pale tints of the same bands, behind line charts. */
+  --zone-develop: #fcf0d9; --zone-expected: #e4f3e9; --zone-strong: #cbe8d5;
   --seq-ink-0: var(--ink); --seq-ink-1: var(--ink); --seq-ink-2: var(--ink); --seq-ink-3: var(--ink); --seq-ink-4: #ffffff; --seq-ink-5: #ffffff;
   /* Status – house traffic-light tokens, always paired with an icon/label. */
   --good: var(--green); --warning: var(--amber); --serious: var(--amber); --critical: var(--red);
@@ -81,7 +86,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
 .card { min-width: 0; }
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.card-head p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13px; }
+.card-head p { margin: 4px 0 0; color: var(--ink-soft); font-size: 14px; }
 .stat .value { font-size: 32px; font-weight: 700; margin-top: 6px; }
 .stat .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
@@ -101,7 +106,7 @@ tr.excluded td { color: var(--muted); }
 
 .heat td.cell { text-align: center; font-weight: 700; min-width: 46px; border: 3px solid var(--card); border-radius: 10px; }
 .heat td.na { color: var(--muted); font-weight: 400; background: repeating-linear-gradient(45deg, transparent 0 4px, var(--track) 4px 6px); }
-.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); margin-top: 10px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
 .legend .swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 4px; }
 
 details.explain { margin-top: 10px; }
@@ -229,3 +234,15 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 .email-head .muted { display: inline-block; width: 58px; }
 .email-body { margin: 0; padding: 12px 14px; font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
 .email-link { color: var(--accent); text-decoration: underline; }
+
+/* Plain-English results */
+.headline { font-size: 1.25rem; line-height: 1.45; color: var(--ink); margin: 0; font-weight: 600; }
+.glance { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+.glance > .headline { flex: 1 1 320px; }
+.donut { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.donut svg { flex: none; }
+.donut-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.donut-key li { display: grid; grid-template-columns: 14px 96px 52px auto; align-items: center; gap: 8px; font-size: 15px; }
+.donut-key .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.donut-num { font-size: 1.15rem; font-weight: 800; text-align: right; }
+details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700; }

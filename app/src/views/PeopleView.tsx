@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { compareEmployees, individualHeatmap, revealNames, type EmployeeComparison } from '../../../src/benchmarking/index.js';
+import { BandLegend } from '../components/bandCharts.js';
 import { Card, bandStyle, fmt } from '../components/ui.js';
 import { CORE_KEYS, expectationBands, metricLabel, useStore } from '../state.js';
 
@@ -36,7 +37,7 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
     <div className="stack">
       <Card
         title="Individual heatmap"
-        sub="Cells show the score, shaded by FocusiQ expectations as on the charts (not a ranking). Hover a cell for the band and colleague percentile."
+        sub="Each cell shows the score, coloured by FocusiQ expectation band as on the charts (not a ranking). Hover a cell for the band and colleague percentile."
         actions={
           <div className="row">
             <label className="row small">
@@ -88,14 +89,8 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
           </table>
         </div>
         <div className="legend">
-          {bands && (
-            <>
-              <span><span className="swatch" style={{ background: 'var(--zone-develop)', border: '1px solid var(--muted)' }} />Development &lt; {bands.development} (unshaded)</span>
-              <span><span className="swatch" style={{ background: 'var(--zone-expected)', border: '1px solid var(--line)' }} />Expected {bands.development} to under {bands.strong}</span>
-              <span><span className="swatch" style={{ background: 'var(--zone-strong)', border: '1px solid var(--line)' }} />Strong ≥ {bands.strong}</span>
-            </>
-          )}
-          <span>{bands?.note === 'provisional' ? 'Bands use provisional expectations. ' : ''}There is deliberately no overall score or ranking.</span>
+          <BandLegend bands={bands} />
+          <span>There is deliberately no overall score or ranking.</span>
         </div>
       </Card>
 

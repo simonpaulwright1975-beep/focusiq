@@ -8,7 +8,9 @@ import {
   type BenchmarkComputation,
 } from '../../../src/benchmarking/index.js';
 import { MOTIVATORS, organisationInsights } from '../../../src/insight/index.js';
-import { BarList, Dumbbell, Scatter } from '../components/charts.js';
+import { bandKey, emptyCounts, type BandCounts } from '../bands.js';
+import { BandDonut, BandSplit, Headline, ScoreBars } from '../components/bandCharts.js';
+import { BarList, Scatter } from '../components/charts.js';
 import { Card, ConfidenceBadge, Explanation, Stat, fmt } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
 import { baseDefinition, CORE_KEYS, definitionFor, expectationBands, metricLabel, useStore } from '../state.js';
@@ -96,21 +98,45 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
     const st = benchmarks.get(k)!.scope.stats;
     return st ? Math.round(st.median) : null;
   };
-  const dumbbellRows = CORE_KEYS.map((k) => {
+  const barRows = CORE_KEYS.map((k) => {
     const b = benchmarks.get(k)!;
     const note = b.scope.available ? `${b.scope.explanation.sampleSize} people · ${b.scope.confidence} confidence` : b.scope.unavailableReason;
     if (personScores) {
       const v = personScores[k];
-      return { label: metricLabel(k), value: v == null ? null : Math.round(v), context: scopeMedian(k), note };
+      return { label: metricLabel(k), value: v == null ? null : Math.round(v), marker: scopeMedian(k), note };
     }
     return {
       label: metricLabel(k),
       value: scopeMedian(k),
-      context: filters.department === 'all' ? null : b.company.stats ? Math.round(b.company.stats.median) : null,
+      marker: filters.department === 'all' ? null : b.company.stats ? Math.round(b.company.stats.median) : null,
       note,
     };
   });
   const first = benchmarks.get(CORE_KEYS[0]!)!.scope;
+
+  // How results split across the bands: per dimension, and over every person × dimension.
+  // Group results need at least 5 people (first.available), as everywhere else.
+  const split = useMemo(() => {
+    if (!bands) return null;
+    const total = emptyCounts();
+    const rows = CORE_KEYS.map((k) => {
+      const c: BandCounts = emptyCounts();
+      for (const a of population.byEmployee.values()) {
+        const v = a.scores[k];
+        if (v == null) continue;
+        c[bandKey(bands, v)]++;
+        total[bandKey(bands, v)]++;
+      }
+      return { label: metricLabel(k), counts: c };
+    });
+    return { rows, total };
+  }, [population, bands]);
+  const allResults = split ? split.total.strong + split.total.expected + split.total.develop : 0;
+  const share = (n: number) => (allResults ? Math.round((n / allResults) * 100) : 0);
+  const mostToDevelop = split
+    ? [...split.rows].sort((a, b) => b.counts.develop - a.counts.develop)[0]
+    : undefined;
+  const scopeName = filters.department === 'all' ? 'the company' : filters.department;
 
   return (
     <div className="stack">
@@ -121,13 +147,28 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
         <Stat label="Benchmark reliability" value={<ConfidenceBadge confidence={confidence} />} sub={`${counts.eligibleEmployees} people in comparison`} />
       </div>
 
-      <div className="grid cols-3-1">
+      {split && first.available && (
+        <Card title="At a glance" sub={`Every dimension result for the ${counts.eligibleEmployees} people in ${scopeName}, by FocusiQ expectation band`}>
+          <div className="glance">
+            <Headline>
+              Across {scopeName}, {share(split.total.strong)}% of results are Strong, {share(split.total.expected)}% Expected and{' '}
+              {share(split.total.develop)}% to develop.
+              {mostToDevelop && mostToDevelop.counts.develop > 0
+                ? ` The most to develop is ${mostToDevelop.label}, for ${Math.round((mostToDevelop.counts.develop / Math.max(1, counts.eligibleEmployees)) * 100)}% of people.`
+                : ' Nobody is below expectations on any dimension.'}
+            </Headline>
+            <BandDonut counts={split.total} noun="results" />
+          </div>
+        </Card>
+      )}
+
+      <div className="grid cols-2">
         <Card
           title="Dimension comparison"
           sub={
             person
-              ? `${person.displayName} vs ${scopeLabel} median · shaded by FocusiQ expectations`
-              : `${filters.department === 'all' ? 'Company median per dimension' : `${scopeLabel} median vs company median`} · shaded by FocusiQ expectations`
+              ? `${person.displayName}'s scores, with the ${scopeLabel.toLowerCase() === 'company' ? 'company' : scopeLabel} median marked`
+              : filters.department === 'all' ? 'Company median per dimension' : `${scopeLabel} median, with the company median marked`
           }
           actions={
             <div className="row">
@@ -165,12 +206,14 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
                 </table>
               </div>
             ) : (
-              <Dumbbell
-                rows={dumbbellRows}
-                seriesLabel={person ? person.displayName : `${scopeLabel} median`}
-                contextLabel={person ? `${scopeLabel} median` : 'Company median'}
-                bands={bands}
-              />
+              bands && (
+                <ScoreBars
+                  rows={barRows}
+                  bands={bands}
+                  valueLabel={person ? person.displayName : `${scopeLabel} median`}
+                  markerLabel={person ? `${scopeLabel} median` : filters.department === 'all' ? undefined : 'Company median'}
+                />
+              )
             )
           ) : (
             <p className="empty">{first.unavailableReason} {first.sampleSizeLabel}</p>
@@ -179,25 +222,29 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
           <Explanation benchmark={first} />
         </Card>
 
-        <Card title="Organisation insight" sub="Patterns shared by many people may point to a process issue, not individual problems">
-          {org.length === 0 ? (
-            <p className="empty">No shared patterns meet the threshold (≥ 5 people in the group, ≥ 3 and ≥ 50 % showing the pattern).</p>
-          ) : (
-            (allInsights ? org : org.slice(0, 3)).map((o) => (
-              <div className="rec" key={o.group + o.patternKey}>
-                <strong>{o.observation}</strong>
-                <p className="small secondary" style={{ margin: '4px 0' }}>{o.interpretation}</p>
-                <p className="small" style={{ margin: 0 }}>Suggested response: {o.suggestedResponse}</p>
-              </div>
-            ))
-          )}
-          {org.length > 3 && (
-            <button className="btn link small" style={{ marginTop: 8 }} onClick={() => setAllInsights(!allInsights)}>
-              {allInsights ? 'Show fewer' : `Show all ${org.length} observations`}
-            </button>
-          )}
+        <Card title="People in each band" sub={`% of people in ${scopeName} who are Strong, Expected or to develop, per dimension`}>
+          {split && first.available ? <BandSplit rows={split.rows} /> : <p className="empty">{first.unavailableReason ?? 'Fewer than 5 people.'}</p>}
         </Card>
       </div>
+
+      <Card title="Organisation insight" sub="Patterns shared by many people may point to a process issue, not individual problems">
+        {org.length === 0 ? (
+          <p className="empty">No shared patterns meet the threshold (≥ 5 people in the group, ≥ 3 and ≥ 50 % showing the pattern).</p>
+        ) : (
+          (allInsights ? org : org.slice(0, 3)).map((o) => (
+            <div className="rec" key={o.group + o.patternKey}>
+              <strong>{o.observation}</strong>
+              <p className="small secondary" style={{ margin: '4px 0' }}>{o.interpretation}</p>
+              <p className="small" style={{ margin: 0 }}>Suggested response: {o.suggestedResponse}</p>
+            </div>
+          ))
+        )}
+        {org.length > 3 && (
+          <button className="btn link small" style={{ marginTop: 8 }} onClick={() => setAllInsights(!allInsights)}>
+            {allInsights ? 'Show fewer' : `Show all ${org.length} observations`}
+          </button>
+        )}
+      </Card>
 
       <Card title="Department heatmap" sub="Median per dimension · latest eligible assessment per person · stronger shade = higher median">
         <div className="table-wrap">

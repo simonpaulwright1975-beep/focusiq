@@ -14,15 +14,8 @@ function ticks(min: number, max: number, count = 5) {
   return out;
 }
 
-/** FocusiQ expectations for a higher-is-better 0–100 score (see absoluteBandFor). */
-export interface ExpectationBands {
-  /** Below this: Development Opportunity. */
-  development: number;
-  /** At or above this: Strong. */
-  strong: number;
-  /** Shown in the legend, e.g. "provisional". */
-  note?: string;
-}
+import type { ExpectationBands } from '../bands.js';
+export type { ExpectationBands } from '../bands.js';
 
 export const bandName = (b: ExpectationBands, v: number) =>
   v >= b.strong ? 'Strong' : v < b.development ? 'Development opportunity' : 'Expected';
@@ -47,89 +40,6 @@ function ZoneLegend({ bands, zones }: { bands?: ExpectationBands; zones: ReturnT
       ))}
       {bands?.note && <span className="muted">Expectations: {bands.note}</span>}
     </>
-  );
-}
-
-/**
- * Dumbbell: series dot (filled) vs context ring (hollow) per dimension, e.g. a
- * person or department against the company median. With `bands`, the plot is
- * shaded by FocusiQ expectation zones; each zone is also named in text and
- * bounded by a dashed line, so the shading never carries meaning alone.
- */
-export function Dumbbell({
-  rows,
-  seriesLabel,
-  contextLabel,
-  bands,
-}: {
-  rows: { label: string; value: number | null; context: number | null; note?: string }[];
-  seriesLabel: string;
-  contextLabel: string;
-  bands?: ExpectationBands;
-}) {
-  const tip = useTooltip();
-  const rowH = 28;
-  const left = 110;
-  const right = 40;
-  const top = bands ? 22 : 0;
-  const h = rows.length * rowH + 28 + top;
-  const vals = rows.flatMap((r) => [r.value, r.context]).filter((v): v is number => v != null);
-  // With bands, keep every zone wide enough to read: 10 points either side of Expected.
-  const min = Math.max(0, Math.floor((Math.min(...vals, bands ? bands.development - 5 : 60) - 5) / 5) * 5);
-  const max = Math.min(100, Math.ceil((Math.max(...vals, bands ? bands.strong + 5 : 80) + 5) / 5) * 5);
-  const x = (v: number) => left + ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * (W - left - right);
-  const zones = expectationZones(bands, min, max);
-  const withBand = (v: number | null) => (v == null ? 'unavailable' : bands ? `${v} (${bandName(bands, v)})` : v);
-  return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${h}`} width="100%" role="img" aria-label={`${seriesLabel} compared with ${contextLabel} by dimension${bands ? ', shaded by FocusiQ expectations' : ''}`}>
-        {zones.map((z) => (
-          <g key={z.key}>
-            <rect x={x(z.from)} y={0} width={x(z.to) - x(z.from)} height={h - 22} fill={z.fill} />
-            <text x={(x(z.from) + x(z.to)) / 2} y={14} fontSize="11" fontWeight="700" textAnchor="middle" fill="var(--text-secondary)">{z.label}</text>
-          </g>
-        ))}
-        {ticks(min, max).map((t) => (
-          <g key={t}>
-            <line x1={x(t)} x2={x(t)} y1={top} y2={h - 22} stroke="var(--grid)" />
-            <text x={x(t)} y={h - 6} fontSize="11" textAnchor="middle" fill="var(--text-muted)">{t}</text>
-          </g>
-        ))}
-        {bands && [bands.development, bands.strong].filter((v) => v > min && v < max).map((v) => (
-          <line key={`b${v}`} x1={x(v)} x2={x(v)} y1={0} y2={h - 22} stroke="var(--text-muted)" strokeDasharray="3 3" />
-        ))}
-        {rows.map((r, i) => {
-          const y = top + i * rowH + 14;
-          return (
-            <g
-              key={r.label}
-              onMouseMove={(e) => tip.show(e.clientX, e.clientY, <><strong>{r.label}</strong><br />{seriesLabel}: {withBand(r.value)}<br />{contextLabel}: {withBand(r.context)}{r.note ? <><br />{r.note}</> : null}</>)}
-              onMouseLeave={tip.hide}
-            >
-              <rect x={0} y={y - rowH / 2} width={W} height={rowH} fill="transparent" />
-              <text x={left - 10} y={y + 4} fontSize="12" textAnchor="end" fill="var(--text-secondary)">{r.label}</text>
-              {r.value != null && r.context != null && (
-                <line x1={x(r.context)} x2={x(r.value)} y1={y} y2={y} stroke="var(--axis)" strokeWidth="2" />
-              )}
-              {r.context != null && <circle cx={x(r.context)} cy={y} r="5" fill="var(--surface-1)" stroke={bands ? 'var(--ink-soft)' : 'var(--text-muted)'} strokeWidth="2" />}
-              {r.value != null ? (
-                <circle cx={x(r.value)} cy={y} r="5" fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth="2" />
-              ) : (
-                <text x={W - right} y={y + 4} fontSize="11" textAnchor="end" fill="var(--text-muted)">n/a</text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      <div className="legend">
-        <span><span className="swatch" style={{ background: 'var(--series-1)', borderRadius: '50%' }} />{seriesLabel}</span>
-        {rows.some((r) => r.context != null) && (
-          <span><span className="swatch" style={{ border: `2px solid ${bands ? 'var(--ink-soft)' : 'var(--text-muted)'}`, borderRadius: '50%' }} />{contextLabel}</span>
-        )}
-        <ZoneLegend bands={bands} zones={zones} />
-      </div>
-      {tip.node}
-    </div>
   );
 }
 
@@ -247,7 +157,7 @@ export function Trend({ points, label, bands }: { points: { date: string; value:
   const pad = { l: 36, r: 40, t: 14, b: 28 };
   if (points.length === 0) return <p className="empty">No valid assessments for this measure.</p>;
   const vals = points.map((p) => p.value);
-  // With bands, keep the zone boundaries in view (as in the Dumbbell).
+  // With bands, keep the zone boundaries in view.
   const yMin = Math.max(bands ? 0 : -Infinity, Math.floor((Math.min(...vals, ...(bands ? [bands.development - 5] : [])) - 8) / 5) * 5);
   const yMax = Math.min(bands ? 100 : Infinity, Math.ceil((Math.max(...vals, ...(bands ? [bands.strong + 5] : [])) + 8) / 5) * 5);
   const zones = expectationZones(bands, yMin, yMax);
