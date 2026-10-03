@@ -21,6 +21,52 @@ import { demoTransport, serverSnapshot } from './demoTransport.js';
 
 const SESSION_KEY = 'focusiq-demo-session';
 
+/**
+ * One colour per section, so people can see where they are (validated with the
+ * dataviz validator). Identity only: a chosen answer is shown in the section's
+ * colour, never as right or wrong, and every coloured mark also has the
+ * section's number or name. Amber and red stay reserved for the timer.
+ */
+const SECTION_COLOURS = [
+  // solid: bars and borders · badge: behind the white numbers (≥ 4.5:1) · tint: backgrounds · text: on the tint
+  { solid: '#1e7a46', badge: '#1e7a46', tint: '#ddf2e4', ink: '#ffffff', text: '#1e7a46' },
+  { solid: '#2a78d6', badge: '#2470cc', tint: '#e3eefb', ink: '#ffffff', text: '#1f5fae' },
+  { solid: '#4a3aa7', badge: '#4a3aa7', tint: '#ebe8f7', ink: '#ffffff', text: '#4a3aa7' },
+  { solid: '#e87ba4', badge: '#e87ba4', tint: '#fbe7ef', ink: '#17120e', text: '#a2385f' },
+];
+const sectionColour = (i: number) => SECTION_COLOURS[i % SECTION_COLOURS.length]!;
+const sectionVars = (i: number) => {
+  const c = sectionColour(i);
+  return { '--sec': c.solid, '--sec-badge': c.badge, '--sec-tint': c.tint, '--sec-ink': c.ink, '--sec-text': c.text } as React.CSSProperties;
+};
+
+/** The whole assessment as coloured segments: one per section, filled as questions are answered. */
+function SectionProgress({ state, current, finished }: { state: SessionState; current: number | null; finished: boolean }) {
+  const sections = state.order;
+  return (
+    <ol className="sec-progress" aria-label="Your progress through the assessment">
+      {sections.map((o, i) => {
+        const def = sectionAt(state, i);
+        const total = o.questionIds.length;
+        const answered = o.questionIds.filter((q) => state.answers[q] !== undefined).length;
+        const submitted = finished || state.submittedSections.includes(def.id);
+        const fill = submitted ? 1 : total ? answered / total : 0;
+        const status = submitted ? 'done' : i === current ? 'now' : 'next';
+        return (
+          <li key={def.id} className={`sec-${status}`} style={sectionVars(i)}>
+            <span className="sec-bar"><span style={{ width: `${Math.round(fill * 100)}%` }} /></span>
+            <span className="sec-name">
+              <span className="sec-num" aria-hidden="true">{submitted ? '✓' : i + 1}</span>
+              {def.title}
+              <span className="sr-only">{status === 'done' ? ' – done' : status === 'now' ? ' – in progress' : ' – to come'}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 interface Saved {
   options: SessionOptions;
   actions: Action[];
@@ -158,9 +204,9 @@ export function Runner({ definition, options }: { definition: AssessmentDefiniti
           {sections.map((s, i) => {
             const limit = effectiveTimeLimit(state, s);
             return (
-              <li key={s.id}>
-                <span className="lbl">Section {i + 1}</span>
-                <strong>{s.title}</strong>
+              <li key={s.id} style={sectionVars(i)}>
+                <span className="plan-num" aria-hidden="true">{i + 1}</span>
+                <span><span className="lbl">Section {i + 1}</span><strong>{s.title}</strong></span>
                 <span className="tag">{limit ? `Timed · ${fmtDuration(limit)}` : 'No time limit'}</span>
               </li>
             );
@@ -184,8 +230,13 @@ export function Runner({ definition, options }: { definition: AssessmentDefiniti
     const limit = effectiveTimeLimit(state, s);
     body = (
       <>
-        <div className="lbl">Section {phase.section + 1} of {sections.length}</div>
-        {heading(s.title)}
+        <div className="sec-banner">
+          <span className="sec-banner-num" aria-hidden="true">{phase.section + 1}</span>
+          <div>
+            <div className="lbl">Section {phase.section + 1} of {sections.length}</div>
+            {heading(s.title)}
+          </div>
+        </div>
         <ul>{s.instructions.map((t) => <li key={t}>{t}</li>)}</ul>
         {limit && (
           <p className="timer-note">
@@ -265,14 +316,28 @@ export function Runner({ definition, options }: { definition: AssessmentDefiniti
       <div className="record">
         <div className="row"><div className="done-mark" aria-hidden="true">✓</div>{heading('Thank you – you have finished')}</div>
         <p>Your responses have been recorded. A Director will review the results, and you will receive your own summary afterwards.</p>
+        <ul className="done-sections">
+          {sections.map((sec, i) => (
+            <li key={sec.id} style={sectionVars(i)}><span aria-hidden="true">✓</span>{sec.title}</li>
+          ))}
+        </ul>
         <p className="small muted">You can close this page once your answers show as saved below.</p>
       </div>
     );
   }
 
+  const currentSection = 'section' in phase ? phase.section : null;
+  const showProgress = phase.kind !== 'intro';
   return (
     <>
-      <main className="card panel runner" aria-live="off">{body}</main>
+      {showProgress && <SectionProgress state={state} current={currentSection} finished={phase.kind === 'complete'} />}
+      <main
+        className={`card panel runner${currentSection !== null ? ' in-section' : ''}`}
+        style={currentSection !== null ? sectionVars(currentSection) : undefined}
+        aria-live="off"
+      >
+        {body}
+      </main>
       <SaveStatus sync={sync} online={online} />
     </>
   );
@@ -295,7 +360,10 @@ function QuestionHeader({ state, now, section, index, onGo }: { state: SessionSt
   return (
     <div className="q-head">
       <div className="row">
-        <span className="lbl">{s.title} · Question {index + 1} of {ids.length}</span>
+        <span className="q-title">
+          <span className="q-num" aria-hidden="true">{index + 1}</span>
+          <span className="lbl">{s.title} · Question {index + 1} of {ids.length}</span>
+        </span>
         <span className="spacer" />
         <TimerPill state={state} now={now} />
       </div>

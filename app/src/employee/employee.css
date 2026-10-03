@@ -108,3 +108,40 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
 
 /* Released summary sits above the form or runner. */
 .my-summary { margin-bottom: 22px; }
+
+/* ---- Runner colour: one colour per section (set as --sec* on the element) ---- */
+.runner.in-section { border-top: 6px solid var(--sec); }
+.sec-progress { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.sec-progress li { display: grid; gap: 6px; font-size: 12px; color: var(--ink-soft); }
+.sec-bar { display: block; height: 8px; border-radius: 999px; background: var(--sec-tint); overflow: hidden; }
+.sec-bar > span { display: block; height: 100%; background: var(--sec); border-radius: 999px; transition: width .3s ease; }
+.sec-name { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.sec-num { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--sec-tint); color: var(--sec-text); flex: none; }
+.sec-now .sec-name { color: var(--ink); font-weight: 800; }
+.sec-now .sec-num, .sec-done .sec-num { background: var(--sec-badge); color: var(--sec-ink); }
+
+.section-plan li { grid-template-columns: 40px 1fr auto; border-bottom: none; border-left: 5px solid var(--sec); background: var(--sec-tint); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.section-plan li .lbl { display: block; color: var(--sec-text); }
+.plan-num { width: 32px; height: 32px; border-radius: 50%; background: var(--sec-badge); color: var(--sec-ink); display: grid; place-items: center; font-weight: 800; }
+.section-plan .tag { background: var(--card); }
+
+.sec-banner { display: flex; gap: 16px; align-items: center; background: var(--sec-tint); border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; }
+.sec-banner h2 { margin: 2px 0 0; }
+.sec-banner .lbl { color: var(--sec-text); }
+.sec-banner-num { width: 52px; height: 52px; border-radius: 50%; background: var(--sec-badge); color: var(--sec-ink); display: grid; place-items: center; font-size: 24px; font-weight: 800; flex: none; }
+
+.q-title { display: inline-flex; align-items: center; gap: 10px; }
+.q-num { width: 30px; height: 30px; border-radius: 50%; background: var(--sec-badge); color: var(--sec-ink); display: inline-grid; place-items: center; font-weight: 800; flex: none; }
+.in-section .q-head .lbl { color: var(--sec-text); }
+.in-section .q-dot.answered { background: var(--sec-tint); border-color: var(--sec); color: var(--sec-text); }
+.in-section .q-dot.current { outline-color: var(--sec); }
+.in-section .choice:hover { border-color: var(--sec); }
+.in-section .choice:has(input:checked) { border-color: var(--sec); background: var(--sec-tint); box-shadow: inset 4px 0 0 var(--sec); }
+.in-section .choice input { accent-color: var(--sec); }
+.in-section .rank-pos { background: var(--sec-badge); color: var(--sec-ink); }
+.in-section .detail { border-left: 4px solid var(--sec); }
+
+.done-mark { width: 56px; height: 56px; font-size: 30px; background: var(--band-strong, #1e7a46); color: #fff; }
+.done-sections { list-style: none; padding: 0; margin: 14px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.done-sections li { display: inline-flex; gap: 8px; align-items: center; background: var(--sec-tint); color: var(--sec-text); font-weight: 700; border-radius: 999px; padding: 6px 14px 6px 6px; }
+.done-sections li span { width: 24px; height: 24px; border-radius: 50%; background: var(--sec-badge); color: var(--sec-ink); display: inline-grid; place-items: center; font-size: 13px; }
