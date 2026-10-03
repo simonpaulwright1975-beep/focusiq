@@ -1,3 +1,5 @@
+set search_path = focusiq;
+
 -- Assessment day: plan a single office day and follow it live. Director-only.
 --
 -- assessment_days            – the day's settings (seats, times, lengths)
@@ -10,7 +12,7 @@
 -- health information). The session plan itself is computed by
 -- src/participation/readiness.ts.
 
-create table if not exists public.assessment_days (
+create table if not exists focusiq.assessment_days (
   id uuid primary key default gen_random_uuid(),
   day_date date not null unique,
   first_start time not null default '09:30',
@@ -30,29 +32,29 @@ create table if not exists public.assessment_days (
   check (first_start < end_by)
 );
 
-create table if not exists public.assessment_day_assignments (
-  day_id uuid not null references public.assessment_days (id) on delete cascade,
-  employee_id uuid not null references public.employees (id) on delete restrict,
+create table if not exists focusiq.assessment_day_assignments (
+  day_id uuid not null references focusiq.assessment_days (id) on delete cascade,
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
   session_number int not null check (session_number >= 1),
   fixed_by uuid not null default auth.uid(),
   fixed_at timestamptz not null default now(),
   primary key (day_id, employee_id)
 );
 
-alter table public.assessment_days enable row level security;
-alter table public.assessment_day_assignments enable row level security;
+alter table focusiq.assessment_days enable row level security;
+alter table focusiq.assessment_day_assignments enable row level security;
 do $$
 declare t text;
 begin
   foreach t in array array['assessment_days', 'assessment_day_assignments'] loop
-    execute format('drop policy if exists %I on public.%I', t || '_director', t);
+    execute format('drop policy if exists %I on focusiq.%I', t || '_director', t);
     execute format(
-      'create policy %I on public.%I for all using (public.is_director()) with check (public.is_director())',
+      'create policy %I on focusiq.%I for all using (focusiq.is_director()) with check (focusiq.is_director())',
       t || '_director', t);
   end loop;
 end $$;
 
-create or replace function public.assessment_day_readiness(p_day_id uuid)
+create or replace function focusiq.assessment_day_readiness(p_day_id uuid)
 returns table (
   employee_id uuid,
   display_name text,
@@ -72,13 +74,13 @@ returns table (
   answered int,
   completed_at timestamptz
 )
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = focusiq as $$
 #variable_conflict use_column
 declare
   d assessment_days;
-  notice text := (select version from public.current_privacy_notice());
+  notice text := (select version from focusiq.current_privacy_notice());
 begin
-  if not public.is_director() then raise exception 'Only Directors can view assessment-day readiness.'; end if;
+  if not focusiq.is_director() then raise exception 'Only Directors can view assessment-day readiness.'; end if;
   select * into d from assessment_days where id = p_day_id;
   if not found then raise exception 'Assessment day not found.'; end if;
   return query
@@ -119,5 +121,5 @@ begin
   order by e.department, e.display_name;
 end $$;
 
-revoke all on function public.assessment_day_readiness(uuid) from public;
-grant execute on function public.assessment_day_readiness(uuid) to authenticated;
+revoke all on function focusiq.assessment_day_readiness(uuid) from public;
+grant execute on function focusiq.assessment_day_readiness(uuid) to authenticated;

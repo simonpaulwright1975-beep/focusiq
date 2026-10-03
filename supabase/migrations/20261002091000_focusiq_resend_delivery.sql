@@ -1,3 +1,5 @@
+set search_path = focusiq;
+
 -- Sending through Resend: delivery tracking and richer send outcomes.
 --
 -- * provider_message_id links an email to Resend, so its delivery webhooks
@@ -7,19 +9,19 @@
 --   supabase/functions/_shared/resend.ts: sent, retry, permanent or requeue.
 -- * The Director daily summary also counts emails that were not delivered.
 
-alter table public.notification_outbox
+alter table focusiq.notification_outbox
   add column if not exists provider_message_id text,
   add column if not exists delivery_status text
     check (delivery_status in ('delivered', 'delayed', 'bounced', 'complained')),
   add column if not exists delivery_updated_at timestamptz;
 create unique index if not exists notification_outbox_provider_message
-  on public.notification_outbox (provider_message_id) where provider_message_id is not null;
+  on focusiq.notification_outbox (provider_message_id) where provider_message_id is not null;
 
-drop function if exists public.complete_notification(uuid, boolean, text);
+drop function if exists focusiq.complete_notification(uuid, boolean, text);
 
-create or replace function public.complete_notification(
+create or replace function focusiq.complete_notification(
   p_id uuid, p_outcome text, p_detail text default null, p_message_id text default null, p_retry_after_seconds int default null)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = focusiq as $$
 declare
   n notification_outbox;
   superseded boolean;
@@ -59,8 +61,8 @@ end $$;
 
 -- Delivery events from Resend's webhooks. Later events never downgrade an
 -- earlier, more serious one (e.g. a late "delayed" after "bounced").
-create or replace function public.record_email_event(p_message_id text, p_status text, p_at timestamptz default now())
-returns boolean language plpgsql security definer set search_path = public as $$
+create or replace function focusiq.record_email_event(p_message_id text, p_status text, p_at timestamptz default now())
+returns boolean language plpgsql security definer set search_path = focusiq as $$
 declare rank_of jsonb := '{"delayed": 1, "delivered": 2, "bounced": 3, "complained": 4}';
 begin
   if not rank_of ? p_status then raise exception 'Unknown delivery status %', p_status; end if;
@@ -71,20 +73,20 @@ begin
   return found;
 end $$;
 
-create or replace function public.focusiq_digest_lines(p_today date)
-returns text[] language plpgsql stable security definer set search_path = public as $$
+create or replace function focusiq.focusiq_digest_lines(p_today date)
+returns text[] language plpgsql stable security definer set search_path = focusiq as $$
 declare
   lines text[] := '{}';
   n int;
   day assessment_days;
-  notice text := (select version from public.current_privacy_notice());
+  notice text := (select version from focusiq.current_privacy_notice());
 begin
   n := (select count(*) from adjustment_requests where status = 'pending');
-  if n > 0 then lines := lines || (public.focusiq_plural(n, 'adjustment request', 'adjustment requests') || ' awaiting a decision'); end if;
+  if n > 0 then lines := lines || (focusiq.focusiq_plural(n, 'adjustment request', 'adjustment requests') || ' awaiting a decision'); end if;
   n := (select count(*) from rights_requests where status <> 'closed' and due_at < p_today);
-  if n > 0 then lines := lines || (public.focusiq_plural(n, 'question or request', 'questions or requests') || ' overdue'); end if;
+  if n > 0 then lines := lines || (focusiq.focusiq_plural(n, 'question or request', 'questions or requests') || ' overdue'); end if;
   n := (select count(*) from rights_requests where status <> 'closed' and due_at between p_today and p_today + 7);
-  if n > 0 then lines := lines || (public.focusiq_plural(n, 'question or request', 'questions or requests') || ' due within 7 days'); end if;
+  if n > 0 then lines := lines || (focusiq.focusiq_plural(n, 'question or request', 'questions or requests') || ' due within 7 days'); end if;
   select * into day from assessment_days where day_date between p_today and p_today + 3 order by day_date limit 1;
   if found then
     -- Same blocking rules as src/participation/readiness.ts.
@@ -93,15 +95,15 @@ begin
       or exists (select 1 from adjustment_requests ar where ar.employee_id = e.id and ar.status = 'pending')
       or exists (select 1 from rights_requests r where r.employee_id = e.id and r.request_type = 'objection' and r.status <> 'closed')));
     if n > 0 then
-      lines := lines || ('Assessment day on ' || public.focusiq_day_date(day.day_date) || ': '
-                         || public.focusiq_plural(n, 'person', 'people') || ' not ready yet');
+      lines := lines || ('Assessment day on ' || focusiq.focusiq_day_date(day.day_date) || ': '
+                         || focusiq.focusiq_plural(n, 'person', 'people') || ' not ready yet');
     end if;
   end if;
   -- Emails that never arrived: failed after retries, or bounced (Resend webhook).
   n := (select count(*) from notification_outbox
         where (status = 'failed' or delivery_status = 'bounced')
           and coalesce(delivery_updated_at, updated_at) >= p_today - 7);
-  if n > 0 then lines := lines || (public.focusiq_plural(n, 'email', 'emails') || ' not delivered in the last 7 days'); end if;
+  if n > 0 then lines := lines || (focusiq.focusiq_plural(n, 'email', 'emails') || ' not delivered in the last 7 days'); end if;
   return lines;
 end $$;
 
@@ -113,9 +115,9 @@ begin
     'record_email_event(text, text, timestamptz)',
     'focusiq_digest_lines(date)'
   ] loop
-    execute format('revoke all on function public.%s from public', f);
+    execute format('revoke all on function focusiq.%s from public', f);
     if exists (select 1 from pg_roles where rolname = 'service_role') then
-      execute format('grant execute on function public.%s to service_role', f);
+      execute format('grant execute on function focusiq.%s to service_role', f);
     end if;
   end loop;
 end $$;

@@ -1,3 +1,5 @@
+set search_path = focusiq;
+
 -- FocusiQ response capture: exactly what each employee saw and did.
 --
 -- Two append-only records make every assessment reconstructable:
@@ -7,10 +9,10 @@
 --                              answer selections/changes, timers, focus changes
 -- Answer-change history, revisit history and timing are derived views.
 
-create table if not exists public.assessment_presentations (
+create table if not exists focusiq.assessment_presentations (
   id uuid primary key default gen_random_uuid(),
-  assessment_id uuid not null references public.assessments (id) on delete restrict,
-  question_version_id uuid not null references public.question_versions (id),
+  assessment_id uuid not null references focusiq.assessments (id) on delete restrict,
+  question_version_id uuid not null references focusiq.question_versions (id),
   sequence int not null,
   presented_at timestamptz not null,
   -- Exactly what was rendered (after option shuffling, variable substitution, etc.).
@@ -20,10 +22,10 @@ create table if not exists public.assessment_presentations (
   unique (assessment_id, sequence)
 );
 
-create table if not exists public.response_events (
+create table if not exists focusiq.response_events (
   id bigint generated always as identity primary key,
-  assessment_id uuid not null references public.assessments (id) on delete restrict,
-  presentation_id uuid references public.assessment_presentations (id) on delete restrict,
+  assessment_id uuid not null references focusiq.assessments (id) on delete restrict,
+  presentation_id uuid references focusiq.assessment_presentations (id) on delete restrict,
   -- Client-side ordering, so events can be replayed even if received out of order.
   client_sequence int not null,
   event_type text not null check (event_type in (
@@ -41,26 +43,26 @@ create table if not exists public.response_events (
   unique (assessment_id, client_sequence)
 );
 create index if not exists response_events_presentation_idx
-  on public.response_events (presentation_id, client_sequence);
+  on focusiq.response_events (presentation_id, client_sequence);
 
-create or replace function public.focusiq_append_only()
+create or replace function focusiq.focusiq_append_only()
 returns trigger language plpgsql as $$
 begin
   raise exception '% is append-only evidence and cannot be changed or deleted', tg_table_name;
 end $$;
 
-drop trigger if exists assessment_presentations_append_only on public.assessment_presentations;
+drop trigger if exists assessment_presentations_append_only on focusiq.assessment_presentations;
 create trigger assessment_presentations_append_only
-  before update or delete on public.assessment_presentations
-  for each row execute function public.focusiq_append_only();
+  before update or delete on focusiq.assessment_presentations
+  for each row execute function focusiq.focusiq_append_only();
 
-drop trigger if exists response_events_append_only on public.response_events;
+drop trigger if exists response_events_append_only on focusiq.response_events;
 create trigger response_events_append_only
-  before update or delete on public.response_events
-  for each row execute function public.focusiq_append_only();
+  before update or delete on focusiq.response_events
+  for each row execute function focusiq.focusiq_append_only();
 
 -- Answer-change history: every selection/change in order, with the previous answer.
-create or replace view public.answer_change_history
+create or replace view focusiq.answer_change_history
 with (security_invoker = true) as
 select
   e.assessment_id,
@@ -72,13 +74,13 @@ select
   e.payload ->> 'answer' as answer,
   lag(e.payload ->> 'answer') over w as previous_answer,
   row_number() over w as change_number
-from public.response_events e
-join public.assessment_presentations p on p.id = e.presentation_id
+from focusiq.response_events e
+join focusiq.assessment_presentations p on p.id = e.presentation_id
 where e.event_type in ('answer_selected', 'answer_changed', 'answer_cleared')
 window w as (partition by e.presentation_id order by e.client_sequence);
 
 -- Revisit history: each return to a question after first leaving it.
-create or replace view public.revisit_history
+create or replace view focusiq.revisit_history
 with (security_invoker = true) as
 select
   e.assessment_id,
@@ -87,12 +89,12 @@ select
   e.client_sequence,
   e.occurred_at,
   row_number() over (partition by e.presentation_id order by e.client_sequence) as revisit_number
-from public.response_events e
-join public.assessment_presentations p on p.id = e.presentation_id
+from focusiq.response_events e
+join focusiq.assessment_presentations p on p.id = e.presentation_id
 where e.event_type = 'question_revisited';
 
 -- Timing per presented question.
-create or replace view public.question_timing
+create or replace view focusiq.question_timing
 with (security_invoker = true) as
 select
   p.assessment_id,
@@ -108,31 +110,31 @@ select
   count(*) filter (where e.event_type = 'question_revisited') as revisits,
   count(*) filter (where e.event_type = 'answer_changed') as answer_changes,
   bool_or(e.event_type = 'timer_expired') as timer_expired
-from public.assessment_presentations p
-left join public.response_events e on e.presentation_id = p.id
+from focusiq.assessment_presentations p
+left join focusiq.response_events e on e.presentation_id = p.id
 group by p.assessment_id, p.id, p.question_version_id, p.sequence, p.timed, p.time_limit_seconds;
 
-alter table public.assessment_presentations enable row level security;
-alter table public.response_events enable row level security;
+alter table focusiq.assessment_presentations enable row level security;
+alter table focusiq.response_events enable row level security;
 
 -- Directors can read all evidence; employees can read (and, while the
 -- assessment is open, write) their own.
-drop policy if exists assessment_presentations_read on public.assessment_presentations;
-create policy assessment_presentations_read on public.assessment_presentations
-  for select using (public.is_director() or public.owns_assessment(assessment_id));
-drop policy if exists assessment_presentations_insert on public.assessment_presentations;
-create policy assessment_presentations_insert on public.assessment_presentations
+drop policy if exists assessment_presentations_read on focusiq.assessment_presentations;
+create policy assessment_presentations_read on focusiq.assessment_presentations
+  for select using (focusiq.is_director() or focusiq.owns_assessment(assessment_id));
+drop policy if exists assessment_presentations_insert on focusiq.assessment_presentations;
+create policy assessment_presentations_insert on focusiq.assessment_presentations
   for insert with check (
-    public.owns_assessment(assessment_id)
-    and not exists (select 1 from public.assessments a where a.id = assessment_id and a.complete)
+    focusiq.owns_assessment(assessment_id)
+    and not exists (select 1 from focusiq.assessments a where a.id = assessment_id and a.complete)
   );
 
-drop policy if exists response_events_read on public.response_events;
-create policy response_events_read on public.response_events
-  for select using (public.is_director() or public.owns_assessment(assessment_id));
-drop policy if exists response_events_insert on public.response_events;
-create policy response_events_insert on public.response_events
+drop policy if exists response_events_read on focusiq.response_events;
+create policy response_events_read on focusiq.response_events
+  for select using (focusiq.is_director() or focusiq.owns_assessment(assessment_id));
+drop policy if exists response_events_insert on focusiq.response_events;
+create policy response_events_insert on focusiq.response_events
   for insert with check (
-    public.owns_assessment(assessment_id)
-    and not exists (select 1 from public.assessments a where a.id = assessment_id and a.complete)
+    focusiq.owns_assessment(assessment_id)
+    and not exists (select 1 from focusiq.assessments a where a.id = assessment_id and a.complete)
   );

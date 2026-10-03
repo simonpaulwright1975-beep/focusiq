@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   }
   if (!update) return Response.json({ ignored: true });
 
-  const db = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  const db = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false }, db: { schema: 'focusiq' } });
   const { error } = await db.rpc('record_email_event', { p_message_id: update.messageId, p_status: update.status, p_at: update.at });
   // A failure here makes Resend retry the webhook later.
   if (error) return Response.json({ error: error.message }, { status: 500 });

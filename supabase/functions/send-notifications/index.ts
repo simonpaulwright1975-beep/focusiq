@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   if (!env('CRON_SECRET') || req.headers.get('Authorization') !== `Bearer ${env('CRON_SECRET')}`) {
     return new Response('Unauthorised', { status: 401 });
   }
-  const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+  const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false }, db: { schema: 'focusiq' } });
   await db.rpc('release_stuck_notifications');
 
   if (!env('RESEND_API_KEY') || !env('EMAIL_FROM')) {

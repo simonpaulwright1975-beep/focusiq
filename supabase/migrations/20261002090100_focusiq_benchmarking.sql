@@ -1,3 +1,5 @@
+set search_path = focusiq;
+
 -- FocusiQ benchmarking, comparison & cohort management (§149–§203).
 --
 -- Golden rule (§203): KEEP THE DATA · CONTROL THE POPULATION ·
@@ -8,7 +10,7 @@
 -- ---------------------------------------------------------------------------
 -- §185 Benchmark audit log (append-only)
 -- ---------------------------------------------------------------------------
-create table if not exists public.benchmark_audit_log (
+create table if not exists focusiq.benchmark_audit_log (
   id uuid primary key default gen_random_uuid(),
   action text not null check (action in (
     'employee_excluded', 'employee_restored',
@@ -25,30 +27,30 @@ create table if not exists public.benchmark_audit_log (
   note text,
   details jsonb not null default '{}'::jsonb
 );
-create index if not exists benchmark_audit_target_idx on public.benchmark_audit_log (target_type, target_id, at);
+create index if not exists benchmark_audit_target_idx on focusiq.benchmark_audit_log (target_type, target_id, at);
 
-create or replace function public.benchmark_audit_append_only()
+create or replace function focusiq.benchmark_audit_append_only()
 returns trigger language plpgsql as $$
 begin
   raise exception 'benchmark_audit_log is append-only';
 end $$;
 
-drop trigger if exists benchmark_audit_no_change on public.benchmark_audit_log;
+drop trigger if exists benchmark_audit_no_change on focusiq.benchmark_audit_log;
 create trigger benchmark_audit_no_change
-  before update or delete on public.benchmark_audit_log
-  for each row execute function public.benchmark_audit_append_only();
+  before update or delete on focusiq.benchmark_audit_log
+  for each row execute function focusiq.benchmark_audit_append_only();
 
 -- ---------------------------------------------------------------------------
 -- §151–§153, §183 Benchmark eligibility
 -- One row per exclusion decision. Restoring sets restored_* – rows are never
 -- deleted, so the full history of decisions is preserved.
 -- ---------------------------------------------------------------------------
-create table if not exists public.benchmark_eligibility (
+create table if not exists focusiq.benchmark_eligibility (
   id uuid primary key default gen_random_uuid(),
-  employee_id uuid not null references public.employees (id) on delete restrict,
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
   -- Null = whole-employee exclusion (§153 Exclude Employee);
   -- set = single-assessment exclusion (§153 Exclude Assessment).
-  assessment_id uuid references public.assessments (id) on delete restrict,
+  assessment_id uuid references focusiq.assessments (id) on delete restrict,
   included boolean not null default false,
   exclusion_reason text not null check (exclusion_reason in (
     'test_account', 'pilot_user', 'incomplete_assessment', 'technical_failure',
@@ -69,12 +71,12 @@ create table if not exists public.benchmark_eligibility (
 
 -- At most one active exclusion per employee / per assessment.
 create unique index if not exists benchmark_eligibility_active_employee
-  on public.benchmark_eligibility (employee_id) where assessment_id is null and restored_at is null;
+  on focusiq.benchmark_eligibility (employee_id) where assessment_id is null and restored_at is null;
 create unique index if not exists benchmark_eligibility_active_assessment
-  on public.benchmark_eligibility (assessment_id) where assessment_id is not null and restored_at is null;
+  on focusiq.benchmark_eligibility (assessment_id) where assessment_id is not null and restored_at is null;
 
 -- Only the restoration columns may change after insert; rows cannot be deleted.
-create or replace function public.benchmark_eligibility_guard()
+create or replace function focusiq.benchmark_eligibility_guard()
 returns trigger language plpgsql as $$
 begin
   if tg_op = 'DELETE' then
@@ -91,39 +93,39 @@ begin
   return new;
 end $$;
 
-drop trigger if exists benchmark_eligibility_guard on public.benchmark_eligibility;
+drop trigger if exists benchmark_eligibility_guard on focusiq.benchmark_eligibility;
 create trigger benchmark_eligibility_guard
-  before update or delete on public.benchmark_eligibility
-  for each row execute function public.benchmark_eligibility_guard();
+  before update or delete on focusiq.benchmark_eligibility
+  for each row execute function focusiq.benchmark_eligibility_guard();
 
-create or replace function public.benchmark_eligibility_audit()
-returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function focusiq.benchmark_eligibility_audit()
+returns trigger language plpgsql security definer set search_path = focusiq as $$
 declare
   target_kind text := case when new.assessment_id is null then 'employee' else 'assessment' end;
   target text := coalesce(new.assessment_id, new.employee_id)::text;
 begin
   if tg_op = 'INSERT' then
-    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, note, details)
+    insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, note, details)
     values (target_kind || '_excluded', target_kind, target, new.excluded_by, new.excluded_at,
             new.exclusion_reason, new.exclusion_note, jsonb_build_object('eligibility_id', new.id));
   elsif new.restored_at is not null and old.restored_at is null then
-    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, details)
+    insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, details)
     values (target_kind || '_restored', target_kind, target, new.restored_by, new.restored_at,
             new.restore_reason, jsonb_build_object('eligibility_id', new.id, 'previous_reason', old.exclusion_reason));
   end if;
   return new;
 end $$;
 
-drop trigger if exists benchmark_eligibility_audit on public.benchmark_eligibility;
+drop trigger if exists benchmark_eligibility_audit on focusiq.benchmark_eligibility;
 create trigger benchmark_eligibility_audit
-  after insert or update on public.benchmark_eligibility
-  for each row execute function public.benchmark_eligibility_audit();
+  after insert or update on focusiq.benchmark_eligibility
+  for each row execute function focusiq.benchmark_eligibility_audit();
 
 -- ---------------------------------------------------------------------------
 -- §202 assessment_validity
 -- ---------------------------------------------------------------------------
-create table if not exists public.assessment_validity (
-  assessment_id uuid primary key references public.assessments (id) on delete restrict,
+create table if not exists focusiq.assessment_validity (
+  assessment_id uuid primary key references focusiq.assessments (id) on delete restrict,
   status text not null default 'valid'
     check (status in ('valid', 'review_required', 'invalidated', 'pilot')),
   reason text,
@@ -132,11 +134,11 @@ create table if not exists public.assessment_validity (
   check (status = 'valid' or coalesce(btrim(reason), '') <> '')
 );
 
-create or replace function public.assessment_validity_audit()
-returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function focusiq.assessment_validity_audit()
+returns trigger language plpgsql security definer set search_path = focusiq as $$
 begin
   if tg_op = 'INSERT' or new.status is distinct from old.status then
-    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, reason, details)
+    insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, reason, details)
     values ('assessment_validity_changed', 'assessment', new.assessment_id::text,
             coalesce(new.reviewed_by, auth.uid()), coalesce(new.reason, 'Validity set'),
             jsonb_build_object('from', case when tg_op = 'UPDATE' then old.status end, 'to', new.status));
@@ -144,18 +146,18 @@ begin
   return new;
 end $$;
 
-drop trigger if exists assessment_validity_audit on public.assessment_validity;
+drop trigger if exists assessment_validity_audit on focusiq.assessment_validity;
 create trigger assessment_validity_audit
-  after insert or update on public.assessment_validity
-  for each row execute function public.assessment_validity_audit();
+  after insert or update on focusiq.assessment_validity
+  for each row execute function focusiq.assessment_validity_audit();
 
 -- ---------------------------------------------------------------------------
 -- Adjusted Assessment: the person legitimately received different conditions
 -- (e.g. a reasonable adjustment). NOT an automatic exclusion – a Director
 -- decides whether the result remains comparable. Rows are never deleted.
 -- ---------------------------------------------------------------------------
-create table if not exists public.assessment_adjustments (
-  assessment_id uuid primary key references public.assessments (id) on delete restrict,
+create table if not exists focusiq.assessment_adjustments (
+  assessment_id uuid primary key references focusiq.assessments (id) on delete restrict,
   description text not null check (btrim(description) <> ''),
   recorded_by uuid not null default auth.uid(),
   recorded_at timestamptz not null default now(),
@@ -168,7 +170,7 @@ create table if not exists public.assessment_adjustments (
          or (decided_by is not null and decided_at is not null and coalesce(btrim(decision_reason), '') <> ''))
 );
 
-create or replace function public.assessment_adjustments_guard()
+create or replace function focusiq.assessment_adjustments_guard()
 returns trigger language plpgsql as $$
 begin
   if tg_op = 'DELETE' then
@@ -181,20 +183,20 @@ begin
   return new;
 end $$;
 
-drop trigger if exists assessment_adjustments_guard on public.assessment_adjustments;
+drop trigger if exists assessment_adjustments_guard on focusiq.assessment_adjustments;
 create trigger assessment_adjustments_guard
-  before update or delete on public.assessment_adjustments
-  for each row execute function public.assessment_adjustments_guard();
+  before update or delete on focusiq.assessment_adjustments
+  for each row execute function focusiq.assessment_adjustments_guard();
 
-create or replace function public.assessment_adjustments_audit()
-returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function focusiq.assessment_adjustments_audit()
+returns trigger language plpgsql security definer set search_path = focusiq as $$
 begin
   if tg_op = 'INSERT' then
-    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason)
+    insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason)
     values ('assessment_adjustment_flagged', 'assessment', new.assessment_id::text,
             new.recorded_by, new.recorded_at, new.description);
   elsif new.comparability is distinct from old.comparability then
-    insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, details)
+    insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, at, reason, details)
     values ('assessment_adjustment_reviewed', 'assessment', new.assessment_id::text,
             new.decided_by, coalesce(new.decided_at, now()), new.decision_reason,
             jsonb_build_object('from', old.comparability, 'to', new.comparability));
@@ -202,15 +204,15 @@ begin
   return new;
 end $$;
 
-drop trigger if exists assessment_adjustments_audit on public.assessment_adjustments;
+drop trigger if exists assessment_adjustments_audit on focusiq.assessment_adjustments;
 create trigger assessment_adjustments_audit
-  after insert or update on public.assessment_adjustments
-  for each row execute function public.assessment_adjustments_audit();
+  after insert or update on focusiq.assessment_adjustments
+  for each row execute function focusiq.assessment_adjustments_audit();
 
 -- ---------------------------------------------------------------------------
 -- §198 Cohorts & cohort tags (do not change the formal department)
 -- ---------------------------------------------------------------------------
-create table if not exists public.cohorts (
+create table if not exists focusiq.cohorts (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
   description text,
@@ -222,34 +224,34 @@ create table if not exists public.cohorts (
   check (name !~* '\m(over|under)\s*\d{2}')
 );
 
-create table if not exists public.employee_cohorts (
-  employee_id uuid not null references public.employees (id) on delete restrict,
-  cohort_id uuid not null references public.cohorts (id) on delete restrict,
+create table if not exists focusiq.employee_cohorts (
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
+  cohort_id uuid not null references focusiq.cohorts (id) on delete restrict,
   added_by uuid default auth.uid(),
   added_at timestamptz not null default now(),
   primary key (employee_id, cohort_id)
 );
 
-create or replace function public.employee_cohorts_audit()
-returns trigger language plpgsql security definer set search_path = public as $$
+create or replace function focusiq.employee_cohorts_audit()
+returns trigger language plpgsql security definer set search_path = focusiq as $$
 declare r record := coalesce(new, old);
 begin
-  insert into public.benchmark_audit_log (action, target_type, target_id, actor_id, reason, details)
+  insert into focusiq.benchmark_audit_log (action, target_type, target_id, actor_id, reason, details)
   values ('cohort_changed', 'employee', r.employee_id::text, auth.uid(),
           case when tg_op = 'INSERT' then 'Added to cohort' else 'Removed from cohort' end,
           jsonb_build_object('cohort_id', r.cohort_id, 'op', tg_op));
   return r;
 end $$;
 
-drop trigger if exists employee_cohorts_audit on public.employee_cohorts;
+drop trigger if exists employee_cohorts_audit on focusiq.employee_cohorts;
 create trigger employee_cohorts_audit
-  after insert or delete on public.employee_cohorts
-  for each row execute function public.employee_cohorts_audit();
+  after insert or delete on focusiq.employee_cohorts
+  for each row execute function focusiq.employee_cohorts_audit();
 
 -- ---------------------------------------------------------------------------
 -- §155, §159, §181 configurable thresholds
 -- ---------------------------------------------------------------------------
-create table if not exists public.benchmark_settings (
+create table if not exists focusiq.benchmark_settings (
   id boolean primary key default true check (id), -- single row
   minimum_cohort_size int not null default 5 check (minimum_cohort_size >= 2),
   -- §159: 1–4 Insufficient · 5–9 Limited · 10–19 Moderate · 20–29 Good · 30+ High
@@ -277,12 +279,12 @@ create table if not exists public.benchmark_settings (
          and confidence_moderate_from <= confidence_good_from
          and confidence_good_from <= confidence_high_from)
 );
-insert into public.benchmark_settings (id) values (true) on conflict do nothing;
+insert into focusiq.benchmark_settings (id) values (true) on conflict do nothing;
 
 -- ---------------------------------------------------------------------------
 -- §171, §196 Benchmark snapshots (frozen; immutable once saved)
 -- ---------------------------------------------------------------------------
-create table if not exists public.benchmark_snapshots (
+create table if not exists focusiq.benchmark_snapshots (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   created_by uuid not null default auth.uid(),
@@ -295,29 +297,29 @@ create table if not exists public.benchmark_snapshots (
   metrics_json jsonb not null              -- stats, counts, exclusions and values per metric
 );
 
-create or replace function public.benchmark_snapshot_immutable()
+create or replace function focusiq.benchmark_snapshot_immutable()
 returns trigger language plpgsql as $$
 begin
   raise exception '% is frozen and cannot be altered (§171).', tg_table_name;
 end $$;
 
-drop trigger if exists benchmark_snapshot_immutable on public.benchmark_snapshots;
+drop trigger if exists benchmark_snapshot_immutable on focusiq.benchmark_snapshots;
 create trigger benchmark_snapshot_immutable
-  before update or delete on public.benchmark_snapshots
-  for each row execute function public.benchmark_snapshot_immutable();
+  before update or delete on focusiq.benchmark_snapshots
+  for each row execute function focusiq.benchmark_snapshot_immutable();
 
 -- §171 Employee reports – frozen at generation with every version identifier,
 -- so a report can always be reproduced exactly and never silently changes.
-create table if not exists public.employee_reports (
+create table if not exists focusiq.employee_reports (
   id uuid primary key default gen_random_uuid(),
-  employee_id uuid not null references public.employees (id) on delete restrict,
-  assessment_id uuid not null references public.assessments (id) on delete restrict,
-  assessment_version_id text not null references public.assessment_versions (id),
-  scoring_version_id text not null references public.scoring_versions (id),
-  interpretation_version_id text not null references public.interpretation_versions (id),
-  report_version_id text not null references public.report_versions (id),
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
+  assessment_id uuid not null references focusiq.assessments (id) on delete restrict,
+  assessment_version_id text not null references focusiq.assessment_versions (id),
+  scoring_version_id text not null references focusiq.scoring_versions (id),
+  interpretation_version_id text not null references focusiq.interpretation_versions (id),
+  report_version_id text not null references focusiq.report_versions (id),
   engine_version text not null,
-  benchmark_snapshot_id uuid not null references public.benchmark_snapshots (id),
+  benchmark_snapshot_id uuid not null references focusiq.benchmark_snapshots (id),
   -- Absolute band, percentile and comparison context per metric, as shown.
   results jsonb not null,
   -- Rendered report content exactly as issued.
@@ -326,19 +328,19 @@ create table if not exists public.employee_reports (
   generated_at timestamptz not null default now()
 );
 
-drop trigger if exists employee_reports_immutable on public.employee_reports;
+drop trigger if exists employee_reports_immutable on focusiq.employee_reports;
 create trigger employee_reports_immutable
-  before update or delete on public.employee_reports
-  for each row execute function public.benchmark_snapshot_immutable();
+  before update or delete on focusiq.employee_reports
+  for each row execute function focusiq.benchmark_snapshot_immutable();
 
 -- ---------------------------------------------------------------------------
 -- §173 Development actions (coaching effectiveness)
 -- ---------------------------------------------------------------------------
-create table if not exists public.development_actions (
+create table if not exists focusiq.development_actions (
   id uuid primary key default gen_random_uuid(),
-  employee_id uuid not null references public.employees (id) on delete restrict,
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
   focus text not null,
-  metric_key text not null references public.metrics (key),
+  metric_key text not null references focusiq.metrics (key),
   assigned_at date not null,
   assigned_by uuid default auth.uid(),
   closed_at date
@@ -347,7 +349,7 @@ create table if not exists public.development_actions (
 -- ---------------------------------------------------------------------------
 -- §170 Question calibration inputs/outputs
 -- ---------------------------------------------------------------------------
-create table if not exists public.question_calibration (
+create table if not exists focusiq.question_calibration (
   question_id text primary key,
   family text not null,
   responses int not null,
@@ -367,9 +369,9 @@ create table if not exists public.question_calibration (
 -- ---------------------------------------------------------------------------
 -- §178–§180 External KPI observations (future correlation analysis)
 -- ---------------------------------------------------------------------------
-create table if not exists public.kpi_observations (
+create table if not exists focusiq.kpi_observations (
   id uuid primary key default gen_random_uuid(),
-  employee_id uuid not null references public.employees (id) on delete restrict,
+  employee_id uuid not null references focusiq.employees (id) on delete restrict,
   kpi text not null,
   period_start date not null,
   period_end date not null,
@@ -380,7 +382,7 @@ create table if not exists public.kpi_observations (
   recorded_at timestamptz not null default now()
 );
 
-create table if not exists public.high_performance_cohorts (
+create table if not exists focusiq.high_performance_cohorts (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   -- §178: membership must come from external job-performance evidence, never FocusiQ scores.
@@ -394,7 +396,7 @@ create table if not exists public.high_performance_cohorts (
 -- ---------------------------------------------------------------------------
 -- Eligible-assessment view used by benchmark queries.
 -- ---------------------------------------------------------------------------
-create or replace view public.benchmark_assessment_status
+create or replace view focusiq.benchmark_assessment_status
 with (security_invoker = true) as
 select
   a.id as assessment_id,
@@ -426,31 +428,31 @@ select
        and coalesce(v.status, 'valid') not in ('invalidated', 'review_required')
        and coalesce(adj.comparability, 'comparable') <> 'not_comparable'
    ) over (partition by a.employee_id)) as is_latest_eligible
-from public.assessments a
-join public.employees e on e.id = a.employee_id
-left join public.assessment_validity v on v.assessment_id = a.id
-left join public.assessment_adjustments adj on adj.assessment_id = a.id
-left join public.benchmark_eligibility ee
+from focusiq.assessments a
+join focusiq.employees e on e.id = a.employee_id
+left join focusiq.assessment_validity v on v.assessment_id = a.id
+left join focusiq.assessment_adjustments adj on adj.assessment_id = a.id
+left join focusiq.benchmark_eligibility ee
   on ee.employee_id = a.employee_id and ee.assessment_id is null and ee.restored_at is null
-left join public.benchmark_eligibility ae
+left join focusiq.benchmark_eligibility ae
   on ae.assessment_id = a.id and ae.restored_at is null;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security: benchmarking data is Director-only (§161, §184).
 -- ---------------------------------------------------------------------------
-alter table public.benchmark_audit_log enable row level security;
-alter table public.benchmark_eligibility enable row level security;
-alter table public.assessment_validity enable row level security;
-alter table public.cohorts enable row level security;
-alter table public.employee_cohorts enable row level security;
-alter table public.benchmark_settings enable row level security;
-alter table public.benchmark_snapshots enable row level security;
-alter table public.employee_reports enable row level security;
-alter table public.assessment_adjustments enable row level security;
-alter table public.development_actions enable row level security;
-alter table public.question_calibration enable row level security;
-alter table public.kpi_observations enable row level security;
-alter table public.high_performance_cohorts enable row level security;
+alter table focusiq.benchmark_audit_log enable row level security;
+alter table focusiq.benchmark_eligibility enable row level security;
+alter table focusiq.assessment_validity enable row level security;
+alter table focusiq.cohorts enable row level security;
+alter table focusiq.employee_cohorts enable row level security;
+alter table focusiq.benchmark_settings enable row level security;
+alter table focusiq.benchmark_snapshots enable row level security;
+alter table focusiq.employee_reports enable row level security;
+alter table focusiq.assessment_adjustments enable row level security;
+alter table focusiq.development_actions enable row level security;
+alter table focusiq.question_calibration enable row level security;
+alter table focusiq.kpi_observations enable row level security;
+alter table focusiq.high_performance_cohorts enable row level security;
 
 -- Read access: Directors / Super Admins.
 do $$
@@ -462,31 +464,31 @@ begin
     'assessment_adjustments',
     'development_actions', 'question_calibration', 'kpi_observations', 'high_performance_cohorts'
   ] loop
-    execute format('drop policy if exists %I on public.%I', t || '_director_read', t);
-    execute format('create policy %I on public.%I for select using (public.is_director())', t || '_director_read', t);
+    execute format('drop policy if exists %I on focusiq.%I', t || '_director_read', t);
+    execute format('create policy %I on focusiq.%I for select using (focusiq.is_director())', t || '_director_read', t);
   end loop;
 end $$;
 
 -- §184 Benchmark locking: inclusion changes need Director/Super Admin or explicit authority.
-drop policy if exists benchmark_eligibility_insert on public.benchmark_eligibility;
-create policy benchmark_eligibility_insert on public.benchmark_eligibility
-  for insert with check (public.can_alter_benchmark_inclusion() and excluded_by = auth.uid());
-drop policy if exists benchmark_eligibility_restore on public.benchmark_eligibility;
-create policy benchmark_eligibility_restore on public.benchmark_eligibility
-  for update using (public.can_alter_benchmark_inclusion())
-  with check (public.can_alter_benchmark_inclusion() and restored_by = auth.uid());
+drop policy if exists benchmark_eligibility_insert on focusiq.benchmark_eligibility;
+create policy benchmark_eligibility_insert on focusiq.benchmark_eligibility
+  for insert with check (focusiq.can_alter_benchmark_inclusion() and excluded_by = auth.uid());
+drop policy if exists benchmark_eligibility_restore on focusiq.benchmark_eligibility;
+create policy benchmark_eligibility_restore on focusiq.benchmark_eligibility
+  for update using (focusiq.can_alter_benchmark_inclusion())
+  with check (focusiq.can_alter_benchmark_inclusion() and restored_by = auth.uid());
 
-drop policy if exists assessment_adjustments_insert on public.assessment_adjustments;
-create policy assessment_adjustments_insert on public.assessment_adjustments
-  for insert with check (public.can_alter_benchmark_inclusion() and recorded_by = auth.uid());
-drop policy if exists assessment_adjustments_review on public.assessment_adjustments;
-create policy assessment_adjustments_review on public.assessment_adjustments
-  for update using (public.can_alter_benchmark_inclusion())
-  with check (public.can_alter_benchmark_inclusion() and decided_by = auth.uid());
+drop policy if exists assessment_adjustments_insert on focusiq.assessment_adjustments;
+create policy assessment_adjustments_insert on focusiq.assessment_adjustments
+  for insert with check (focusiq.can_alter_benchmark_inclusion() and recorded_by = auth.uid());
+drop policy if exists assessment_adjustments_review on focusiq.assessment_adjustments;
+create policy assessment_adjustments_review on focusiq.assessment_adjustments
+  for update using (focusiq.can_alter_benchmark_inclusion())
+  with check (focusiq.can_alter_benchmark_inclusion() and decided_by = auth.uid());
 
-drop policy if exists assessment_validity_write on public.assessment_validity;
-create policy assessment_validity_write on public.assessment_validity
-  for all using (public.can_alter_benchmark_inclusion()) with check (public.can_alter_benchmark_inclusion());
+drop policy if exists assessment_validity_write on focusiq.assessment_validity;
+create policy assessment_validity_write on focusiq.assessment_validity
+  for all using (focusiq.can_alter_benchmark_inclusion()) with check (focusiq.can_alter_benchmark_inclusion());
 
 -- Directors manage cohorts, snapshots, settings, development actions and KPI data.
 do $$
@@ -496,21 +498,21 @@ begin
     'cohorts', 'employee_cohorts', 'benchmark_settings', 'development_actions',
     'kpi_observations', 'high_performance_cohorts', 'question_calibration'
   ] loop
-    execute format('drop policy if exists %I on public.%I', t || '_director_write', t);
+    execute format('drop policy if exists %I on focusiq.%I', t || '_director_write', t);
     execute format(
-      'create policy %I on public.%I for all using (public.is_director()) with check (public.is_director())',
+      'create policy %I on focusiq.%I for all using (focusiq.is_director()) with check (focusiq.is_director())',
       t || '_director_write', t);
   end loop;
 end $$;
 
-drop policy if exists benchmark_snapshots_insert on public.benchmark_snapshots;
-create policy benchmark_snapshots_insert on public.benchmark_snapshots
-  for insert with check (public.is_director() and created_by = auth.uid());
-drop policy if exists employee_reports_insert on public.employee_reports;
-create policy employee_reports_insert on public.employee_reports
-  for insert with check (public.is_director() and generated_by = auth.uid());
+drop policy if exists benchmark_snapshots_insert on focusiq.benchmark_snapshots;
+create policy benchmark_snapshots_insert on focusiq.benchmark_snapshots
+  for insert with check (focusiq.is_director() and created_by = auth.uid());
+drop policy if exists employee_reports_insert on focusiq.employee_reports;
+create policy employee_reports_insert on focusiq.employee_reports
+  for insert with check (focusiq.is_director() and generated_by = auth.uid());
 
 -- Audit rows are written by triggers or explicitly by Directors; never edited.
-drop policy if exists benchmark_audit_insert on public.benchmark_audit_log;
-create policy benchmark_audit_insert on public.benchmark_audit_log
-  for insert with check (public.can_alter_benchmark_inclusion() and actor_id = auth.uid());
+drop policy if exists benchmark_audit_insert on focusiq.benchmark_audit_log;
+create policy benchmark_audit_insert on focusiq.benchmark_audit_log
+  for insert with check (focusiq.can_alter_benchmark_inclusion() and actor_id = auth.uid());

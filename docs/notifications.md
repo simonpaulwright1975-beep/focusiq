@@ -95,7 +95,7 @@ Do this once the Supabase project exists.
          (select decrypted_secret from vault.decrypted_secrets where name = 'focusiq_cron_secret')))
    $$);
    -- 07:00 and 08:00 UTC on weekdays; the function sends at 08:00 UK time (GMT or BST).
-   select cron.schedule('focusiq-director-digest', '0 7,8 * * 1-5', 'select public.queue_director_digests()');
+   select cron.schedule('focusiq-director-digest', '0 7,8 * * 1-5', 'select focusiq.queue_director_digests()');
    ```
 7. **Employee email addresses** come from Supabase Auth (`auth.users.email`) through `employees.user_id`. An employee without an account is not emailed, and the email is recorded as *Not sent*.
 8. **Data protection (for whoever handles this at Walter Geering).**
