@@ -6,7 +6,8 @@
 //
 // Secrets:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY – provided by Supabase
-//   CRON_SECRET        – shared secret the scheduler sends as a Bearer token
+//   (The scheduler's token lives in Supabase Vault as 'focusiq_cron_secret' and
+//    is checked by focusiq.cron_token_valid(); nothing to set here.)
 //   RESEND_API_KEY     – a sending-only Resend API key; without it nothing is sent
 //   EMAIL_FROM         – a sender on the verified domain, e.g. "Walter Geering <focusiq@wghub.uk>"
 //   EMPLOYEE_APP_URL   – link in employee emails
@@ -18,10 +19,10 @@ import { sendBatch, type OutgoingEmail, type SendOutcome } from '../_shared/rese
 const env = (k: string) => Deno.env.get(k) ?? '';
 
 Deno.serve(async (req) => {
-  if (!env('CRON_SECRET') || req.headers.get('Authorization') !== `Bearer ${env('CRON_SECRET')}`) {
-    return new Response('Unauthorised', { status: 401 });
-  }
   const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false }, db: { schema: 'focusiq' } });
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const { data: allowed } = await db.rpc('cron_token_valid', { p_token: token });
+  if (allowed !== true) return new Response('Unauthorised', { status: 401 });
   await db.rpc('release_stuck_notifications');
 
   if (!env('RESEND_API_KEY') || !env('EMAIL_FROM')) {

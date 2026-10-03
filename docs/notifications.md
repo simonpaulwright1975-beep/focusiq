@@ -61,50 +61,65 @@ Employee emails come from **Walter Geering** and greet the person by their first
 
 **Wording:** the email wording lives in `src/participation/notifications.ts` and is mirrored in the SQL. `tests/notifications.test.ts` checks the two match.
 
-## Setting up Resend
+## Setting up Resend (simple steps)
 
-FocusiQ's database is in the WG Main project (see `docs/database.md`). Add `focusiq` to its exposed API schemas first.
+FocusiQ uses the Hub's Resend account and its verified domain `wghub.uk`, so there's no new domain and no DNS work. The database is in WG Main (see `docs/database.md`).
 
-**FocusiQ uses the Walter Geering Hub's Resend account.** The Hub (`wg-hub`) already sends through Resend from the verified domain `wghub.uk`, both for its Supabase Auth emails and its Edge Functions. FocusiQ uses the same account and domain, so there's no new domain and no DNS work.
+**In Resend** ([resend.com](https://resend.com)):
+1. **Domains → `wghub.uk` → Configuration:** make sure *Open tracking* and *Click tracking* are both **off**.
+2. **API Keys:** the key *FocusiQ – sending* (Sending access, `wghub.uk` only). Keep its `re_…` value for step 5.
+3. **Webhooks → Add Webhook:**
+   - **Endpoint URL:** `https://hlfhyzqkzqgyuohhmzzu.supabase.co/functions/v1/resend-webhook`
+   - **Events:** `email.delivered`, `email.delivery_delayed`, `email.bounced` and `email.complained`.
+   - Save, then copy the **Signing secret** (`whsec_…`).
 
-1. **Sending domain.** Use `wghub.uk`, which is already verified. FocusiQ sends as `Walter Geering <focusiq@wghub.uk>`; any address on a verified domain works.
-2. **Open and click tracking** is a per-domain setting in Resend. Make sure it's off for `wghub.uk`: FocusiQ doesn't track whether people open emails, and click tracking would rewrite the sign-in links. This also applies to the Hub's emails.
-3. **Create a separate API key for FocusiQ** with *Sending access* for `wghub.uk` only. Don't reuse the Hub's key: each app can then be revoked on its own, and Resend shows which app sent what.
-4. **Add a webhook** pointing at `https://hlfhyzqkzqgyuohhmzzu.supabase.co/functions/v1/resend-webhook`. Resend webhooks cover the whole account, so this one also receives events for the Hub's emails; FocusiQ ignores message ids it didn't send.
-   - Events: `email.delivered`, `email.delivery_delayed`, `email.bounced` and `email.complained`.
-   - Copy its signing secret (`whsec_…`).
-5. **Set the secrets and deploy.** Both functions check their own credentials, so JWT checks are off:
+**In Supabase** ([supabase.com/dashboard](https://supabase.com/dashboard) → project **WG Main**):
+
+4. **Project Settings → Data API → Exposed schemas:** add `focusiq` and save.
+5. **Edge Functions → Secrets:** add these. Each one is a name and a value.
+
+   | Name | Value |
+   |---|---|
+   | `RESEND_API_KEY` | the `re_…` key from step 2 |
+   | `RESEND_WEBHOOK_SECRET` | the `whsec_…` secret from step 3 |
+   | `EMAIL_FROM` | `Walter Geering <focusiq@wghub.uk>` |
+   | `EMPLOYEE_APP_URL` | FocusiQ's web address followed by `/employee.html` |
+   | `DIRECTOR_APP_URL` | FocusiQ's web address |
+   | `EMAIL_REDIRECT_TO` | your own email address (test mode, see below) |
+
+   **Test mode:** while `EMAIL_REDIRECT_TO` is set, every email goes to you instead of staff, with the intended recipient shown in the subject. Delete that secret when you're ready to go live.
+
+6. **Deploy the two email functions and schedule them.** Claude can do this through the Supabase tools. To do it by hand:
    ```
-   supabase secrets set RESEND_API_KEY=re_… RESEND_WEBHOOK_SECRET=whsec_… \
-     EMAIL_FROM="Walter Geering <focusiq@wghub.uk>" \
-     EMPLOYEE_APP_URL=https://…/employee.html DIRECTOR_APP_URL=https://…/ \
-     CRON_SECRET=<long random string> \
-     EMAIL_REDIRECT_TO=<your own address>   # test mode: remove before go-live
    supabase functions deploy send-notifications --no-verify-jwt
    supabase functions deploy resend-webhook --no-verify-jwt
    ```
-   **Test mode.** While `EMAIL_REDIRECT_TO` is set, every email goes to that one address. The subject shows who it was for, so the whole flow can be tried with real data before staff receive anything. Remove it with `supabase secrets unset EMAIL_REDIRECT_TO`.
-
-   **Nothing is lost without credentials.** Without `RESEND_API_KEY` and `EMAIL_FROM`, the function sends nothing and emails stay queued.
-6. **Schedule it** with `pg_cron` and `pg_net` (enable both extensions first). Store the cron secret in Vault rather than in the job text:
+   Then run this in the SQL editor:
    ```sql
+   select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'focusiq_cron_secret', 'FocusiQ scheduler token');
    select cron.schedule('focusiq-send-notifications', '* * * * *', $$
      select net.http_post(
        url := 'https://hlfhyzqkzqgyuohhmzzu.supabase.co/functions/v1/send-notifications',
        headers := jsonb_build_object('Authorization', 'Bearer ' ||
          (select decrypted_secret from vault.decrypted_secrets where name = 'focusiq_cron_secret')))
    $$);
-   -- 07:00 and 08:00 UTC on weekdays; the function sends at 08:00 UK time (GMT or BST).
+   -- 07:00 and 08:00 UTC on weekdays; sends at 08:00 UK time all year.
    select cron.schedule('focusiq-director-digest', '0 7,8 * * 1-5', 'select focusiq.queue_director_digests()');
+   select cron.schedule('focusiq-staff-sync', '15 2 * * *', 'select focusiq.sync_staff_directory()');
    ```
-7. **Employee email addresses** come from Supabase Auth (`auth.users.email`) through `employees.user_id`. An employee without an account is not emailed, and the email is recorded as *Not sent*.
-8. **Data protection (for whoever handles this at Walter Geering).**
-   - Resend processes staff email addresses and these content-free emails.
-   - Sign Resend's data processing agreement.
-   - Confirm the safeguard for the transfer to a US provider under UK GDPR, for example the UK Addendum or the UK Extension to the Data Privacy Framework if Resend is certified.
-   - List Resend as a processor in the FocusiQ privacy notice; one of its placeholders covers this.
-   - Resend may already be covered for the Hub; extend the same paperwork to FocusiQ.
-   - Check the plan's limits. The Hub and FocusiQ share the account's quota, and an assessment day sends about two emails per person.
+   The scheduler's token is generated and kept in Vault, so there's nothing to copy.
+
+**In Netlify:** remove `RESEND_API_KEY` from the *focus-iq* site's environment variables. FocusiQ's emails are sent from Supabase, so nothing in Netlify uses it.
+
+**Paperwork (for whoever handles data protection):**
+- Resend processes staff email addresses; the emails themselves carry no personal content.
+- If Resend's data processing agreement and UK GDPR transfer safeguard are already in place for the Hub, extend them to FocusiQ.
+- List Resend as a processor in the FocusiQ privacy notice.
+
+**Things to know:**
+- Employee email addresses come from their WG login. Someone without a login isn't emailed, and the email shows as *Not sent*.
+- The Hub and FocusiQ share one Resend quota. An assessment day sends about two emails per person.
+- Nothing is sent until `RESEND_API_KEY` and `EMAIL_FROM` are set; emails wait in the outbox.
 
 ## Demo
 

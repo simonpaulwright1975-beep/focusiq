@@ -32,9 +32,22 @@ So instead of replaying each migration file, WG Main received the **finished sch
 
 **New migrations** apply on top as normal. Avoid `DROP` when applying them through the Supabase tool, or approve the prompt when it appears.
 
+## Staff directory link (`20261002091200_focusiq_staff_directory.sql`)
+
+FocusiQ people are linked to the WG staff directory (`public.employees`, owned by the Hub).
+
+- **From the directory, kept in step by `focusiq.sync_staff_directory()` (nightly):**
+  - name, job title and login;
+  - whether the person is still active. Leaving makes them *former*; coming back makes them active again.
+- **Owned by FocusiQ:** department and start date. The directory has neither at the moment, and changing them later would change benchmark history. A Director sets them when adding someone with `focusiq.link_staff(staff_id, department, start_date)`. The directory's start date is used if it has one.
+- **For Directors:** `focusiq.staff_directory()` lists everyone in the directory and whether they're in FocusiQ yet. It reads only name, job title, department, active, login and start date, never PINs or locations.
+- **The link is a plain column (`focusiq.employees.staff_id`), not a foreign key.** A foreign key would add triggers to the Hub's table and could block it deleting a staff record. FocusiQ never writes to the directory.
+- **Roles:** adding someone with a login gives them the FocusiQ `employee` role. Directors are set in `focusiq.user_roles` and are never downgraded.
+
 ## Still to do (needs the Supabase dashboard)
 
 1. **Expose the schema to the API:** Settings → API → *Exposed schemas* → add `focusiq`. The apps and the email functions reach FocusiQ through the API, so nothing works until this is done.
-2. **Email:** set the Edge Function secrets, deploy `send-notifications` and `resend-webhook`, and schedule them (see `docs/notifications.md`).
-3. **People:** create `focusiq.employees` rows and `focusiq.user_roles` for Directors and staff.
-   - Consider linking to the WG staff directory (`public.employees`) rather than keeping a second copy of names. That's a separate decision.
+2. **Email:** follow the simple steps in `docs/notifications.md`.
+3. **People:**
+   - make the Directors Directors in `focusiq.user_roles`;
+   - add staff from the directory with `focusiq.link_staff()`. The dashboard screen for this comes when the app is connected to Supabase.
