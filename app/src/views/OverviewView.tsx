@@ -11,7 +11,7 @@ import { MOTIVATORS, organisationInsights } from '../../../src/insight/index.js'
 import { BarList, Dumbbell, Scatter } from '../components/charts.js';
 import { Card, ConfidenceBadge, Explanation, Stat, fmt } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
-import { baseDefinition, CORE_KEYS, definitionFor, metricLabel, useStore } from '../state.js';
+import { baseDefinition, CORE_KEYS, definitionFor, metricLabel, metricOf, useStore } from '../state.js';
 
 const SEQ = ['--seq-100', '--seq-200', '--seq-300', '--seq-400', '--seq-500', '--seq-600'];
 
@@ -19,6 +19,7 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
   const { data, demo, filters, actor, now, revision } = useStore();
   const [showTable, setShowTable] = useState(false);
   const [allInsights, setAllInsights] = useState(false);
+  const [personId, setPersonId] = useState('');
   const def = definitionFor(filters, now);
   const scopeLabel = filters.department === 'all' ? 'Company' : filters.department;
 
@@ -80,13 +81,36 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
     return organisationInsights(actor, members).filter((o) => filters.department === 'all' || o.group === filters.department);
   }, [company, reports]);
 
+  // A person to plot against the median in scope (eligible people only).
+  const people = [...population.byEmployee.keys()]
+    .filter((id) => !filters.hidden.includes(id))
+    .map((id) => data.employees.find((e) => e.id === id)!)
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const person = people.find((e) => e.id === personId) ?? null;
+  const personScores = person ? population.byEmployee.get(person.id)!.scores : null;
+
+  // FocusiQ expectations (the same thresholds for every core dimension).
+  const expectations = metricOf(CORE_KEYS[0]!).absoluteBands;
+  const bands = expectations
+    ? { development: expectations.development, strong: expectations.strong, note: expectations.validated ? undefined : 'provisional' }
+    : undefined;
+
+  const scopeMedian = (k: string) => {
+    const st = benchmarks.get(k)!.scope.stats;
+    return st ? Math.round(st.median) : null;
+  };
   const dumbbellRows = CORE_KEYS.map((k) => {
     const b = benchmarks.get(k)!;
+    const note = b.scope.available ? `${b.scope.explanation.sampleSize} people · ${b.scope.confidence} confidence` : b.scope.unavailableReason;
+    if (personScores) {
+      const v = personScores[k];
+      return { label: metricLabel(k), value: v == null ? null : Math.round(v), context: scopeMedian(k), note };
+    }
     return {
       label: metricLabel(k),
-      value: b.scope.stats ? Math.round(b.scope.stats.median) : null,
+      value: scopeMedian(k),
       context: filters.department === 'all' ? null : b.company.stats ? Math.round(b.company.stats.median) : null,
-      note: b.scope.available ? `${b.scope.explanation.sampleSize} people · ${b.scope.confidence} confidence` : b.scope.unavailableReason,
+      note,
     };
   });
   const first = benchmarks.get(CORE_KEYS[0]!)!.scope;
@@ -103,20 +127,36 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
       <div className="grid cols-3-1">
         <Card
           title="Dimension comparison"
-          sub={filters.department === 'all' ? 'Company median per dimension' : `${scopeLabel} median vs company median`}
-          actions={<button className="btn link" onClick={() => setShowTable(!showTable)}>{showTable ? 'Show chart' : 'Show table'}</button>}
+          sub={
+            person
+              ? `${person.displayName} vs ${scopeLabel} median · shaded by FocusiQ expectations`
+              : `${filters.department === 'all' ? 'Company median per dimension' : `${scopeLabel} median vs company median`} · shaded by FocusiQ expectations`
+          }
+          actions={
+            <div className="row">
+              <select aria-label="Show a person on the chart" value={person?.id ?? ''} onChange={(e) => setPersonId(e.target.value)}>
+                <option value="">No person – medians only</option>
+                {people.map((e) => <option key={e.id} value={e.id}>{e.displayName}</option>)}
+              </select>
+              <button className="btn link" onClick={() => setShowTable(!showTable)}>{showTable ? 'Show chart' : 'Show table'}</button>
+            </div>
+          }
         >
           {first.available ? (
             showTable ? (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Dimension</th><th className="num">{scopeLabel}</th><th className="num">Company</th><th className="num">People</th><th>Confidence</th></tr></thead>
+                  <thead><tr><th>Dimension</th>{person && <th className="num">{person.displayName}</th>}{bands && <th>{person ? 'Band' : `${scopeLabel} band`}</th>}<th className="num">{scopeLabel}</th><th className="num">Company</th><th className="num">People</th><th>Confidence</th></tr></thead>
                   <tbody>
                     {CORE_KEYS.map((k) => {
                       const b = benchmarks.get(k)!;
+                      const shown = personScores ? personScores[k] : b.scope.stats?.median;
+                      const band = shown == null || !bands ? null : shown >= bands.strong ? 'Strong' : shown < bands.development ? 'Development opportunity' : 'Expected';
                       return (
                         <tr key={k}>
                           <td>{metricLabel(k)}</td>
+                          {person && <td className="num">{fmt(personScores?.[k])}</td>}
+                          {bands && <td>{band ?? '—'}</td>}
                           <td className="num">{fmt(b.scope.stats?.median)}</td>
                           <td className="num">{fmt(b.company.stats?.median)}</td>
                           <td className="num">{b.scope.explanation.sampleSize}</td>
@@ -128,7 +168,12 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
                 </table>
               </div>
             ) : (
-              <Dumbbell rows={dumbbellRows} seriesLabel={`${scopeLabel} median`} contextLabel="Company median" />
+              <Dumbbell
+                rows={dumbbellRows}
+                seriesLabel={person ? person.displayName : `${scopeLabel} median`}
+                contextLabel={person ? `${scopeLabel} median` : 'Company median'}
+                bands={bands}
+              />
             )
           ) : (
             <p className="empty">{first.unavailableReason} {first.sampleSizeLabel}</p>

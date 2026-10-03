@@ -24,6 +24,8 @@
   --ord-1-ink: var(--ink); --ord-2-ink: #ffffff; --ord-3-ink: #ffffff;
   /* Heatmap medians – sequential green ramp ending at the house accent. */
   --seq-100: #ddf2e4; --seq-200: #b3dfc1; --seq-300: #82c39b; --seq-400: #4ea474; --seq-500: #1e7a46; --seq-600: #0d5a3b;
+  /* Expectation zones behind dot charts: kept pale so dots stay ≥ 5.6:1; zones are always named in text. */
+  --zone-develop: transparent; --zone-expected: #ddf2e4; --zone-strong: #b3dfc1;
   --seq-ink-0: var(--ink); --seq-ink-1: var(--ink); --seq-ink-2: var(--ink); --seq-ink-3: var(--ink); --seq-ink-4: #ffffff; --seq-ink-5: #ffffff;
   /* Status – house traffic-light tokens, always paired with an icon/label. */
   --good: var(--green); --warning: var(--amber); --serious: var(--amber); --critical: var(--red);
