@@ -47,7 +47,7 @@ FocusiQ people are linked to the WG staff directory (`public.employees`, owned b
 ## Still to do (needs the Supabase dashboard)
 
 1. **Expose the schema to the API:** Settings → API → *Exposed schemas* → add `focusiq`. The apps and the email functions reach FocusiQ through the API, so nothing works until this is done.
-2. **Email:** follow the simple steps in `docs/notifications.md`.
+2. **Email:** follow the simple steps in `docs/notifications.md`. Already done (3 October 2026): the `send-notifications` and `resend-webhook` Edge Functions are deployed, the scheduler token is in Vault, and the cron jobs `focusiq-send-notifications`, `focusiq-director-digest` and `focusiq-staff-sync` are scheduled. Until the `FOCUSIQ_` secrets are set, emails simply wait in the queue.
 3. **People:**
    - make the Directors Directors in `focusiq.user_roles`;
    - add staff from the directory with `focusiq.link_staff()`. The dashboard screen for this comes when the app is connected to Supabase.

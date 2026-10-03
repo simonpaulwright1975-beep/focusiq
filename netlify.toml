@@ -1,0 +1,8 @@
+# FocusiQ on Netlify (site: focus-iq). These settings override the Netlify UI.
+# The app is two static pages: Directors (index.html) and employees (employee.html).
+[build]
+  command = "npm run build:app"
+  publish = "app/dist"
+
+[build.environment]
+  NODE_VERSION = "22"

@@ -91,7 +91,7 @@ FocusiQ uses the Hub's Resend account and its verified domain `wghub.uk`, so the
 
    **Test mode:** while `FOCUSIQ_EMAIL_REDIRECT_TO` is set, every email goes to you instead of staff, with the intended recipient shown in the subject. Delete that secret when you're ready to go live.
 
-6. **Deploy the two email functions and schedule them.** Claude can do this through the Supabase tools. To do it by hand:
+6. **Deploy the two email functions and schedule them.** Done in WG Main on 3 October 2026; only repeat this after changing a function. To do it by hand:
    ```
    supabase functions deploy send-notifications --no-verify-jwt
    supabase functions deploy resend-webhook --no-verify-jwt
