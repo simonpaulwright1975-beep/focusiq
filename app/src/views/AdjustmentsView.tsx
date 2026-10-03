@@ -16,6 +16,8 @@ import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
 import { DEMO_ADJUSTMENT_REQUESTS } from '../demo/adjustmentSeed.js';
 import { listRequests, seedOnce, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
+import { notifyEmployee } from '../demo/outboxStore.js';
+import { coalesceKeys } from '../../../src/participation/index.js';
 import { useStore } from '../state.js';
 
 const dateTime = (iso: string) =>
@@ -183,6 +185,7 @@ function DecisionModal({ request, onClose }: { request: AdjustmentRequest; onClo
     setErrors(errs);
     if (Object.keys(errs).length) return;
     upsertRequest(decideAdjustment(request, input, actor, now));
+    notifyEmployee('adjustment_decided', request.employeeId, request.employeeName, coalesceKeys.adjustment(request.id));
     onClose();
   };
   const err = (k: keyof DecisionErrors) => (errors[k] ? <p className="field-error" role="alert">{errors[k]}</p> : null);

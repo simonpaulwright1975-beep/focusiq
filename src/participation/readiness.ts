@@ -60,6 +60,8 @@ export interface DaySettings {
   /** Allowance added when rest breaks are agreed. */
   restBreakMinutes: number;
   lunch: { start: string; minutes: number } | null;
+  /** Room names used in invitations. */
+  rooms: Record<Room, string>;
 }
 
 export const DEFAULT_DAY_SETTINGS: Omit<DaySettings, 'date'> = {
@@ -73,6 +75,7 @@ export const DEFAULT_DAY_SETTINGS: Omit<DaySettings, 'date'> = {
   gapMinutes: 15,
   restBreakMinutes: 10,
   lunch: { start: '12:30', minutes: 45 },
+  rooms: { main: 'Main assessment room', quiet: 'Quiet room' },
 };
 
 /** Minutes after which an in-progress assessment with no activity needs a check-in. */

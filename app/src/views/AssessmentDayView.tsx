@@ -6,42 +6,28 @@
  * Shows agreed arrangement labels only: never adjustment request text or
  * internal notes.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Modal } from '../components/Modal.js';
+import { EmailPreview } from './EmailPreview.js';
+import { notifyEmployee, queueDayEmail } from '../demo/outboxStore.js';
 import {
   DAY_STATUS_LABELS,
-  DEFAULT_DAY_SETTINGS,
-  NOTICE_V1,
-  assessReadiness,
   dayStatus,
   planDay,
   summariseDay,
-  type AcknowledgementSummary,
+  coalesceKeys,
+  employeeEmail,
+  planInvitations,
+  recentlyReminded,
+  type PlannedInvite,
   type AssessmentProgress,
-  type DayEmployee,
-  type DaySettings,
   type DayStatus,
   type PersonReadiness,
 } from '../../../src/participation/index.js';
 import { Stat } from '../components/ui.js';
-import { DEMO_ASSESSMENT } from '../demo/assessment.js';
-import { demoAcknowledgements } from '../demo/daySeed.js';
-import { demoAcknowledgement, demoProgress, readJson, subscribeParticipation, writeJson } from '../shared/participationStore.js';
-import { useStore } from '../state.js';
-import { useAdjustmentRequests } from './AdjustmentsView.js';
-import { useRightsRequests } from './QuestionsView.js';
+import { readJson, writeJson } from '../shared/participationStore.js';
+import { PINS_KEY, localDate, useDaySettings, useNow, useOutbox, useReadiness } from './dayData.js';
 
-const SETTINGS_KEY = 'focusiq-demo-day';
-const PINS_KEY = 'focusiq-demo-day-pins';
-const LIVE_EMPLOYEE = 's4';
-const TOTAL_QUESTIONS = DEMO_ASSESSMENT.sections.reduce((n, s) => n + s.questions.length, 0);
-
-/** Next working day (Mon–Fri) after today, as YYYY-MM-DD. */
-function nextWorkingDay(from = new Date()): string {
-  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return localDate(d);
-}
-const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const longDay = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -49,21 +35,6 @@ const followUps = (n: number) => (n === 0 ? 'No other follow-ups' : `${n} other 
 
 type Filter = 'all' | 'not_ready' | 'arrangements';
 type Section = 'Adjustments' | 'Questions & concerns';
-
-function useLiveRevision(): number {
-  const [rev, setRev] = useState(0);
-  useEffect(() => subscribeParticipation(() => setRev((r) => r + 1)), []);
-  return rev;
-}
-
-function useNow(everyMs = 30_000): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), everyMs);
-    return () => clearInterval(t);
-  }, [everyMs]);
-  return now;
-}
 
 function ReadinessTag({ person }: { person: PersonReadiness }) {
   if (person.ready) return <span className="tag tag-green">✓ Ready</span>;
@@ -89,23 +60,8 @@ function NumberField({ id, label, value, onChange, min = 0, max = 999 }: { id: s
 }
 
 export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => void }) {
-  const { demo } = useStore();
-  const adjustments = useAdjustmentRequests();
-  const rightsRequests = useRightsRequests();
-  const live = useLiveRevision();
   const now = useNow();
-  const [settings, setSettingsState] = useState<DaySettings>(() => ({
-    ...DEFAULT_DAY_SETTINGS,
-    date: nextWorkingDay(),
-    assessmentMinutes: DEMO_ASSESSMENT.estimatedMinutes,
-    ...readJson<Partial<DaySettings>>(SETTINGS_KEY),
-  }));
-  const setSettings = (patch: Partial<DaySettings>) =>
-    setSettingsState((prev) => {
-      const next = { ...prev, ...patch };
-      writeJson(SETTINGS_KEY, next);
-      return next;
-    });
+  const [settings, setSettings] = useDaySettings();
   const [pins, setPinsState] = useState<Record<string, number>>(() => readJson<Record<string, number>>(PINS_KEY) ?? {});
   const setPin = (id: string, n: number | null) =>
     setPinsState((prev) => {
@@ -121,26 +77,7 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
   };
   const [filter, setFilter] = useState<Filter>('all');
 
-  const employees: DayEmployee[] = useMemo(
-    () => demo.employees.map((e) => ({ employeeId: e.id, name: e.displayName, department: e.department, jobRole: e.role ?? '', status: e.status })),
-    [demo],
-  );
-  const acknowledgements: AcknowledgementSummary[] = useMemo(() => {
-    const seeded = demoAcknowledgements(employees.map((e) => e.employeeId), NOTICE_V1.version);
-    const mine = demoAcknowledgement();
-    return mine
-      ? [...seeded, { employeeId: LIVE_EMPLOYEE, noticeVersion: mine.noticeVersion, detailsCorrect: mine.detailsCorrect, acknowledgedAt: mine.acknowledgedAt }]
-      : seeded;
-  }, [employees, live]);
-  const progress = useMemo(() => {
-    const p = demoProgress(LIVE_EMPLOYEE, TOTAL_QUESTIONS);
-    return p ? { [LIVE_EMPLOYEE]: p } : ({} as Record<string, AssessmentProgress>);
-  }, [live, now]);
-
-  const { people, notTakingPart } = useMemo(
-    () => assessReadiness({ employees, currentNoticeVersion: NOTICE_V1.version, acknowledgements, adjustments, rightsRequests }, settings),
-    [employees, acknowledgements, adjustments, rightsRequests, settings],
-  );
+  const { people, notTakingPart, progress } = useReadiness(settings, now);
   const plan = useMemo(() => planDay(people, settings, pins), [people, settings, pins]);
   const sessionOf = (id: string) => plan.sessions.find((s) => s.number === plan.assignment[id]) ?? null;
   const statuses = useMemo(() => {
@@ -158,6 +95,18 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
   const shown = people
     .filter((p) => filter === 'all' || (filter === 'not_ready' ? !p.ready : p.needs.arrangements.length > 0))
     .sort((a, b) => (plan.assignment[a.employee.employeeId] ?? 99) - (plan.assignment[b.employee.employeeId] ?? 99) || a.employee.name.localeCompare(b.employee.name));
+  const outbox = useOutbox();
+  const [inviting, setInviting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // DEMO: the day is identified by its date; production uses assessment_days.id.
+  const dayId = settings.date;
+  const invites = useMemo(() => planInvitations(people, plan, settings, dayId, outbox), [people, plan, settings, dayId, outbox]);
+  const inviteOf = new Map(invites.map((i) => [i.employeeId, i]));
+  const toRemind = forEmployees.map((x) => x.person).filter((p, i, all) => all.indexOf(p) === i && !recentlyReminded(outbox, p.employee.employeeId, now));
+  const sendReminders = () => {
+    for (const p of toRemind) notifyEmployee('acknowledgement_reminder', p.employee.employeeId, p.employee.name, coalesceKeys.reminder(p.employee.employeeId));
+    setNotice(`${toRemind.length} reminder${toRemind.length === 1 ? '' : 's'} queued. See Notifications.`);
+  };
   const fixed = people.length > 0 && people.every((p) => pins[p.employee.employeeId] !== undefined);
   const used = plan.sessions.filter((s) => s.main.length + s.quiet.length > 0);
   const isToday = settings.date === localDate(now);
@@ -226,6 +175,14 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
               max={120}
               onChange={(n) => setSettings({ lunch: n > 0 ? { start: settings.lunch?.start ?? '12:30', minutes: n } : null })}
             />
+            <div className="field day-field day-field-wide">
+              <label htmlFor="day-room-main">Main room name</label>
+              <input id="day-room-main" value={settings.rooms.main} onChange={(e) => setSettings({ rooms: { ...settings.rooms, main: e.target.value } })} />
+            </div>
+            <div className="field day-field day-field-wide">
+              <label htmlFor="day-room-quiet">Quiet room name</label>
+              <input id="day-room-quiet" value={settings.rooms.quiet} onChange={(e) => setSettings({ rooms: { ...settings.rooms, quiet: e.target.value } })} />
+            </div>
           </div>
           <p className="small muted" style={{ marginBottom: 0 }}>
             Expected time = settling in + assessment length (with any agreed extra time) + the rest-break allowance where breaks are agreed.
@@ -284,7 +241,15 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
           )}
         </section>
         <section className="card">
-          <div className="card-head"><div><h2>Before the day: waiting on employees</h2><p>They need to do this before they can start.</p></div></div>
+          <div className="card-head">
+            <div><h2>Before the day: waiting on employees</h2><p>They need to do this before they can start.</p></div>
+            {forEmployees.length > 0 && (
+              <button className="btn secondary" disabled={toRemind.length === 0} onClick={sendReminders}
+                title={toRemind.length === 0 ? 'Everyone here was reminded in the last 3 days' : undefined}>
+                {toRemind.length === 0 ? 'Reminded' : `Email reminders (${toRemind.length})`}
+              </button>
+            )}
+          </div>
           {forEmployees.length === 0 ? (
             <p className="small">✓ Everyone has acknowledged the current privacy notice.</p>
           ) : (
@@ -308,6 +273,8 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
               {!fixed && ' Automatic sessions can change as arrangements are agreed: fix them once you have shared the plan.'}
             </p>
           </div>
+          <span className="row no-print">
+          <button className="btn no-print" onClick={() => setInviting(true)}>Email invitations…</button>
           {fixed ? (
             <span className="row no-print">
               <span className="tag tag-green">✓ Sessions fixed</span>
@@ -316,6 +283,7 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
           ) : (
             <button className="btn secondary no-print" onClick={() => setAllPins(plan.assignment)}>Fix sessions</button>
           )}
+          </span>
         </div>
         <div className="sessions">
           {used.map((s) => (
@@ -381,6 +349,7 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
                         {Array.from({ length: plan.sessions.length + 1 }, (_, i) => <option key={i} value={i + 1}>Session {i + 1}</option>)}
                       </select>
                       {s && <div className="small secondary">{s.start}–{s.end}{p.needs.quietRoom ? ' · quiet room' : ''}</div>}
+                      <InviteState invite={inviteOf.get(id)} />
                     </td>
                     <td>
                       <ReadinessTag person={p} />
@@ -400,6 +369,19 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
           Demo: Grace Okafor’s row is live from the employee page; other rows are generated.
         </p>
       </section>
+      {notice && <p className="small secondary no-print" role="status">{notice}</p>}
+      {inviting && (
+        <InviteModal
+          invites={invites}
+          onClose={() => setInviting(false)}
+          onSend={(chosen) => {
+            for (const i of chosen) queueDayEmail(i.outcome === 'update' ? 'day_updated' : 'day_invitation', i.employeeId, i.name, i.coalesceKey, i.booking);
+            setAllPins(plan.assignment);
+            setInviting(false);
+            setNotice(`${chosen.length} email${chosen.length === 1 ? '' : 's'} queued and sessions fixed. See Notifications.`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -413,5 +395,47 @@ function SessionPerson({ person, status }: { person: PersonReadiness; status: Da
       {!person.ready && <span className="tag tag-small tag-amber">● Not ready</span>}
       {status !== 'waiting' && <StatusTag status={status} progress={null} />}
     </li>
+  );
+}
+
+function InviteState({ invite }: { invite: PlannedInvite | undefined }) {
+  if (!invite) return null;
+  if (invite.outcome === 'unchanged') return <div className="small muted">✉ Invited</div>;
+  if (invite.outcome === 'update') return <div className="small" style={{ color: 'var(--amber)' }}>✉ Time changed since invited</div>;
+  if (invite.outcome === 'objection_open') return <div className="small muted">✉ Not invited (objection open)</div>;
+  return null;
+}
+
+function InviteModal({ invites, onClose, onSend }: { invites: PlannedInvite[]; onClose: () => void; onSend: (chosen: PlannedInvite[]) => void }) {
+  const count = (o: PlannedInvite['outcome']) => invites.filter((i) => i.outcome === o).length;
+  const chosen = invites.filter((i) => i.outcome === 'invite' || i.outcome === 'update');
+  const sample = chosen[0];
+  const email = sample ? employeeEmail(sample.outcome === 'update' ? 'day_updated' : 'day_invitation', sample.name, sample.booking) : null;
+  return (
+    <Modal title="Email invitations" onClose={onClose}>
+      <div className="stack">
+        <ul className="todo">
+          <li><span>New invitations</span><strong>{count('invite')}</strong></li>
+          <li><span>Updates (time or room changed since the invitation was sent)</span><strong>{count('update')}</strong></li>
+          <li><span>Already invited, nothing changed</span><strong>{count('unchanged')}</strong></li>
+          <li><span>Not invited while an objection is open</span><strong>{count('objection_open')}</strong></li>
+        </ul>
+        <p className="small secondary">
+          Sending fixes everyone’s session, so nobody is moved to another session by accident. If you change the day’s times later, email invitations again to send updates. People who haven’t acknowledged the privacy notice are asked to in the same email.
+        </p>
+        {email && (
+          <div>
+            <div className="lbl">Example: {sample!.name}</div>
+            <EmailPreview subject={email.subject} text={email.text} />
+          </div>
+        )}
+      </div>
+      <div className="actions">
+        <button className="btn secondary" onClick={onClose}>Cancel</button>
+        <button className="btn" disabled={chosen.length === 0} onClick={() => onSend(chosen)}>
+          {chosen.length === 0 ? 'Nothing to send' : `Queue ${chosen.length} email${chosen.length === 1 ? '' : 's'}`}
+        </button>
+      </div>
+    </Modal>
   );
 }

@@ -193,6 +193,7 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 .day-settings { align-items: flex-end; gap: 12px; }
 .day-field { min-width: 0; width: 150px; }
 .day-field input { width: 100%; box-sizing: border-box; }
+.day-field-wide { width: 220px; }
 .day-warnings ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
 .day-warnings li + li { margin-top: 4px; }
 .day-count { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; }
@@ -219,3 +220,10 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
   .day th, .day td { padding: 4px 6px; }
   .day-table td:first-child { min-width: 170px; }
 }
+
+/* Email previews */
+.email-preview { border: 1px solid var(--line); border-radius: 12px; background: #fffdfb; overflow: hidden; }
+.email-head { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; display: grid; gap: 2px; }
+.email-head .muted { display: inline-block; width: 58px; }
+.email-body { margin: 0; padding: 12px 14px; font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+.email-link { color: var(--accent); text-decoration: underline; }

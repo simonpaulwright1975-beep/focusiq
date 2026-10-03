@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildEmployeeSummary, toEmployeeVoice, type InsightReport } from '../../../src/insight/index.js';
-import { withdrawRelease, type SummaryRelease } from '../../../src/participation/index.js';
+import { coalesceKeys, withdrawRelease, type SummaryRelease } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
 import { listReleases, saveRelease, subscribeReleases } from '../shared/summaryStore.js';
+import { cancel, notifyEmployee } from '../demo/outboxStore.js';
 import { SummaryView } from '../shared/SummaryView.js';
 import { useStore } from '../state.js';
 
@@ -101,6 +102,7 @@ function PrepareModal({ employeeId, name, assessmentId, report, current, onClose
     if (!result.summary) return;
     if (current) saveRelease(withdrawRelease(current, 'Replaced by a new version', new Date()));
     saveRelease({ summary: result.summary, releasedBy: actor.id, withdrawn: null, readAt: null });
+    notifyEmployee('summary_released', employeeId, name, coalesceKeys.summary(employeeId));
     onClose();
   };
 
@@ -164,7 +166,7 @@ function WithdrawModal({ release, onClose }: { release: SummaryRelease; onClose:
       {error && <p className="field-error" role="alert">{error}</p>}
       <div className="actions">
         <button className="btn secondary" onClick={onClose}>Cancel</button>
-        <button className="btn" onClick={() => { try { saveRelease(withdrawRelease(release, reason, new Date())); onClose(); } catch (e) { setError((e as Error).message); } }}>Withdraw</button>
+        <button className="btn" onClick={() => { try { saveRelease(withdrawRelease(release, reason, new Date())); cancel(coalesceKeys.summary(release.summary.employeeId), 'Summary withdrawn before the email was sent'); onClose(); } catch (e) { setError((e as Error).message); } }}>Withdraw</button>
       </div>
     </Modal>
   );

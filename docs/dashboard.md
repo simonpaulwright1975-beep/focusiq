@@ -31,6 +31,7 @@ One filter row scopes every tab (§201):
 | **Eligibility & audit** | See below |
 | **Adjustments**, **Questions & concerns** | See `docs/employee.md` §3–§4 |
 | **Assessment day** | See below |
+| **Notifications** | The email outbox with previews, the Director daily summary, and the list of what employees are emailed about. See `docs/notifications.md` |
 
 **Employee report:**
 - Results table: score, absolute band, department percentile (subject removed), comparison size with confidence, outlier flag, and context note.

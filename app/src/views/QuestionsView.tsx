@@ -17,6 +17,8 @@ import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
 import { demoRightsRequests } from '../demo/requestSeed.js';
 import { listRightsRequests, seedRequestsOnce, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
+import { notifyEmployee } from '../demo/outboxStore.js';
+import { coalesceKeys } from '../../../src/participation/index.js';
 import { useStore } from '../state.js';
 import { buildDataExport, downloadJson } from './dataExport.js';
 
@@ -162,7 +164,11 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
           <div className="row">
             <label className="row small"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} />Internal note</label>
             <span className="spacer" />
-            <button className="btn" onClick={() => apply(() => directorMessage(request, actor, body, internal, new Date())) && setBody('')}>
+            <button className="btn" onClick={() => {
+              if (!apply(() => directorMessage(request, actor, body, internal, new Date()))) return;
+              if (!internal) notifyEmployee('request_reply', request.employeeId, request.employeeName, coalesceKeys.request(request.id));
+              setBody('');
+            }}>
               {internal ? 'Add note' : 'Send reply'}
             </button>
           </div>
@@ -184,13 +190,14 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
         <p className="small muted">Closed {dateTime(request.closedAt!)}. The conversation is kept as a record and cannot be changed.</p>
       )}
 
-      {modal === 'extend' && <ExtendModal request={request} onClose={() => setModal(null)} onDone={(r) => { upsertRightsRequest(r); setModal(null); }} />}
+      {modal === 'extend' && <ExtendModal request={request} onClose={() => setModal(null)} onDone={(r) => { upsertRightsRequest(r); notifyEmployee('request_extended', request.employeeId, request.employeeName, coalesceKeys.request(request.id)); setModal(null); }} />}
       {modal === 'close' && (
         <CloseModal
           request={request}
           onClose={() => setModal(null)}
           onDone={(r, alsoExclude) => {
             upsertRightsRequest(r);
+            notifyEmployee('request_closed', request.employeeId, request.employeeName, coalesceKeys.request(request.id));
             if (alsoExclude && !demo.ledger.isEmployeeExcluded(request.employeeId) && demo.employees.some((e) => e.id === request.employeeId)) {
               demo.ledger.excludeEmployee(actor, request.employeeId, 'other', `Objection upheld (request ${request.id.slice(0, 8)}) – FocusiQ processing stopped`);
               bump();
