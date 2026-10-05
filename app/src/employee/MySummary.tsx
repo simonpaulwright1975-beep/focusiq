@@ -6,14 +6,15 @@
 import { useEffect, useState } from 'react';
 import type { EmployeeRecordDetails } from '../../../src/participation/index.js';
 import { SummaryView } from '../shared/SummaryView.js';
-import { backend, type MySummaryView } from './backend.js';
+import { useBackend, type MySummaryView } from './backend.js';
 
 const longDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export function MySummary({ me, onAsk }: { me: EmployeeRecordDetails; onAsk: () => void }) {
+  const backend = useBackend();
   const [release, setRelease] = useState<MySummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => backend.watchSummary(me, setRelease), [me]);
+  useEffect(() => backend.watchSummary(me, setRelease), [me, backend]);
   if (!release) return null;
   const firstName = me.fullName.split(' ')[0] ?? me.fullName;
   return (

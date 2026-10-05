@@ -73,17 +73,17 @@ interface Saved {
   actions: Action[];
 }
 
-function load(): Saved | null {
+function load(key: string): Saved | null {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) ?? '') as Saved;
+    return JSON.parse(localStorage.getItem(key) ?? '') as Saved;
   } catch {
     return null;
   }
 }
 
-function persist(saved: Saved) {
+function persist(key: string, saved: Saved) {
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(saved));
+    localStorage.setItem(key, JSON.stringify(saved));
   } catch {
     /* demo only */
   }
@@ -98,7 +98,7 @@ export function clearSavedSession() {
 }
 
 export function hasSavedSession(): boolean {
-  return load() !== null;
+  return load(SESSION_KEY) !== null;
 }
 
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -109,6 +109,7 @@ export function Runner({
   options,
   transport,
   snapshot,
+  storageKey = SESSION_KEY,
 }: {
   definition: AssessmentDefinition;
   options: Omit<SessionOptions, 'definition'>;
@@ -116,10 +117,12 @@ export function Runner({
   transport: Transport;
   /** What the server already holds, so a reload resumes without re-sending. */
   snapshot: ServerSnapshot;
+  /** Where the in-progress session is kept on this device. */
+  storageKey?: string;
 }) {
   const savedRef = useRef<Saved>(
     (() => {
-      const existing = load();
+      const existing = load(storageKey);
       if (existing && existing.options.assessmentId === options.assessmentId) return { ...existing, options: { ...existing.options, definition } };
       return { options: { ...options, definition }, actions: [] };
     })(),
@@ -149,7 +152,7 @@ export function Runner({
       savedRef.current = { ...savedRef.current, actions: [...savedRef.current.actions, action] };
       // The definition is not stored – it is reloaded from the published version.
       const { definition: _omit, ...options } = savedRef.current.options;
-      persist({ options: options as SessionOptions, actions: savedRef.current.actions });
+      persist(storageKey, { options: options as SessionOptions, actions: savedRef.current.actions });
       setState(next);
     },
     [],

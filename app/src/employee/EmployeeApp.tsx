@@ -27,7 +27,8 @@ import { ACK_KEY, RUN_KEY } from '../shared/participationStore.js';
 import { Runner, clearSavedSession } from './Runner.js';
 import { LOGO_SRC } from '../shared/Landing.js';
 import { useSignedIn } from '../shared/auth.js';
-import { backend, type Loaded, type RunOptions, type ServerSnapshot } from './backend.js';
+import { useBackend, type AssessmentOutline, type Loaded, type RunOptions, type ServerSnapshot } from './backend.js';
+import { ReadyPage } from './ReadyPage.js';
 import type { AssessmentDefinition } from '../../../src/runner/index.js';
 
 const STEPS = ['About FocusiQ', 'Privacy notice', 'Your details', 'Statements', 'Adjustments', 'Review and sign', 'Done'] as const;
@@ -52,11 +53,12 @@ function Text({ children }: { children: string }) {
 const dateLong = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export function EmployeeApp() {
+  const backend = useBackend();
   const [loaded, setLoaded] = useState<Loaded | null | undefined>(undefined);
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => {
     backend.load().then(setLoaded, (e: Error) => setFailure(e.message));
-  }, []);
+  }, [backend]);
   if (failure) return <Shell me={null}><main className="card panel"><h2>FocusiQ could not load</h2><p>{failure}</p><p className="small muted">Please refresh the page. If it keeps happening, tell a Director.</p></main></Shell>;
   if (loaded === undefined) return <Shell me={null}><main className="card panel"><p aria-busy="true">Loading your FocusiQ page…</p></main></Shell>;
   if (loaded === null) {
@@ -84,14 +86,25 @@ export function EmployeeApp() {
 
 /** Header and layout around every employee page. */
 function Shell({ me, children, placeholders = 0 }: { me: EmployeeRecordDetails | null; children: ReactNode; placeholders?: number }) {
+  const backend = useBackend();
   const who = useSignedIn();
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    const b = backend as { contentNote?: () => Promise<string | null> };
+    b.contentNote?.().then(setNote, () => undefined);
+  }, [backend]);
   return (
     <div className="emp-shell">
       <header className="emp-top">
         <img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" />
         <span className="lbl">Walter Geering</span>
         <span className="who">
-          {backend.live ? (
+          {backend.preview ? (
+            <>
+              Preview as “{me?.fullName ?? 'Sam Example'}” ·{' '}
+              <button className="btn link" onClick={() => window.location.reload()}>Start again</button>
+            </>
+          ) : backend.live ? (
             <>
               {me ? <>Signed in as {me.fullName} · </> : null}
               {who && <button className="btn link" onClick={() => who.signOut()}>Sign out</button>}
@@ -117,7 +130,14 @@ function Shell({ me, children, placeholders = 0 }: { me: EmployeeRecordDetails |
           )}
         </span>
       </header>
-      {!backend.live && (
+      {backend.preview && (
+        <div className="banner banner-preview" role="note">
+          <strong>Preview – this is exactly what staff see.</strong> Nothing you enter is saved, sent or emailed.{' '}
+          {note}
+          {placeholders > 0 && <> Highlighted text ({placeholders} items) must be completed by Walter Geering before go-live.</>}
+        </div>
+      )}
+      {!backend.live && !backend.preview && (
         <div className="banner" role="note">
           <strong>Demo.</strong> Nothing you enter is sent anywhere.{' '}
           {placeholders > 0 && <>Highlighted text ({placeholders} items) must be completed by Walter Geering before go-live.</>}
@@ -130,18 +150,26 @@ function Shell({ me, children, placeholders = 0 }: { me: EmployeeRecordDetails |
 
 /** Loads the question content for an assessment in progress, then runs it. */
 function RunnerHost({ run }: { run: RunOptions }) {
+  const backend = useBackend();
   const [opened, setOpened] = useState<{ definition: AssessmentDefinition; snapshot: ServerSnapshot } | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     backend.open(run).then(setOpened, (e: Error) => setError(e.message));
-  }, [run]);
+  }, [run, backend]);
   if (error) return <main className="card panel"><h2>The assessment could not open</h2><p>{error}</p><p className="small muted">Your answers so far are saved. Please refresh the page to try again.</p></main>;
   if (!opened) return <main className="card panel"><p aria-busy="true">Opening your assessment…</p></main>;
-  return <Runner definition={opened.definition} options={run} transport={backend.transport} snapshot={opened.snapshot} />;
+  return <Runner definition={opened.definition} options={run} transport={backend.transport} snapshot={opened.snapshot} storageKey={backend.runnerStorageKey} />;
 }
 
 function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNotice }) {
+  const backend = useBackend();
   const NOTICE = notice;
+  // "Are you prepared and ready?": 'start' before starting, 'read' to read ahead.
+  const [readyView, setReadyView] = useState<'start' | 'read' | null>(null);
+  const [outline, setOutline] = useState<AssessmentOutline | null>(null);
+  useEffect(() => {
+    backend.outline().then(setOutline, () => undefined);
+  }, [backend]);
   const ME = loaded.me;
   const [record, setRecord] = useState<AcknowledgementRecord | null>(loaded.acknowledgement);
   const [step, setStep] = useState(() => (record ? STEPS.length - 1 : 0));
@@ -149,7 +177,7 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
   const [completed] = useState(loaded.completed);
   const [adjustment, setAdjustment] = useState<AdjustmentRequest | null>(loaded.adjustment);
   // A Director's decision (another tab in the demo; the database when live) updates this page.
-  useEffect(() => backend.watchAdjustment(ME, setAdjustment), [ME]);
+  useEffect(() => backend.watchAdjustment(ME, setAdjustment), [ME, backend]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [form, setForm] = useState<AcknowledgementForm>(emptyForm);
@@ -162,7 +190,26 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
   useEffect(() => {
     headingRef.current?.focus();
     window.scrollTo({ top: 0 });
-  }, [step]);
+  }, [step, readyView]);
+
+  const startAssessment = async () => {
+    setStarting(true);
+    setSaveError(null);
+    try {
+      setRun(await backend.start(agreedTimeMultiplier(adjustment)));
+      setReadyView(null);
+    } catch (e) {
+      setSaveError((e as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  };
+  const readAhead = (
+    <p className="ready-link no-print">
+      <button className="btn link" onClick={() => setReadyView('read')}>Are you prepared and ready?</button>{' '}
+      <span className="small muted">What you need, what to expect and what is expected of you.</span>
+    </p>
+  );
 
   const update = (f: Partial<AcknowledgementForm>) => setForm((prev) => ({ ...prev, ...f }));
   const stepErrors = (s: number, all: FormErrors): FormErrors =>
@@ -216,6 +263,7 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
             <li>tell us if anything would help you complete the assessment fairly;</li>
             <li>type your name to sign.</li>
           </ol>
+          {readAhead}
         </>
       );
       break;
@@ -374,23 +422,14 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
               {adjustmentView.status === 'declined' && <p className="small">You can still take the assessment under the standard conditions.</p>}
             </div>
           )}
+          {readAhead}
           <div className="nav no-print">
             <button className="btn secondary" onClick={() => window.print()}>Print or save a copy</button>
             <button
               className="btn"
               disabled={starting || !check?.allowed || (adjustmentView !== null && !adjustmentView.canStart)}
               title={adjustmentView && !adjustmentView.canStart ? 'Your adjustment request will be reviewed first' : undefined}
-              onClick={async () => {
-                setStarting(true);
-                setSaveError(null);
-                try {
-                  setRun(await backend.start(agreedTimeMultiplier(adjustment)));
-                } catch (e) {
-                  setSaveError((e as Error).message);
-                } finally {
-                  setStarting(false);
-                }
-              }}
+              onClick={() => setReadyView('start')}
             >
               {adjustmentView && !adjustmentView.canStart ? 'Assessment opens once your adjustment is reviewed' : starting ? 'Opening…' : 'Start my assessment'}
             </button>
@@ -412,6 +451,18 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
         </main>
       ) : run && record ? (
         <RunnerHost run={run} />
+      ) : readyView ? (
+        <main className="card panel">
+          <ReadyPage
+            outline={outline}
+            extraTimePercent={adjustment ? employeeAdjustmentView(adjustment).extraTimePercent : null}
+            mode={readyView}
+            starting={starting}
+            onStart={startAssessment}
+            onBack={() => setReadyView(null)}
+            headingRef={headingRef}
+          />
+        </main>
       ) : (<>
       {step < STEPS.length - 1 && (
         <>

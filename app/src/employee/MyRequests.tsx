@@ -5,15 +5,16 @@ import {
   type EmployeeRecordDetails,
   type RightsRequest,
 } from '../../../src/participation/index.js';
-import { backend } from './backend.js';
+import { useBackend } from './backend.js';
 
 const dateOnly = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 const dateTime = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function useMyRequests(me: EmployeeRecordDetails): [RightsRequest[], () => void] {
+  const backend = useBackend();
   const [mine, setMine] = useState<RightsRequest[]>([]);
   const [rev, setRev] = useState(0);
-  useEffect(() => backend.watchRequests(me, setMine), [me, rev]);
+  useEffect(() => backend.watchRequests(me, setMine), [me, rev, backend]);
   return [mine, () => setRev((r) => r + 1)];
 }
 
@@ -54,6 +55,7 @@ export function MyRequests({ me }: { me: EmployeeRecordDetails }) {
 }
 
 function Thread({ request, me, onSent }: { request: RightsRequest; me: EmployeeRecordDetails; onSent: () => void }) {
+  const backend = useBackend();
   const v = employeeRequestView(request);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);

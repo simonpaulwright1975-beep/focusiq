@@ -56,12 +56,30 @@ export function LandingGate({ app, subtitle, enterLabel, children }: { app: 'dir
       </AuthGate>
     );
   }
-  return <DemoGate app={app} subtitle={subtitle} enterLabel={enterLabel}>{children}</DemoGate>;
+  return <WelcomeGate app={app} subtitle={subtitle} enterLabel={enterLabel}>{children}</WelcomeGate>;
 }
 
-function DemoGate({ app, subtitle, enterLabel, children }: { app: 'director' | 'employee'; subtitle: string; enterLabel: string; children: ReactNode }) {
+/**
+ * Directors' preview of the employee app (employee.html?preview): live, only a
+ * signed-in Director gets in; then the welcome screen exactly as staff see it.
+ */
+export function PreviewGate({ children }: { children: ReactNode }) {
+  const welcome = (
+    <WelcomeGate app="preview" remember={false} subtitle="Your FocusiQ assessment" enterLabel="Get started" note="Preview – staff sign in here with their Walter Geering account.">
+      {children}
+    </WelcomeGate>
+  );
+  if (!LIVE) return welcome;
+  return (
+    <AuthGate app="director" frame={(body) => <LandingCard subtitle="Preview of the staff view – Directors only">{body}</LandingCard>}>
+      {welcome}
+    </AuthGate>
+  );
+}
+
+function WelcomeGate({ app, subtitle, enterLabel, note, remember = true, children }: { app: string; subtitle: string; enterLabel: string; note?: string; remember?: boolean; children: ReactNode }) {
   const key = `focusiq.landing.${app}`;
-  const [entered, setEntered] = useState(() => readEntered(key));
+  const [entered, setEntered] = useState(() => remember && readEntered(key));
   if (entered) return <>{children}</>;
   const enter = () => {
     try {
@@ -76,7 +94,7 @@ function DemoGate({ app, subtitle, enterLabel, children }: { app: 'director' | '
       <button className="btn" onClick={enter} autoFocus>
         {enterLabel} <span aria-hidden="true">→</span>
       </button>
-      <p className="landing-note">Demo – sign-in with your Walter Geering account comes when FocusiQ is connected.</p>
+      <p className="landing-note">{note ?? 'Demo – sign-in with your Walter Geering account comes when FocusiQ is connected.'}</p>
     </LandingCard>
   );
 }

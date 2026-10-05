@@ -10,6 +10,7 @@
  * The employee bundle must never see answer keys: live question content comes
  * from assessment_content_for(), which returns display fields only.
  */
+import { createContext, useContext } from 'react';
 import {
   NOTICE_V1,
   currentRelease,
@@ -56,8 +57,27 @@ export interface Loaded {
   completed: boolean;
 }
 
+/** What the readiness page needs: sections and timings, no questions. */
+export interface AssessmentOutline {
+  title: string;
+  estimatedMinutes: number;
+  sections: { title: string; timeLimitSeconds?: number }[];
+}
+
+export const outlineOf = (d: AssessmentDefinition): AssessmentOutline => ({
+  title: d.title,
+  estimatedMinutes: d.estimatedMinutes,
+  sections: d.sections.map((s) => ({ title: s.title, timeLimitSeconds: s.timeLimitSeconds })),
+});
+
 export interface EmployeeBackend {
   live: boolean;
+  /** A Director's practice copy: nothing is saved anywhere. */
+  preview?: boolean;
+  /** Where the runner keeps the in-progress session on this device. */
+  runnerStorageKey: string;
+  /** Sections and timings of the assessment the person will take (for "Are you prepared and ready?"). */
+  outline(): Promise<AssessmentOutline | null>;
   /** Null when the signed-in person has no FocusiQ employee record. */
   load(): Promise<Loaded | null>;
   saveAcknowledgement(record: AcknowledgementRecord, me: EmployeeRecordDetails): Promise<AcknowledgementRecord>;
@@ -87,6 +107,10 @@ const DEMO_ME: EmployeeRecordDetails = { employeeId: 's4', fullName: 'Grace Okaf
 
 const demoBackend: EmployeeBackend = {
   live: false,
+  runnerStorageKey: 'focusiq-demo-session',
+  async outline() {
+    return outlineOf(DEMO_ASSESSMENT);
+  },
   async load() {
     const run = readJson<RunOptions>(RUN_KEY);
     return {
@@ -307,8 +331,22 @@ interface MyRequestRow {
   outcome: RightsRequest['outcome']; messages: { from: string; kind: RightsRequest['messages'][number]['kind']; body: string; at: string }[];
 }
 
+/** The published assessment's definition (sections and timings; the questions are listed by id only). */
+async function publishedDefinition(): Promise<{ id: string; title: string; definition: { estimatedMinutes?: number; sections: (Omit<SectionDef, 'questions'> & { questionVersionIds: string[] })[] } } | null> {
+  const rows = check(
+    await db().from('assessment_versions').select('id, title, definition').not('published_at', 'is', null).is('retired_at', null).order('published_at', { ascending: false }).limit(1),
+  ) as { id: string; title: string; definition: { estimatedMinutes?: number; sections: (Omit<SectionDef, 'questions'> & { questionVersionIds: string[] })[] } }[];
+  return rows[0] ?? null;
+}
+
 const liveBackend: EmployeeBackend = {
   live: true,
+  runnerStorageKey: 'focusiq-live-session',
+  async outline() {
+    const v = await publishedDefinition();
+    if (!v) return null;
+    return { title: v.title, estimatedMinutes: v.definition.estimatedMinutes ?? 15, sections: v.definition.sections.map((s) => ({ title: s.title, timeLimitSeconds: s.timeLimitSeconds })) };
+  },
   async load() {
     // The database works out who is signed in (a Director can read everyone, so never guess from a list).
     const myId = check(await db().rpc('my_employee_id')) as string | null;
@@ -425,3 +463,97 @@ const liveBackend: EmployeeBackend = {
 };
 
 export const backend: EmployeeBackend = LIVE ? liveBackend : demoBackend;
+
+// ---------------------------------------------------------------------------
+// Preview: what staff see, for Directors. Everything stays in this page's
+// memory; nothing is saved, sent or emailed. Live, it shows the published
+// notice and questions (read with the Director's own access); before anything
+// is published, the demo content.
+// ---------------------------------------------------------------------------
+const PREVIEW_ME: EmployeeRecordDetails = { employeeId: 'preview', fullName: 'Sam Example', department: 'Sales', jobRole: 'Account Manager', startDate: '2024-04-08' };
+
+async function previewContent(): Promise<{ notice: PrivacyNotice; definition: AssessmentDefinition; note: string | null }> {
+  if (!LIVE) return { notice: DEMO_NOTICE, definition: DEMO_ASSESSMENT, note: null };
+  const noticeRow = check(await db().rpc('current_privacy_notice')) as NoticeRow | NoticeRow[] | null;
+  const n = Array.isArray(noticeRow) ? noticeRow[0] : noticeRow;
+  const notice = n?.version ? { ...n.content, version: n.version, title: n.title, publishedAt: n.published_at } : DEMO_NOTICE;
+  const v = await publishedDefinition();
+  let definition = DEMO_ASSESSMENT;
+  if (v) {
+    const ids = v.definition.sections.flatMap((s) => s.questionVersionIds);
+    // Content only: Directors can read answer keys, but the preview never asks for them.
+    const qs = check(await db().from('question_versions').select('id, content').in('id', ids)) as { id: string; content: Omit<QuestionDef, 'questionVersionId'> }[];
+    definition = definitionFromContent({ version: v.id, title: v.title, definition: v.definition, questions: Object.fromEntries(qs.map((q) => [q.id, q.content])) });
+  }
+  const missing = [!n?.version && 'privacy notice', !v && 'assessment'].filter(Boolean);
+  return { notice, definition, note: missing.length ? `Nothing is published yet for the ${missing.join(' or ')}, so the demo version is shown.` : null };
+}
+
+/** A fresh practice copy: everything in memory, gone on reload. */
+export function createPreviewBackend(): EmployeeBackend & { contentNote(): Promise<string | null> } {
+  const content = previewContent();
+  let acknowledgement: AcknowledgementRecord | null = null;
+  let adjustment: AdjustmentRequest | null = null;
+  let requests: RightsRequest[] = [];
+  const adjustmentWatchers = new Set<(a: AdjustmentRequest | null) => void>();
+  const requestWatchers = new Set<(r: RightsRequest[]) => void>();
+  return {
+    live: false,
+    preview: true,
+    runnerStorageKey: `focusiq-preview-session-${globalThis.crypto.randomUUID()}`,
+    async contentNote() {
+      return (await content).note;
+    },
+    async outline() {
+      return outlineOf((await content).definition);
+    },
+    async load() {
+      return { me: PREVIEW_ME, notice: (await content).notice, acknowledgement, adjustment, run: null, completed: false };
+    },
+    async saveAcknowledgement(record) {
+      acknowledgement = record;
+      if (record.adjustmentRequested) {
+        adjustment = { id: record.id, employeeId: PREVIEW_ME.employeeId, employeeName: PREVIEW_ME.fullName, department: PREVIEW_ME.department, description: record.adjustmentDescription ?? '', createdAt: record.acknowledgedAt, status: 'pending', history: [] };
+        adjustmentWatchers.forEach((w) => w(adjustment));
+      }
+      return record;
+    },
+    watchAdjustment(_me, onChange) {
+      adjustmentWatchers.add(onChange);
+      return () => adjustmentWatchers.delete(onChange);
+    },
+    async start(timeMultiplier) {
+      const id = globalThis.crypto.randomUUID();
+      return { assessmentId: id, seed: id, timeMultiplier };
+    },
+    async open() {
+      return { definition: (await content).definition, snapshot: { events: 0, presentationIds: [], completed: false } };
+    },
+    transport: { async save() {}, async complete() {} },
+    async sendRequest(me, type, message) {
+      const created = createRequest({ employeeId: me.employeeId, employeeName: me.fullName, department: me.department, type, message, now: new Date() });
+      requests = [created, ...requests];
+      requestWatchers.forEach((w) => w(requests));
+      return { dueAt: created.dueAt };
+    },
+    watchRequests(_me, onChange) {
+      onChange(requests);
+      requestWatchers.add(onChange);
+      return () => requestWatchers.delete(onChange);
+    },
+    async followUp(me, request, body) {
+      const next = employeeFollowUp(request, me.employeeId, body, new Date());
+      requests = requests.map((r) => (r.id === next.id ? next : r));
+      requestWatchers.forEach((w) => w(requests));
+    },
+    watchSummary(_me, onChange) {
+      onChange(null);
+      return () => undefined;
+    },
+    async markSummaryRead() {},
+  };
+}
+
+/** The data layer for the current page (the preview swaps in its own). */
+export const BackendContext = createContext<EmployeeBackend>(backend);
+export const useBackend = () => useContext(BackendContext);
