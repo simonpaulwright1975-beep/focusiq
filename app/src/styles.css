@@ -271,7 +271,11 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 /* Plain-English results */
 .headline { font-size: 1.25rem; line-height: 1.45; color: var(--ink); margin: 0; font-weight: 600; }
 .glance { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
-.glance > .headline { flex: 1 1 320px; }
+.glance > .headline, .glance > .glance-text { flex: 1 1 320px; }
+.glance-average { margin: 8px 0 0; color: var(--ink-soft); }
+.glance-average strong { font-size: 1.15rem; color: var(--ink); }
+.wg-topics { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 300px; }
+.wg-topics li { display: flex; justify-content: space-between; gap: 16px; font-size: 0.92rem; }
 .donut { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .donut svg { flex: none; }
 .donut-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
-import { bandKey, emptyCounts, personHeadline } from '../bands.js';
+import { BAND_LABEL, bandKey, emptyCounts, personHeadline } from '../bands.js';
+import { SAMPLE_EMPLOYEE_ID } from '../demo/dataset.js';
+import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
+import { demoWgWayResults, pct, TOPICS as WG_TOPICS } from './wgWayResults.js';
 import { BandDonut, Headline, ScoreBars } from '../components/bandCharts.js';
 import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
@@ -52,6 +55,12 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
     ? dimensionRows.flatMap((r) => (r.value == null ? [] : [{ label: r.label, band: bandKey(bands, r.value) }]))
     : [];
   const bandCounts = banded.reduce((c, r) => ({ ...c, [r.band]: c[r.band] + 1 }), emptyCounts());
+  // Only the sample reference profile shows an average: for everyone else there is no overall score.
+  const scored = dimensionRows.flatMap((r) => (r.value == null ? [] : [r.value]));
+  const average = employee.id === SAMPLE_EMPLOYEE_ID && scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+  // Live the Walter Geering Way: the separate knowledge check, shown on its own card.
+  const wgWay = useMemo(() => demoWgWayResults(new Map([[employee.id, employee.displayName]])).filter((r) => r.employeeId === employee.id), [employee]);
+  const wgLatest = wgWay.at(-1);
 
   return (
     <div className="stack">
@@ -80,12 +89,48 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
           sub={`Against FocusiQ ${leader ? 'leader ' : ''}expectations${bands?.note === 'provisional' ? ' (provisional)' : ''}${leader && bands ? ` – Strong ${bands.strong}+, Expected ${bands.development}–${bands.strong - 1}` : ''}`}
         >
           <div className="glance">
-            <Headline>{personHeadline(employee.displayName, banded)}</Headline>
+            <div className="glance-text">
+              <Headline>{personHeadline(employee.displayName, banded)}</Headline>
+              {average != null && bands && (
+                <p className="glance-average">
+                  Average across the {scored.length} dimensions: <strong>{average}</strong> out of 100 ({BAND_LABEL[bandKey(bands, average)]}) –
+                  sample reference profile
+                </p>
+              )}
+            </div>
             <BandDonut
               counts={bandCounts}
               noun={banded.length === 1 ? 'area' : 'areas'}
               centre={{ value: `${bandCounts.strong + bandCounts.expected}/${banded.length}`, label: 'expected or above' }}
             />
+          </div>
+        </Card>
+      )}
+
+      {wgLatest && (
+        <Card
+          title="Live the Walter Geering Way"
+          sub={`Knowledge check (right or wrong) – kept separate from the working-style results above${wgLatest.sample ? ' · sample: the whole 70-question bank' : ''}`}
+        >
+          <div className="glance">
+            <div className="glance-text">
+              <p className="headline">
+                {employee.displayName} scored <strong>{wgLatest.correct}/{wgLatest.total}</strong> ({pct(wgLatest.correct, wgLatest.total)}%) on{' '}
+                {new Date(wgLatest.completedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.
+              </p>
+              {wgWay.length > 1 && <p className="small secondary">{wgWay.length} sittings – see the WG Way check tab for each one.</p>}
+            </div>
+            <ul className="wg-topics">
+              {WG_TOPICS.filter((t) => wgLatest.byTopic[t].total > 0).map((t) => (
+                <li key={t}>
+                  <span>{WG_WAY_TOPICS[t]}</span>
+                  <span className="wg-topic">
+                    <span className="wg-bar" aria-hidden="true"><span style={{ width: `${pct(wgLatest.byTopic[t].correct, wgLatest.byTopic[t].total)}%` }} /></span>
+                    {wgLatest.byTopic[t].correct}/{wgLatest.byTopic[t].total}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </Card>
       )}
