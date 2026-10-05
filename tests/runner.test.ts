@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path';
 import { describe as suite, expect, it } from 'vitest';
 import { DEMO_ASSESSMENT } from '../app/src/demo/assessment.js';
 import { DEMO_SCORING } from '../app/src/demo/scoring.js';
+import { WG_WAY_DRAW, WG_WAY_TEST } from '../app/src/demo/wgWayBank.js';
+import { WG_WAY_ANSWERS } from '../app/src/demo/wgWayScoring.js';
 import { deriveExerciseEvidence, type Presentation as EvidencePresentation } from '../src/insight/index.js';
 import {
   Outbox,
@@ -244,6 +246,31 @@ suite('saving (outbox)', () => {
   });
 });
 
+suite('question banks', () => {
+  it('draws the same number from each topic, the same set on resume, and a fresh set for a new sitting', () => {
+    const def = WG_WAY_TEST;
+    const topics = (ids: string[]) => ids.map((id) => def.sections[0]!.questions.find((q) => q.questionVersionId === id)!.topic);
+    const a = createSession({ definition: def, assessmentId: 'a', seed: 'seed-1' }).order[0]!.questionIds;
+    const again = createSession({ definition: def, assessmentId: 'a', seed: 'seed-1' }).order[0]!.questionIds;
+    const b = createSession({ definition: def, assessmentId: 'b', seed: 'seed-2' }).order[0]!.questionIds;
+    expect(a).toHaveLength(25);
+    expect(new Set(a).size).toBe(25);
+    expect(again).toEqual(a);
+    expect(b).not.toEqual(a);
+    for (const ids of [a, b]) {
+      const count = (t: string) => topics(ids).filter((x) => x === t).length;
+      expect(Object.fromEntries(Object.keys(WG_WAY_DRAW).map((t) => [t, count(t)]))).toEqual(WG_WAY_DRAW);
+    }
+  });
+
+  it('has an answer for every question in the Walter Geering bank', () => {
+    const ids = WG_WAY_TEST.sections[0]!.questions.map((q) => q.questionVersionId);
+    expect(ids).toHaveLength(63);
+    expect(Object.keys(WG_WAY_ANSWERS).sort()).toEqual([...ids].sort());
+    for (const q of WG_WAY_TEST.sections[0]!.questions) expect(q.options.map((o) => o.id)).toContain(WG_WAY_ANSWERS[q.questionVersionId]);
+  });
+});
+
 suite('images and bundle safety', () => {
   const root = resolve(dirname(new URL(import.meta.url).pathname), '..');
 
@@ -282,12 +309,14 @@ suite('images and bundle safety', () => {
       }
     };
     visit(resolve(root, 'app/src/employee/main.tsx'));
+    visit(resolve(root, 'app/src/wgway/main.tsx'));
     const files = [...seen].map((f) => f.replace(`${root}/`, ''));
     expect(files).toContain('src/runner/session.ts');
     expect(files).toContain('app/src/shared/SummaryView.tsx');
+    expect(files).toContain('app/src/demo/wgWayBank.ts');
     for (const f of files) {
       expect(f).not.toMatch(/^src\/(benchmarking|insight)\//);
-      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/dataset|demo\/adjustmentSeed|demo\/requestSeed|demo\/daySeed|demo\/outboxStore|insights)/);
+      expect(f).not.toMatch(/app\/src\/(views|demo\/scoring|demo\/abstractScoring|demo\/wgWayScoring|demo\/dataset|demo\/adjustmentSeed|demo\/requestSeed|demo\/daySeed|demo\/outboxStore|insights)/);
     }
   });
 });

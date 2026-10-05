@@ -317,3 +317,8 @@ details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700
 .preview-frame { background: var(--track); border-radius: 14px; padding: 12px; display: flex; justify-content: center; }
 .preview-frame iframe { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); max-width: 100%; }
 .preview-phone iframe { border-radius: 24px; border-width: 8px; border-color: var(--ink); }
+
+/* Live the Walter Geering Way: topic score with a small bar (single series, accent). */
+.wg-topic { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wg-bar { display: inline-block; width: 46px; height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.wg-bar > span { display: block; height: 100%; background: var(--accent); }

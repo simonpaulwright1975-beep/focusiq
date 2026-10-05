@@ -97,12 +97,23 @@ export interface SessionOptions {
   timeMultiplier?: number;
 }
 
+/** The questions a sitting presents for a section: drawn from the bank (if any), then shuffled (if asked). */
+export function sectionQuestions(s: SectionDef, seed: string): QuestionDef[] {
+  let questions = s.questions;
+  if (s.draw) {
+    questions = Object.entries(s.draw).flatMap(([topic, n]) => {
+      const bank = s.questions.filter((q) => q.topic === topic);
+      if (bank.length < n) throw new Error(`Section ${s.id}: topic ${topic} has ${bank.length} questions, ${n} needed.`);
+      return seededShuffle(bank, `${seed}:${s.id}:draw:${topic}`).slice(0, n);
+    });
+  }
+  return s.shuffleQuestions ? seededShuffle(questions, `${seed}:${s.id}`) : questions;
+}
+
 export function createSession(o: SessionOptions): SessionState {
   const order = o.definition.sections.map((s) => ({
     sectionId: s.id,
-    questionIds: (s.shuffleQuestions ? seededShuffle(s.questions, `${o.seed}:${s.id}`) : s.questions).map(
-      (q) => q.questionVersionId,
-    ),
+    questionIds: sectionQuestions(s, o.seed).map((q) => q.questionVersionId),
   }));
   const optionOrder: Record<string, string[]> = {};
   for (const s of o.definition.sections) {

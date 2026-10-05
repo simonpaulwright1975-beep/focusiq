@@ -10,12 +10,13 @@ import { AssessmentDayView } from './views/AssessmentDayView.js';
 import { NotificationsView } from './views/NotificationsView.js';
 import { StaffView } from './views/StaffView.js';
 import { StaffPreviewView } from './views/StaffPreviewView.js';
+import { WgWayView } from './views/WgWayView.js';
 import { LOGO_SRC } from './shared/Landing.js';
 import { useSignedIn } from './shared/auth.js';
 import { LIVE } from './shared/supabase.js';
 import { SAMPLE_EMPLOYEE_ID } from './demo/dataset.js';
 
-const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Staff', 'Staff view', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
+const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Staff', 'Staff view', 'WG Way check', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
 type Tab = (typeof TABS)[number];
 /** Tabs that use the analytics filter row. */
 const FILTERED: Tab[] = ['Overview', 'People', 'Employee report', 'Eligibility & audit'];
@@ -86,6 +87,7 @@ export function App() {
         {tab === 'Eligibility & audit' && <EligibilityView />}
         {tab === 'Staff' && <StaffView />}
         {tab === 'Staff view' && <StaffPreviewView />}
+        {tab === 'WG Way check' && <WgWayView />}
         {tab === 'Adjustments' && <AdjustmentsView />}
         {tab === 'Questions & concerns' && <QuestionsView />}
         {tab === 'Assessment day' && <AssessmentDayView onOpen={setTab} />}

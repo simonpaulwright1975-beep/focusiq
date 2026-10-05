@@ -110,6 +110,7 @@ export function Runner({
   transport,
   snapshot,
   storageKey = SESSION_KEY,
+  finishMessage = 'Your responses have been recorded. A Director will review the results, and you will receive your own summary afterwards.',
 }: {
   definition: AssessmentDefinition;
   options: Omit<SessionOptions, 'definition'>;
@@ -119,6 +120,8 @@ export function Runner({
   snapshot: ServerSnapshot;
   /** Where the in-progress session is kept on this device. */
   storageKey?: string;
+  /** What the thank-you screen says happens next. */
+  finishMessage?: string;
 }) {
   const savedRef = useRef<Saved>(
     (() => {
@@ -330,7 +333,7 @@ export function Runner({
     body = (
       <div className="record">
         <div className="row"><div className="done-mark" aria-hidden="true">✓</div>{heading('Thank you – you have finished')}</div>
-        <p>Your responses have been recorded. A Director will review the results, and you will receive your own summary afterwards.</p>
+        <p>{finishMessage}</p>
         <ul className="done-sections">
           {sections.map((sec, i) => (
             <li key={sec.id} style={sectionVars(i)}><span aria-hidden="true">✓</span>{sec.title}</li>

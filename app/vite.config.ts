@@ -9,8 +9,8 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      // Two separate entry points: employees never download Director code.
-      input: { director: `${__dirname}/index.html`, employee: `${__dirname}/employee.html` },
+      // Separate entry points: employees never download Director code.
+      input: { director: `${__dirname}/index.html`, employee: `${__dirname}/employee.html`, wgway: `${__dirname}/wg-way.html` },
     },
   },
   server: { fs: { allow: ['..'] } },

@@ -34,6 +34,8 @@ export interface QuestionDef {
   options: OptionDef[];
   /** Shuffle option order per person (default true; off where order carries meaning). */
   shuffleOptions?: boolean;
+  /** Topic within a question bank (see SectionDef.draw). */
+  topic?: string;
 }
 
 export interface SectionDef {
@@ -45,6 +47,12 @@ export interface SectionDef {
   /** Base time limit for the whole section; absent = untimed. */
   timeLimitSeconds?: number;
   shuffleQuestions?: boolean;
+  /**
+   * Question bank: present only this many questions per topic, drawn at random
+   * per sitting (seeded, so a resumed sitting sees the same ones). Every sitting
+   * covers each topic equally, so scores from different sittings compare.
+   */
+  draw?: Record<string, number>;
   /** Unscored sections (e.g. motivation) are never used as performance evidence. */
   scored: boolean;
   /** Motivation sections produce a ranked motivation profile. */
