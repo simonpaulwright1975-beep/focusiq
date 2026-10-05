@@ -25,7 +25,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
       ],
       rememberThis: [
         'Account WG-2041 is The Harbour Hotel. They receive a 12% trade discount.',
-        'Standard welcome packs can be delivered any weekday. Bespoke welcome packs need 3–5 working days.',
+        'Standard welcome packs can be delivered any weekday. New bespoke welcome packs usually take 3–5 working days.',
         'Any quote over £5,000 needs Director sign-off.',
       ],
       shuffleQuestions: true,
@@ -64,9 +64,9 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
           kind: 'single_choice',
           stem: 'On Monday, the head housekeeper at The Harbour Hotel orders bespoke welcome packs and asks for them on Wednesday. What do you tell them?',
           options: [
-            { id: 'a', text: 'Bespoke packs need 3–5 working days, so Thursday at the earliest' },
+            { id: 'a', text: 'New bespoke orders usually take 3–5 working days – check whether any are already in stock, and ask exactly when they need them by' },
             { id: 'b', text: 'Wednesday is fine – deliveries go out any weekday' },
-            { id: 'c', text: 'Next week at the earliest' },
+            { id: 'c', text: 'Bespoke packs take 3–5 working days, so Thursday at the earliest' },
             { id: 'd', text: 'Wednesday, if you mark the order as urgent' },
           ],
         },

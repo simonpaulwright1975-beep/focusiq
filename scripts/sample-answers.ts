@@ -34,8 +34,8 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   },
   'demo-q03': {
     answer: 'a', seconds: 9,
-    why: 'Bespoke packs need 3–5 working days, so an order on Monday can arrive on Thursday at the earliest. (Standard packs could go any weekday.)',
-    shows: 'Keeps hold of key details from the start of the section and sets an honest expectation.',
+    why: 'New bespoke orders usually take 3–5 working days, so Wednesday is unlikely for a fresh order – but stock may already be ready. Check stock first and ask exactly when they need them by, instead of just quoting the lead time.',
+    shows: 'Keeps hold of key details from the start of the section, sets an honest expectation and still looks for a way to help.',
   },
   'demo-q04': {
     answer: 'a', seconds: 22,
