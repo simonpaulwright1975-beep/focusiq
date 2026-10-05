@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FocusiQ – what to expect</title>
+<style>
+  /* Walter Geering house tokens */
+  :root { --ink:#17120e; --ink-soft:#4a4038; --muted:#8a7a6d; --accent:#0d5a3b; --accent-bg:#eaf7ef; --line:#ede0d5; --track:#f3e7dd;
+          --green:#1e7a46; --green-bg:#ddf2e4; --amber-bg:#f9ecd2; --amber-ink:#7d5009; }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: var(--ink); background: #fff; }
+  .page { width: 210mm; min-height: 297mm; padding: 10mm 13mm 8mm; margin: 0 auto; background: linear-gradient(#f7efe9, #fbf4ef); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  header img { height: 12mm; }
+  .wg { font-size: 8.5pt; font-weight: 700; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; text-align: right; }
+  h1 { font-family: Georgia, serif; font-weight: 800; letter-spacing: -.4px; font-size: 20pt; margin: 3mm 0 1mm; }
+  .lead { font-size: 10.2pt; color: var(--ink-soft); margin: 0 0 3mm; line-height: 1.4; }
+  .pill-row { display: flex; gap: 2mm; flex-wrap: wrap; margin: 0 0 3mm; }
+  .pill { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 1.1mm 3mm; font-size: 8.5pt; font-weight: 700; }
+  .pill b { color: var(--green); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.8mm; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 4mm; padding: 2.8mm 3.8mm; }
+  .card h2 { font-family: Georgia, serif; font-weight: 800; letter-spacing: -.3px; font-size: 11.5pt; margin: 0 0 1.2mm; display: flex; align-items: center; gap: 2.5mm; }
+  .num { width: 6.5mm; height: 6.5mm; border-radius: 50%; color: #fff; display: inline-grid; place-items: center; font: 800 9pt "Segoe UI", system-ui, sans-serif; flex: none; }
+  .c1 .num { background: #1e7a46; } .c2 .num { background: #2470cc; } .c3 .num { background: #4a3aa7; } .c4 .num { background: #e87ba4; color: var(--ink); }
+  .c5 .num { background: #1e7a46; } .c6 .num { background: #2470cc; }
+  .c1 { border-top: 3px solid #1e7a46; } .c2 { border-top: 3px solid #2470cc; } .c3 { border-top: 3px solid #4a3aa7; } .c4 { border-top: 3px solid #e87ba4; }
+  .c5 { border-top: 3px solid #1e7a46; } .c6 { border-top: 3px solid #2470cc; }
+  p, li { font-size: 8.7pt; line-height: 1.36; margin: 0; }
+  ul { margin: 0; padding-left: 4.2mm; }
+  li + li { margin-top: .5mm; }
+  .wide { grid-column: 1 / -1; }
+  .session { margin-top: 2.8mm; background: var(--amber-bg); border-radius: 4mm; padding: 2.4mm 4mm; display: grid; grid-template-columns: auto 1fr; gap: 1mm 4mm; font-size: 9pt; }
+  .session .lbl { font-size: 7.5pt; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--amber-ink); align-self: center; }
+  .blank { border-bottom: 1px solid #c9b8a4; min-height: 5mm; }
+  .promise { margin-top: 2.8mm; background: var(--green-bg); border-radius: 4mm; padding: 2.6mm 4mm; }
+  .promise p { color: #134f2e; font-size: 8.8pt; }
+  footer { margin-top: 2.4mm; font-size: 7.5pt; color: var(--muted); display: flex; justify-content: space-between; }
+  @media screen and (max-width: 640px) { .page { width: auto; min-height: 0; padding: 16px; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img src="../app/public/brand/focusiq-logo.webp" alt="FocusiQ">
+    <div class="wg">Walter Geering<br>Team briefing</div>
+  </header>
+
+  <h1>FocusiQ – what to expect</h1>
+  <p class="lead">
+    Soon you’ll be invited to take a short FocusiQ assessment. It’s not an exam and it’s not pass or fail. There’s nothing to revise and there are no
+    trick questions. It shows how you approach everyday work, so we can support you and improve how we work together.
+  </p>
+
+  <div class="pill-row">
+    <span class="pill"><b>≈ 15 minutes</b> for the assessment</span>
+    <span class="pill"><b>+ 5 minutes</b> to read and confirm first</span>
+    <span class="pill"><b>4 short sections</b>, only one timed</span>
+    <span class="pill"><b>Not</b> pass/fail</span>
+  </div>
+
+  <div class="grid">
+    <section class="card c1">
+      <h2><span class="num">1</span>Why we’re doing it</h2>
+      <ul>
+        <li>To understand how each of us likes to work – how we take in information, prioritise, decide and follow things through.</li>
+        <li>To support people better: clearer instructions, the right tools and checklists, and training where it would really help.</li>
+        <li>To spot things in <em>our processes</em> that make work harder for many people – unclear priorities, for example – and fix them.</li>
+        <li>Different people work in different ways. There’s no single “right” profile.</li>
+      </ul>
+    </section>
+
+    <section class="card c2">
+      <h2><span class="num">2</span>What it involves</h2>
+      <ul>
+        <li>Short, realistic work scenarios – a customer email, a quote to check, a busy morning to plan, simple number and pattern questions.</li>
+        <li>One short section is timed and shows a clock. The others have no time limit.</li>
+        <li>The last section asks what motivates you at work. There are no right or wrong answers there.</li>
+        <li>FocusiQ also notes <em>how</em> you work through it (time taken, changed answers), as explained in the privacy notice.</li>
+      </ul>
+    </section>
+
+    <section class="card c3">
+      <h2><span class="num">3</span>Before your session</h2>
+      <ul>
+        <li>You’ll get an email from “Walter Geering”. Sign in with your usual Walter Geering account – the same as for the Hub.</li>
+        <li>Read the short privacy notice and confirm a few details. This takes about 5 minutes and you can do it in advance.</li>
+        <li><strong>Need an adjustment?</strong> Extra time, larger text, a screen reader, breaks or a quiet room – just ask on the form. You don’t need to share medical details, and it never counts against you.</li>
+      </ul>
+    </section>
+
+    <section class="card c4">
+      <h2><span class="num">4</span>On the day</h2>
+      <ul>
+        <li>Find somewhere quiet, ideally on a computer or laptop that’s charged. Bring your glasses or anything you normally use.</li>
+        <li>Work as you normally would – don’t rush and don’t overthink.</li>
+        <li>Do it on your own, and please don’t discuss the questions with colleagues.</li>
+        <li>Your answers save as you go. If something goes wrong, stop and use “Questions or concerns” – nothing is lost.</li>
+      </ul>
+    </section>
+
+    <section class="card c5">
+      <h2><span class="num">5</span>Afterwards</h2>
+      <ul>
+        <li>You’ll see a thank-you screen and get a short email confirming it’s complete.</li>
+        <li>A Director reviews the results with you, as a starting point for a conversation.</li>
+        <li>You’ll receive your own written summary in FocusiQ.</li>
+      </ul>
+    </section>
+
+    <section class="card c6">
+      <h2><span class="num">6</span>Questions?</h2>
+      <ul>
+        <li>Use <strong>“Questions or concerns”</strong> in FocusiQ at any time – before, during or after.</li>
+        <li>You can also ask for a copy of your information, ask for a correction, or object to how it’s used.</li>
+        <li>Or speak to your Director.</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="promise">
+    <p><strong>Our promise:</strong> your results are confidential and used only within Walter Geering. Directors see your full report; you receive your own summary.
+      Results are never published, never shown to colleagues, and never used on their own to make decisions about your employment.</p>
+  </div>
+
+  <div class="session">
+    <span class="lbl">Your session</span><span class="blank"></span>
+    <span class="lbl">Where</span><span class="blank"></span>
+  </div>
+
+  <footer><span>FocusiQ · Walter Geering</span><span>Questions? Use “Questions or concerns” in FocusiQ, or speak to your Director.</span></footer>
+</div>
+</body>
+</html>
