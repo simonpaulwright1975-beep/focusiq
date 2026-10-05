@@ -24,11 +24,9 @@ import {
   type RightsRequest,
 } from '../../../src/participation/index.js';
 import type { Actor } from '../../../src/benchmarking/index.js';
-import { DEMO_ADJUSTMENT_REQUESTS } from '../demo/adjustmentSeed.js';
-import { demoRightsRequests } from '../demo/requestSeed.js';
 import { notifyEmployee } from '../demo/outboxStore.js';
-import { listRequests, seedOnce, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
-import { listRightsRequests, seedRequestsOnce, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
+import { listRequests, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
+import { listRightsRequests, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
 import { check, db, LIVE } from '../shared/supabase.js';
 
 const REFRESH = 'focusiq-live-refresh';
@@ -100,10 +98,7 @@ export async function liveAdjustments(): Promise<AdjustmentRequest[]> {
 }
 
 function useDemoAdjustments(): AdjustmentRequest[] {
-  const [requests, setRequests] = useState(() => {
-    seedOnce(DEMO_ADJUSTMENT_REQUESTS);
-    return listRequests();
-  });
+  const [requests, setRequests] = useState(listRequests);
   useEffect(() => subscribe(() => setRequests(listRequests())), []);
   return requests;
 }
@@ -175,10 +170,7 @@ export async function liveRightsRequests(): Promise<RightsRequest[]> {
 }
 
 function useDemoRightsRequests(): RightsRequest[] {
-  const [requests, setRequests] = useState(() => {
-    seedRequestsOnce(demoRightsRequests());
-    return listRightsRequests();
-  });
+  const [requests, setRequests] = useState(listRightsRequests);
   useEffect(() => subscribeRightsRequests(() => setRequests(listRightsRequests())), []);
   return requests;
 }

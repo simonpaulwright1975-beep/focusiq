@@ -21,21 +21,6 @@ export function listRequests(): AdjustmentRequest[] {
   return [];
 }
 
-const SEEDED_KEY = `${KEY}-seeded`;
-
-/** Director app only: merge in demo requests once (never shipped to employees). */
-export function seedOnce(seed: readonly AdjustmentRequest[]) {
-  try {
-    if (localStorage.getItem(SEEDED_KEY) !== null) return;
-    const existing = listRequests();
-    const ids = new Set(existing.map((r) => r.id));
-    localStorage.setItem(SEEDED_KEY, '1');
-    save([...existing, ...seed.filter((r) => !ids.has(r.id))]);
-  } catch {
-    /* demo only */
-  }
-}
-
 function save(all: AdjustmentRequest[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(all));
@@ -60,7 +45,6 @@ export function latestRequestFor(employeeId: string): AdjustmentRequest | null {
 export function resetRequests() {
   try {
     localStorage.removeItem(KEY);
-    localStorage.removeItem(SEEDED_KEY);
   } catch {
     /* ignore */
   }

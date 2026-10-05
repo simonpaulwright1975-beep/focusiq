@@ -111,7 +111,7 @@ function Shell({ me, children, placeholders = 0 }: { me: EmployeeRecordDetails |
             </>
           ) : (
             <>
-              Signed in as {me?.fullName ?? 'Grace Okafor'} (demo) ·{' '}
+              Signed in as {me?.fullName ?? 'Stan'} (demo) ·{' '}
               <button
                 className="btn link"
                 onClick={() => {

@@ -6,7 +6,6 @@
 import type { RightsRequest } from '../../../src/participation/index.js';
 
 const KEY = 'focusiq-demo-requests';
-const SEEDED_KEY = `${KEY}-seeded`;
 const CHANGED = 'focusiq-requests-changed';
 
 export function listRightsRequests(): RightsRequest[] {
@@ -38,23 +37,9 @@ export function requestsForEmployee(employeeId: string): RightsRequest[] {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Director app only: merge in demo requests once. */
-export function seedRequestsOnce(seed: readonly RightsRequest[]) {
-  try {
-    if (localStorage.getItem(SEEDED_KEY) !== null) return;
-    const existing = listRightsRequests();
-    const ids = new Set(existing.map((r) => r.id));
-    localStorage.setItem(SEEDED_KEY, '1');
-    save([...existing, ...seed.filter((r) => !ids.has(r.id))]);
-  } catch {
-    /* demo only */
-  }
-}
-
 export function resetRightsRequests() {
   try {
     localStorage.removeItem(KEY);
-    localStorage.removeItem(SEEDED_KEY);
   } catch {
     /* ignore */
   }

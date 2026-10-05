@@ -5,7 +5,7 @@
  * may need advice on whether it should be disclosed.
  */
 import { currentDecision, employeeRequestView } from '../../../src/participation/index.js';
-import type { DemoData } from '../demo/dataset.js';
+import { SAMPLE_EMPLOYEE_ID, type DemoData } from '../demo/dataset.js';
 import { listRequests } from '../shared/adjustmentStore.js';
 import { listRightsRequests } from '../shared/requestStore.js';
 
@@ -53,7 +53,7 @@ export function buildDataExport(demo: DemoData, employeeId: string, now: Date) {
     })),
     questionsAndRequests: requests.map(employeeRequestView),
     assessments,
-    assessmentResponseRecords: employeeId === 's4' ? responseRecords : [],
+    assessmentResponseRecords: employeeId === SAMPLE_EMPLOYEE_ID ? responseRecords : [],
   };
 }
 

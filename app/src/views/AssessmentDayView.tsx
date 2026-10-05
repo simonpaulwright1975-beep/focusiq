@@ -366,7 +366,7 @@ export function AssessmentDayView({ onOpen }: { onOpen: (section: Section) => vo
         </div>
         <p className="small muted" style={{ marginBottom: 0 }}>
           Arrangements show what was agreed, never what the employee wrote. Check in with anyone who has made no progress for 10 minutes.
-          Demo: Grace Okafor’s row is live from the employee page; other rows are generated.
+          Demo: Stan’s row is live from the employee page.
         </p>
       </section>
       {notice && <p className="small secondary no-print" role="status">{notice}</p>}

@@ -104,14 +104,6 @@ const liveSource: StaffSource = {
 const KEY = 'focusiq-demo-staff';
 const CHANGED = 'focusiq-staff-changed';
 
-/** People in the demo directory who are not in FocusiQ yet (one has no WG login). */
-const NEW_STARTERS: Omit<StaffRow, 'employeeId' | 'department' | 'startDate' | 'status' | 'lastInvitedAt' | 'invitationStatus'>[] = [
-  { staffId: 'dir-n1', fullName: 'Jordan Ellis', jobTitle: 'Sales Executive', isActive: true, hasLogin: true, directoryStartDate: '2026-09-07' },
-  { staffId: 'dir-n2', fullName: 'Priya Natarajan', jobTitle: 'Marketing Assistant', isActive: true, hasLogin: true, directoryStartDate: null },
-  { staffId: 'dir-n3', fullName: 'Morgan Blake', jobTitle: 'Warehouse Operative', isActive: true, hasLogin: false, directoryStartDate: '2026-09-28' },
-  { staffId: 'dir-n4', fullName: 'Sam Okonjo', jobTitle: 'Accounts Assistant', isActive: true, hasLogin: true, directoryStartDate: '2025-03-03' },
-];
-
 function readDemo(data: DemoData): StaffRow[] {
   try {
     const raw = localStorage.getItem(KEY);
@@ -119,23 +111,20 @@ function readDemo(data: DemoData): StaffRow[] {
   } catch {
     /* fall through to the seed */
   }
-  return [
-    ...data.employees.map((e) => ({
-      staffId: `dir-${e.id}`,
-      fullName: e.displayName,
-      jobTitle: e.role ?? null,
-      isActive: e.status !== 'former',
-      hasLogin: true,
-      directoryStartDate: e.startDate,
-      employeeId: e.id,
-      department: e.department,
-      startDate: e.startDate,
-      status: e.status,
-      lastInvitedAt: null,
-      invitationStatus: null,
-    })),
-    ...NEW_STARTERS.map((s) => ({ ...s, employeeId: null, department: null, startDate: null, status: null, lastInvitedAt: null, invitationStatus: null })),
-  ];
+  return data.employees.map((e) => ({
+    staffId: `dir-${e.id}`,
+    fullName: e.displayName,
+    jobTitle: e.role ?? null,
+    isActive: e.status !== 'former',
+    hasLogin: true,
+    directoryStartDate: e.startDate,
+    employeeId: e.id,
+    department: e.department,
+    startDate: e.startDate,
+    status: e.status,
+    lastInvitedAt: null,
+    invitationStatus: null,
+  }));
 }
 
 function writeDemo(rows: StaffRow[]) {

@@ -149,7 +149,7 @@ export function NotificationsView() {
                   <strong>{NOTIFICATION_KIND_LABELS[kind]}</strong>
                   <span className="muted"> · {when}</span>
                 </span>
-                <button className="btn link" onClick={() => setPreview({ ...employeeEmail(kind, 'Grace Okafor', SAMPLE_BOOKING), to: 'Grace Okafor (example)' })}>
+                <button className="btn link" onClick={() => setPreview({ ...employeeEmail(kind, 'Stan', SAMPLE_BOOKING), to: 'Stan (example)' })}>
                   Preview
                 </button>
               </li>

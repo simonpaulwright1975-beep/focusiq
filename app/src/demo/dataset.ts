@@ -269,8 +269,10 @@ export interface DemoData {
 }
 
 /**
- * `sampleOnly`: just Stan, the labelled sample reference profile – used in live
- * mode so the results tabs never show the fictional staff next to real people.
+ * `sampleOnly`: just Stan, the labelled sample reference profile – what the apps
+ * show, so the fictional staff never appear next to real people. With nobody
+ * else to skew, Stan counts as active there. The full fictional set is kept for
+ * the engine tests.
  */
 export function buildDemoData({ sampleOnly = false }: { sampleOnly?: boolean } = {}): DemoData {
   if (sampleOnly) {
@@ -279,7 +281,7 @@ export function buildDemoData({ sampleOnly = false }: { sampleOnly?: boolean } =
     const assessments = full.assessments.filter((a) => keep(a.employeeId));
     const ids = new Set(assessments.map((a) => a.id));
     return {
-      employees: full.employees.filter((e) => keep(e.id)),
+      employees: full.employees.filter((e) => keep(e.id)).map((e) => ({ ...e, status: 'active' as const })),
       assessments,
       ledger: new EligibilityLedger({ now: () => DEMO_NOW }),
       exercises: new Map([...full.exercises].filter(([id]) => ids.has(id))),

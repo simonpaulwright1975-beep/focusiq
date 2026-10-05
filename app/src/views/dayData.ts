@@ -16,7 +16,7 @@ import {
 } from '../../../src/participation/index.js';
 import { listOutbox, notifyEmployee, subscribeOutbox } from '../demo/outboxStore.js';
 import { DEMO_ASSESSMENT } from '../demo/assessment.js';
-import { demoAcknowledgements } from '../demo/daySeed.js';
+import { SAMPLE_EMPLOYEE_ID } from '../demo/dataset.js';
 import { RUN_KEY, demoAcknowledgement, demoProgress, readJson, subscribeParticipation, writeJson } from '../shared/participationStore.js';
 import { useStore } from '../state.js';
 import { useAdjustmentRequests } from './AdjustmentsView.js';
@@ -24,7 +24,8 @@ import { useRightsRequests } from './QuestionsView.js';
 
 const SETTINGS_KEY = 'focusiq-demo-day';
 export const PINS_KEY = 'focusiq-demo-day-pins';
-export const LIVE_EMPLOYEE = 's4';
+/** The demo employee page signs in as Stan, the sample profile. */
+export const LIVE_EMPLOYEE = SAMPLE_EMPLOYEE_ID;
 const TOTAL_QUESTIONS = DEMO_ASSESSMENT.sections.reduce((n, s) => n + s.questions.length, 0);
 
 export const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -90,11 +91,10 @@ export function useReadiness(settings: DaySettings, now: Date) {
     [demo],
   );
   const acknowledgements: AcknowledgementSummary[] = useMemo(() => {
-    const seeded = demoAcknowledgements(employees.map((e) => e.employeeId), NOTICE_V1.version);
     const mine = demoAcknowledgement();
     return mine
-      ? [...seeded, { employeeId: LIVE_EMPLOYEE, noticeVersion: mine.noticeVersion, detailsCorrect: mine.detailsCorrect, acknowledgedAt: mine.acknowledgedAt }]
-      : seeded;
+      ? [{ employeeId: LIVE_EMPLOYEE, noticeVersion: mine.noticeVersion, detailsCorrect: mine.detailsCorrect, acknowledgedAt: mine.acknowledgedAt }]
+      : [];
   }, [employees, live]);
   const progress = useMemo(() => {
     const p = demoProgress(LIVE_EMPLOYEE, TOTAL_QUESTIONS);

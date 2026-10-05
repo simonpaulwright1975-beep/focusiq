@@ -35,7 +35,7 @@ export function App() {
   const who = useSignedIn();
   const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
   const openQuestions = useRightsRequests().filter((r) => r.status !== 'closed').length;
-  const [employeeId, setEmployeeId] = useState<string>(LIVE ? SAMPLE_EMPLOYEE_ID : 's1');
+  const [employeeId, setEmployeeId] = useState<string>(SAMPLE_EMPLOYEE_ID);
   const openEmployee = (id: string) => {
     setEmployeeId(id);
     setTab('Employee report');
@@ -74,8 +74,8 @@ export function App() {
         </div>
       ) : (
         <div className="banner" role="note">
-          <strong>Demo data.</strong> All names and results are fictional and generated for demonstration. Connect a
-          FocusiQ Supabase project to use real assessments. Expectation bands marked * are provisional.
+          <strong>Demo.</strong> The only person here is <strong>Stan</strong>, a fictional sample profile for reference. Real
+          staff appear once FocusiQ is connected to the Walter Geering database. Expectation bands marked * are provisional.
         </div>
       )}
       {FILTERED.includes(tab) && <FiltersBar />}
