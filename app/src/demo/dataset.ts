@@ -6,6 +6,8 @@ import { DEFAULT_METRICS, EligibilityLedger, type Actor, type Assessment, type D
 import type { ExerciseEvidence, MotivationProfile, MotivatorKey } from '../../../src/insight/index.js';
 
 export const DEMO_NOW = new Date('2026-10-02T12:00:00Z');
+/** Stan: the fictional sample reference profile (see SEEDS). */
+export const SAMPLE_EMPLOYEE_ID = 'stan';
 export const DEMO_DIRECTOR: Actor = { id: 'director-demo', name: 'Demo Director', role: 'director' };
 
 function rng(seed: number) {
@@ -27,7 +29,8 @@ type Profile =
   | 'task_focused'
   | 'balanced'
   | 'commercial_gap'
-  | 'controlled';
+  | 'controlled'
+  | 'reference';
 
 interface Seed {
   id: string;
@@ -83,7 +86,30 @@ const SEEDS: Seed[] = [
   { id: 'f4', name: 'Paul Reid', department: 'Finance', role: 'Finance Assistant', profile: 'over_processor', start: '2022-03-28', tags: ['Office based'] },
   { id: 'f5', name: 'Sophie Lane', department: 'Finance', role: 'Finance Manager', profile: 'balanced', start: '2013-09-02', tags: ['Office based', 'Manager'] },
   { id: 'f6', name: 'Adam Cole', department: 'Finance', role: 'Purchase Ledger Clerk', profile: 'over_processor', start: '2024-01-15', tags: ['Office based'], single: true },
+  // Sample reference profile for managers: a fictional strong result (core average 85).
+  // A test user, so it never counts towards anyone's benchmarks. Kept last so the
+  // seeded numbers for everyone above stay the same.
+  { id: 'stan', name: 'Stan', department: 'Sales', role: 'Sales Manager', profile: 'reference', start: '2015-05-11', status: 'test', tags: ['Manager', 'Sample reference profile'] },
 ];
+
+/**
+ * Stan's fixed scores (no random noise), so the sample report always reads the
+ * same. Latest round: the ten core dimensions average exactly 85.
+ */
+const REFERENCE_SCORES: Record<1 | 2, Record<string, number>> = {
+  1: {
+    think: 82, absorb: 80, remember: 79, prioritise: 84, decide: 83, act: 82, own: 85, drive: 81, complete: 78, focus: 76,
+    decision_efficiency: 82, decision_confidence: 83, information_retention: 79, accuracy: 91, avg_response_seconds: 29,
+    recheck_rate: 12, unnecessary_recheck_rate: 8, timed_performance: 86, untimed_performance: 85,
+    commercial_awareness: 83, target_ownership: 85, customer_judgement: 84,
+  },
+  2: {
+    think: 86, absorb: 84, remember: 83, prioritise: 88, decide: 87, act: 86, own: 89, drive: 85, complete: 82, focus: 80,
+    decision_efficiency: 86, decision_confidence: 87, information_retention: 83, accuracy: 94, avg_response_seconds: 27,
+    recheck_rate: 10, unnecessary_recheck_rate: 6, timed_performance: 89, untimed_performance: 88,
+    commercial_awareness: 86, target_ownership: 88, customer_judgement: 87,
+  },
+};
 
 /** Profile → dimension tendencies (offsets from 68) and behavioural parameters. */
 const PROFILE: Record<Profile, { dims: Partial<Record<string, number>>; acc: number; time: number; recheck: number }> = {
@@ -95,12 +121,14 @@ const PROFILE: Record<Profile, { dims: Partial<Record<string, number>>; acc: num
   balanced: { dims: { think: 3, prioritise: 3 }, acc: 87, time: 30, recheck: 18 },
   commercial_gap: { dims: { prioritise: -8, think: -3, complete: 4 }, acc: 89, time: 32, recheck: 20 },
   controlled: { dims: { think: 6, absorb: 6, focus: 6, act: -4 }, acc: 93, time: 52, recheck: 12 },
+  reference: { dims: {}, acc: 94, time: 27, recheck: 10 },
 };
 
 const CORE = ['think', 'absorb', 'remember', 'prioritise', 'decide', 'act', 'own', 'drive', 'complete', 'focus'];
 const clamp = (v: number, lo = 20, hi = 98) => Math.max(lo, Math.min(hi, Math.round(v)));
 
 function scoresFor(seed: Seed, round: 1 | 2, r: () => number): Record<string, number> {
+  if (seed.profile === 'reference') return { ...REFERENCE_SCORES[round] };
   const p = PROFILE[seed.profile];
   const growth = round === 2 ? 3 : 0;
   const noise = () => (r() - 0.5) * 12;
@@ -155,8 +183,8 @@ function exercisesFor(seed: Seed, r: () => number): ExerciseEvidence[] {
   // 13 lower-risk decisions
   for (let i = 0; i < 13; i++) {
     const timed = i >= 9;
-    const reopen = p === 'over_processor' ? i < 9 : chance(p === 'controlled' ? 0.25 : 0.15);
-    const first = p === 'rusher' ? chance(0.78) : chance(0.9);
+    const reopen = p === 'over_processor' ? i < 9 : chance(p === 'controlled' ? 0.25 : p === 'reference' ? 0.08 : 0.15);
+    const first = p === 'rusher' ? chance(0.78) : chance(p === 'reference' ? 0.95 : 0.9);
     const improved = reopen && !first && chance(0.3);
     add({
       family: 'routine-decision',
@@ -173,47 +201,47 @@ function exercisesFor(seed: Seed, r: () => number): ExerciseEvidence[] {
   }
   // 6 higher-risk detail checks (4 timed)
   for (let i = 0; i < 6; i++) {
-    const acc = p === 'rusher' ? 0.65 : p === 'over_processor' || p === 'controlled' ? 0.97 : 0.85;
+    const acc = p === 'rusher' ? 0.65 : p === 'over_processor' || p === 'controlled' || p === 'reference' ? 0.97 : 0.85;
     add({ family: 'detail-check', dimension: 'absorb', timed: i < 4, modality: i % 2 ? 'visual' : 'text', correct: chance(acc), multiStage: i >= 3, responseSeconds: PROFILE[p].time * (i < 4 ? 0.7 : 1) });
   }
   // 6 retention
   for (let i = 0; i < 6; i++) {
-    const acc = p === 'rusher' ? 0.5 : p === 'over_processor' || p === 'controlled' ? 0.92 : 0.8;
+    const acc = p === 'rusher' ? 0.5 : p === 'over_processor' || p === 'controlled' ? 0.92 : p === 'reference' ? 0.9 : 0.8;
     add({ family: 'recall', dimension: 'remember', multiStage: true, correct: chance(acc) });
   }
   // 6 initiative scenarios
   for (let i = 0; i < 6; i++) {
-    const share = p === 'initiative' ? 0.9 : p === 'task_focused' || p === 'escalator' ? 0.25 : 0.55;
+    const share = p === 'initiative' || p === 'reference' ? 0.9 : p === 'task_focused' || p === 'escalator' ? 0.25 : 0.55;
     add({ family: 'next-action', dimension: 'act', modality: 'scenario', identifiedNextAction: chance(share) });
   }
   // 8 escalation scenarios
   for (let i = 0; i < 8; i++) {
-    const share = p === 'escalator' ? 0.75 : p === 'initiative' ? 0.05 : 0.2;
+    const share = p === 'escalator' ? 0.75 : p === 'initiative' || p === 'reference' ? 0.05 : 0.2;
     add({ family: 'authority', dimension: 'decide', modality: 'scenario', escalatedUnnecessarily: chance(share) });
   }
   // 6 ownership scenarios (3 customer impact)
   for (let i = 0; i < 6; i++) {
-    const share = p === 'task_focused' ? 0.15 : p === 'initiative' ? 0.9 : 0.6;
+    const share = p === 'task_focused' ? 0.15 : p === 'initiative' || p === 'reference' ? 0.9 : 0.6;
     const outcome = chance(share);
     add({ family: 'ownership', dimension: 'own', modality: 'scenario', choseOutcomeAction: outcome, customerImpactScenario: i < 3, correct: outcome || chance(0.5) });
   }
   // 5 commercial items
   for (let i = 0; i < 5; i++) {
-    const acc = p === 'commercial_gap' ? 0.3 : seed.department === 'Sales' || seed.department === 'Finance' ? 0.85 : 0.7;
+    const acc = p === 'commercial_gap' ? 0.3 : p === 'reference' ? 0.95 : seed.department === 'Sales' || seed.department === 'Finance' ? 0.85 : 0.7;
     const ok = chance(acc);
     add({ family: 'commercial', dimension: 'prioritise', modality: 'numerical', commercialCorrect: ok, correct: ok });
   }
   // Sales: routine vs live opportunity
   if (seed.department === 'Sales') {
     for (let i = 0; i < 4; i++) {
-      const share = p === 'task_focused' || p === 'commercial_gap' ? 0.75 : 0.2;
+      const share = p === 'task_focused' || p === 'commercial_gap' ? 0.75 : p === 'reference' ? 0.05 : 0.2;
       add({ family: 'sales-priority', dimension: 'prioritise', modality: 'scenario', choseRoutineOverOpportunity: chance(share) });
     }
   }
   // Priorities: 5 defined, 5 competing
   for (let i = 0; i < 10; i++) {
     const defined = i < 5;
-    const acc = defined ? 0.92 : p === 'commercial_gap' || p === 'over_processor' ? 0.5 : 0.8;
+    const acc = defined ? 0.92 : p === 'commercial_gap' || p === 'over_processor' ? 0.5 : p === 'reference' ? 0.9 : 0.8;
     add({ family: 'prioritisation', dimension: 'prioritise', priorityContext: defined ? 'defined' : 'competing', correct: chance(acc) });
   }
   return out;
@@ -228,6 +256,7 @@ const MOTIVATOR_ORDER: Record<Profile, MotivatorKey[]> = {
   balanced: ['progression', 'recognition', 'team', 'financial_reward', 'security'],
   commercial_gap: ['customer_impact', 'team', 'recognition', 'progression', 'financial_reward'],
   controlled: ['mastery', 'autonomy', 'security', 'recognition', 'financial_reward'],
+  reference: ['team', 'customer_impact', 'progression', 'autonomy', 'recognition'],
 };
 
 export interface DemoData {
@@ -239,7 +268,24 @@ export interface DemoData {
   motivation: Map<string, MotivationProfile>;
 }
 
-export function buildDemoData(): DemoData {
+/**
+ * `sampleOnly`: just Stan, the labelled sample reference profile – used in live
+ * mode so the results tabs never show the fictional staff next to real people.
+ */
+export function buildDemoData({ sampleOnly = false }: { sampleOnly?: boolean } = {}): DemoData {
+  if (sampleOnly) {
+    const full = buildDemoData();
+    const keep = (id: string) => id === SAMPLE_EMPLOYEE_ID;
+    const assessments = full.assessments.filter((a) => keep(a.employeeId));
+    const ids = new Set(assessments.map((a) => a.id));
+    return {
+      employees: full.employees.filter((e) => keep(e.id)),
+      assessments,
+      ledger: new EligibilityLedger({ now: () => DEMO_NOW }),
+      exercises: new Map([...full.exercises].filter(([id]) => ids.has(id))),
+      motivation: new Map([...full.motivation].filter(([id]) => ids.has(id))),
+    };
+  }
   const r = rng(20261002);
   const employees: Employee[] = SEEDS.map((s) => ({
     id: s.id,

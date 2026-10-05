@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
-import { bandKey, emptyCounts, personHeadline } from '../bands.js';
+import { BAND_LABEL, bandKey, emptyCounts, personHeadline } from '../bands.js';
 import { BandDonut, Headline, ScoreBars } from '../components/bandCharts.js';
 import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
@@ -17,6 +17,12 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
   const employee = data.employees.find((e) => e.id === employeeId)!;
   const [trendKey, setTrendKey] = useState('decision_efficiency');
   const [openEvidence, setOpenEvidence] = useState<string | null>(null);
+  // A printed report includes the full details.
+  useEffect(() => {
+    const open = () => document.querySelectorAll<HTMLDetailsElement>('details.more').forEach((d) => (d.open = true));
+    window.addEventListener('beforeprint', open);
+    return () => window.removeEventListener('beforeprint', open);
+  }, []);
 
   const def = definitionFor(filters, now, employee.department);
   const rows = useMemo(
@@ -44,6 +50,8 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
     ? dimensionRows.flatMap((r) => (r.value == null ? [] : [{ label: r.label, band: bandKey(bands, r.value) }]))
     : [];
   const bandCounts = banded.reduce((c, r) => ({ ...c, [r.band]: c[r.band] + 1 }), emptyCounts());
+  const scored = dimensionRows.flatMap((r) => (r.value == null ? [] : [r.value]));
+  const average = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
 
   return (
     <div className="stack">
@@ -60,13 +68,22 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
           {employee.status !== 'active' && <span className="tag">{employee.status === 'former' ? 'Former employee' : 'Test user'}</span>}
           {exclusion && <span className="tag">Excluded from benchmarks: {exclusion.reason.replaceAll('_', ' ')}</span>}
           {employee.cohortTags.map((t) => <span key={t} className="tag">{t}</span>)}
+          <span className="spacer" />
+          <button className="btn secondary no-print" onClick={() => window.print()}>Print or save as PDF</button>
         </div>
       </div>
 
       {banded.length > 0 && (
         <Card title="At a glance" sub={bands?.note === 'provisional' ? 'Against FocusiQ expectations (provisional)' : 'Against FocusiQ expectations'}>
           <div className="glance">
-            <Headline>{personHeadline(employee.displayName, banded)}</Headline>
+            <div className="glance-text">
+              <Headline>{personHeadline(employee.displayName, banded)}</Headline>
+              {average != null && bands && (
+                <p className="glance-average">
+                  Average across the {scored.length} dimensions: <strong>{average}</strong> out of 100 ({BAND_LABEL[bandKey(bands, average)]})
+                </p>
+              )}
+            </div>
             <BandDonut
               counts={bandCounts}
               noun={banded.length === 1 ? 'area' : 'areas'}
@@ -150,7 +167,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
         <Card title="Insight report"><p className="empty">No exercise evidence is available for this employee.</p></Card>
       ) : (
         <>
-          <ReleasePanel employeeId={employee.id} name={employee.displayName} assessmentId={insight.assessmentId} report={insight.report} />
+          <div className="no-print"><ReleasePanel employeeId={employee.id} name={employee.displayName} assessmentId={insight.assessmentId} report={insight.report} /></div>
           <InsightSection
             report={insight.report}
             exercises={exercises}

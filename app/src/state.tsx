@@ -8,6 +8,7 @@ import {
 } from '../../src/benchmarking/index.js';
 import { buildDemoData, DEMO_DIRECTOR, DEMO_NOW, METRICS, type DemoData } from './demo/dataset.js';
 import type { ExpectationBands } from './bands.js';
+import { LIVE } from './shared/supabase.js';
 
 export type DateWindow = 'latest' | 'last_6' | 'last_12' | 'custom';
 
@@ -37,7 +38,8 @@ interface Store {
 const Ctx = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [demo] = useState(buildDemoData);
+  // Live: no fictional staff, only the labelled sample profile until real results are connected.
+  const [demo] = useState(() => buildDemoData({ sampleOnly: LIVE }));
   const [revision, setRevision] = useState(0);
   const [filters, set] = useState<Filters>({
     department: 'all',

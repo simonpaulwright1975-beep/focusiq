@@ -29,6 +29,22 @@ suite('dashboard demo data', () => {
     expect(organisationInsights(DEMO_DIRECTOR, members).map((o) => o.patternKey)).toContain('high_escalation');
   });
 
+  it('includes Stan, a sample reference profile that never counts towards benchmarks', () => {
+    const stan = demo.employees.find((e) => e.id === 'stan')!;
+    expect(stan.status).toBe('test');
+    const latest = demo.assessments.filter((a) => a.employeeId === 'stan').at(-1)!;
+    const core = ['think', 'absorb', 'remember', 'prioritise', 'decide', 'act', 'own', 'drive', 'complete', 'focus'];
+    expect(core.reduce((t, k) => t + latest.scores[k]!, 0) / core.length).toBe(85);
+  });
+
+  it('live mode keeps only the sample profile: no fictional staff', () => {
+    const sample = buildDemoData({ sampleOnly: true });
+    expect(sample.employees.map((e) => e.id)).toEqual(['stan']);
+    expect(new Set(sample.assessments.map((a) => a.employeeId))).toEqual(new Set(['stan']));
+    expect([...sample.exercises.keys()].every((id) => id.startsWith('stan-'))).toBe(true);
+    expect(sample.ledger.auditLog()).toEqual([]);
+  });
+
   it('seeds an audited test-account exclusion, a technical failure and a pending adjustment', () => {
     expect(demo.ledger.auditLog().map((e) => e.action)).toEqual([
       'employee_excluded',

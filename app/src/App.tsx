@@ -13,6 +13,7 @@ import { StaffPreviewView } from './views/StaffPreviewView.js';
 import { LOGO_SRC } from './shared/Landing.js';
 import { useSignedIn } from './shared/auth.js';
 import { LIVE } from './shared/supabase.js';
+import { SAMPLE_EMPLOYEE_ID } from './demo/dataset.js';
 
 const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Staff', 'Staff view', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
 type Tab = (typeof TABS)[number];
@@ -34,7 +35,7 @@ export function App() {
   const who = useSignedIn();
   const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
   const openQuestions = useRightsRequests().filter((r) => r.status !== 'closed').length;
-  const [employeeId, setEmployeeId] = useState<string>('s1');
+  const [employeeId, setEmployeeId] = useState<string>(LIVE ? SAMPLE_EMPLOYEE_ID : 's1');
   const openEmployee = (id: string) => {
     setEmployeeId(id);
     setTab('Employee report');
@@ -67,9 +68,9 @@ export function App() {
       </header>
       {LIVE ? (
         <div className="banner" role="note">
-          <strong>Live.</strong> Staff, Adjustments and Questions &amp; concerns use real FocusiQ data. Overview, People, Employee
-          report, Eligibility &amp; audit, Assessment day and Notifications still show <strong>example data</strong> until results
-          are connected. Expectation bands marked * are provisional.
+          <strong>Live.</strong> Staff, Adjustments and Questions &amp; concerns use real FocusiQ data. Results are not connected
+          yet: Overview, People, Employee report, Eligibility &amp; audit and Assessment day show only <strong>Stan</strong>, a
+          fictional sample profile for reference, and Notifications shows example emails. Expectation bands marked * are provisional.
         </div>
       ) : (
         <div className="banner" role="note">
