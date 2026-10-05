@@ -35,7 +35,12 @@ FocusiQ runs in two modes:
    the Voice as the contact; expected as part of development reviews; hosted in the EU (Ireland); kept for
    24 months from the assessment date, then deleted automatically by `focusiq.apply_retention()`.
 
-4. **Decide the questions.** The live assessment uses the demo's 13 questions in four sections, written
+4. **Questions – done (5 October 2026).** Assessment `focusiq-2026.1` (59 questions, 8 sections, about 40 minutes)
+   and privacy notice `privacy-notice/1.0.0` are published in WG Main. They were checked row by row against
+   the same file loaded into a test database before publishing. Published content can never be edited: to
+   change a question, publish a new assessment version.
+
+   *How it was done (for the next version):* **Decide the questions.** The live assessment uses the demo's 13 questions in four sections, written
    around Walter Geering's customers (hotels, holiday parks and accommodation: housekeepers, purchasing,
    operations and accommodation managers). Directors review them in the question book
    (`scripts/question-book.ts`). Then load the content and the finished notice:

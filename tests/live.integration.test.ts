@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createAcknowledgement, emptyForm, type RightsRequest } from '../src/participation/index.js';
 import { createSession, reduce } from '../src/runner/index.js';
 import { DEMO_DIRECTOR, buildDemoData } from '../app/src/demo/dataset.js';
+import { DEMO_ASSESSMENT } from '../app/src/demo/assessment.js';
 
 const URL = process.env.FOCUSIQ_LIVE_TEST_URL;
 const SECRET = process.env.FOCUSIQ_LIVE_TEST_SECRET ?? '';
@@ -113,7 +114,9 @@ describe.skipIf(!URL)('live mode against a test database', () => {
       const run = await e.backend.start(1);
       expect(run.timeMultiplier).toBe(1.25);
       const { definition, snapshot } = await e.backend.open(run);
-      expect(definition.sections.flatMap((s) => s.questions)).toHaveLength(13);
+      expect(definition.sections.flatMap((s) => s.questions)).toHaveLength(DEMO_ASSESSMENT.sections.flatMap((s) => s.questions).length);
+      // Abstract puzzles keep their pictures, with fingerprints.
+      expect(definition.sections.find((s) => s.id === 'abstract')?.questions[0]?.image?.sha256).toMatch(/^[0-9a-f]{64}$/);
       // No answer keys reach the employee.
       expect(JSON.stringify(definition)).not.toMatch(/correctAnswer|answer_key/);
       let s = createSession({ ...run, definition });
