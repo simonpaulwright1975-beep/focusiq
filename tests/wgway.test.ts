@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from 'vitest';
-import { createSession, reduce, type SessionAction, type SessionState } from '../src/runner/index.js';
+import { createSession, reduce, type Action, type SessionState } from '../src/runner/index.js';
 import { WG_WAY_TEST } from '../app/src/demo/wgWayBank.js';
 import { WG_WAY_ANSWERS } from '../app/src/demo/wgWayScoring.js';
 import { scoreSitting } from '../app/src/views/wgWayResults.js';
@@ -9,7 +9,7 @@ function sit(right: number): SessionState {
   let s = createSession({ definition: WG_WAY_TEST, assessmentId: 'wg-test', seed: 'seed-x' });
   let t = Date.parse('2026-10-06T09:00:00Z');
   const at = () => new Date((t += 1000)).toISOString();
-  const go = (a: SessionAction) => (s = reduce(s, a));
+  const go = (a: Action) => (s = reduce(s, a));
   go({ type: 'start', at: at() });
   go({ type: 'start_section', at: at() });
   const ids = s.order[0]!.questionIds;
