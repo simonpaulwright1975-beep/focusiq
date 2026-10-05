@@ -9,7 +9,8 @@ import { Card } from '../components/ui.js';
 import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
 import { useStore } from '../state.js';
 import { subscribeSittings } from '../wgway/store.js';
-import { demoWgWayResults, pct, QUESTIONS_PER_SITTING, TOPICS, type WgWayResult } from './wgWayResults.js';
+import { listWgWayReleases, releaseWgWay, subscribeWgWayReleases, withdrawWgWay, type WgWayRelease } from '../shared/wgWayReleaseStore.js';
+import { demoWgWayResults, pct, releaseOf, QUESTIONS_PER_SITTING, TOPICS, type WgWayResult } from './wgWayResults.js';
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -55,8 +56,16 @@ export function WgWayDonuts({ latest }: { latest: WgWayResult[] }) {
   );
 }
 
+/** Results shared with the people who sat the check (demo: this browser). */
+export function useWgWayReleases(): WgWayRelease[] {
+  const [releases, setReleases] = useState(listWgWayReleases);
+  useEffect(() => subscribeWgWayReleases(() => setReleases(listWgWayReleases())), []);
+  return releases;
+}
+
 export function WgWayView() {
   const results = useWgWayResults();
+  const released = new Map(useWgWayReleases().map((r) => [r.sittingId, r]));
 
   // Latest sitting per person for the team view; the one before it for "change".
   const byPerson = new Map<string, WgWayResult[]>();
@@ -78,7 +87,8 @@ export function WgWayView() {
         <ul className="evidence-list">
           <li>Each sitting draws {QUESTIONS_PER_SITTING} questions from the Walter Geering bank, the same number from each topic, so a retest asks different questions but scores compare fairly.</li>
           <li>Plan: a baseline now, a retest after the Playbook is shared, and another later in the year.</li>
-          <li>Staff never see the answers. Results here are right or wrong only and are kept apart from the FocusiQ assessment.</li>
+          <li>Staff never see the questions or answers. Results here are right or wrong only and are kept apart from the FocusiQ assessment.</li>
+          <li>Choose <strong>Share with staff member</strong> to let the person see their own score and topic counts on their FocusiQ page – never the answers or anyone else’s score.</li>
         </ul>
         <p className="small muted">
           Demo: sittings are kept in this browser. Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
@@ -109,7 +119,7 @@ export function WgWayView() {
           <table className="small">
             <thead>
               <tr>
-                <th>Person</th><th>Date</th><th className="num">Score</th><th className="num">Change</th>
+                <th>Person</th><th>Date</th><th className="num">Score</th><th className="num">Change</th><th>Staff member sees it</th>
                 {TOPICS.map((t) => <th key={t}>{WG_WAY_TOPICS[t]}</th>)}
               </tr>
             </thead>
@@ -124,6 +134,16 @@ export function WgWayView() {
                     <td>{date(r.completedAt)}</td>
                     <td className="num"><strong>{r.correct}/{r.total}</strong> <span className="muted">({pct(r.correct, r.total)}%)</span></td>
                     <td className="num">{change === null ? <span className="muted">First</span> : `${change > 0 ? '+' : change < 0 ? '−' : '±'}${Math.abs(change)} pts`}</td>
+                    <td>
+                      {released.has(r.id) ? (
+                        <>
+                          <span className="tag">✓ Shared {date(released.get(r.id)!.releasedAt)}</span>{' '}
+                          <button className="btn link" onClick={() => withdrawWgWay(r.id)}>Stop sharing</button>
+                        </>
+                      ) : (
+                        <button className="btn secondary small-btn" onClick={() => releaseWgWay(releaseOf(r))}>Share with staff member</button>
+                      )}
+                    </td>
                     {TOPICS.map((t) => <td key={t}><TopicCell c={r.byTopic[t].correct} t={r.byTopic[t].total} /></td>)}
                   </tr>
                 );

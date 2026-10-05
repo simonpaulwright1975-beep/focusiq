@@ -31,6 +31,7 @@ export function StaffPreviewView() {
         <ul className="small secondary preview-tips">
           <li>Go through the welcome steps, then <strong>Start my assessment</strong> to see <strong>Are you prepared and ready?</strong> and the test itself.</li>
           <li>Asking for an adjustment in the preview pauses the test at “being reviewed”, as it would for staff. Answer “No” to carry on to the questions.</li>
+          <li>The <strong>Live the Walter Geering Way</strong> card at the top is a made-up score: staff see their own score there once you share it from the WG Way check tab.</li>
           <li>Highlighted text in the privacy notice still needs Walter Geering’s wording before go-live.</li>
         </ul>
         <div className={`preview-frame preview-${size}`}>

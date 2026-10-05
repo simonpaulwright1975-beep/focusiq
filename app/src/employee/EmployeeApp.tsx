@@ -22,6 +22,7 @@ import { resetRequests } from '../shared/adjustmentStore.js';
 import { resetRightsRequests } from '../shared/requestStore.js';
 import { MyRequests } from './MyRequests.js';
 import { MySummary } from './MySummary.js';
+import { MyWgWay } from './MyWgWay.js';
 import { resetReleases } from '../shared/summaryStore.js';
 import { ACK_KEY, RUN_KEY } from '../shared/participationStore.js';
 import { Runner, clearSavedSession } from './Runner.js';
@@ -443,6 +444,7 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
   return (
     <Shell me={ME} placeholders={placeholders.length}>
       <MySummary me={ME} onAsk={() => setAsking(true)} />
+      <MyWgWay me={ME} />
       {saveError && <p className="error-summary" role="alert">{saveError}</p>}
       {completed && run ? (
         <main className="card panel">

@@ -110,6 +110,9 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
 
 /* Released summary sits above the form or runner. */
 .my-summary { margin-bottom: 22px; }
+.my-wgway { margin-bottom: 22px; }
+.my-wgway .glance { justify-content: center; }
+.my-wgway .wg-topics { flex: 1 1 260px; min-width: 0; }
 
 /* ---- Runner colour: one colour per section (set as --sec* on the element) ---- */
 .runner.in-section { border-top: 6px solid var(--sec); }

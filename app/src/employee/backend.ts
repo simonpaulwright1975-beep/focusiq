@@ -31,6 +31,7 @@ import { latestRequestFor, subscribe as subscribeAdjustments, upsertRequest } fr
 import { ACK_KEY, RUN_KEY, readJson, writeJson } from '../shared/participationStore.js';
 import { requestsForEmployee, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
 import { listReleases, saveRelease, subscribeReleases } from '../shared/summaryStore.js';
+import { PREVIEW_SAMPLE_RELEASE, subscribeWgWayReleases, wgWayReleasesFor, type WgWayRelease } from '../shared/wgWayReleaseStore.js';
 import { check, db, LIVE } from '../shared/supabase.js';
 import { demoTransport, serverSnapshot } from './demoTransport.js';
 
@@ -92,6 +93,8 @@ export interface EmployeeBackend {
   followUp(me: EmployeeRecordDetails, request: RightsRequest, body: string): Promise<void>;
   watchSummary(me: EmployeeRecordDetails, onChange: (s: MySummaryView | null) => void): () => void;
   markSummaryRead(me: EmployeeRecordDetails): Promise<void>;
+  /** "Live the Walter Geering Way" results a Director has shared with the person, latest first (score and topic counts only). */
+  watchWgWay(me: EmployeeRecordDetails, onChange: (r: WgWayRelease[]) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +178,10 @@ const demoBackend: EmployeeBackend = {
   async markSummaryRead(me) {
     const r = currentRelease(listReleases(), me.employeeId);
     if (r) saveRelease(markReleaseRead(r, me.employeeId, new Date()));
+  },
+  watchWgWay(me, onChange) {
+    onChange(wgWayReleasesFor(me.employeeId));
+    return subscribeWgWayReleases(() => onChange(wgWayReleasesFor(me.employeeId)));
   },
 };
 
@@ -461,6 +468,12 @@ const liveBackend: EmployeeBackend = {
     const rows = check(await db().rpc('my_summary')) as { release_id: string }[];
     if (rows[0]) check(await db().rpc('mark_summary_read', { p_release_id: rows[0].release_id }));
   },
+  watchWgWay(_me, onChange) {
+    // The WG Way check is demo only until its live storage is built (sittings,
+    // server-side scoring and releases in WG Main); until then nothing is shared.
+    onChange([]);
+    return () => undefined;
+  },
 };
 
 export const backend: EmployeeBackend = LIVE ? liveBackend : demoBackend;
@@ -552,6 +565,11 @@ export function createPreviewBackend(): EmployeeBackend & { contentNote(): Promi
       return () => undefined;
     },
     async markSummaryRead() {},
+    watchWgWay(_me, onChange) {
+      // A made-up result, so Directors can see how a shared score looks to staff.
+      onChange([PREVIEW_SAMPLE_RELEASE]);
+      return () => undefined;
+    },
   };
 }
 

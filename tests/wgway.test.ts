@@ -33,3 +33,20 @@ suite('Live the Walter Geering Way scoring', () => {
     expect(Object.values(r.byTopic).reduce((n, t) => n + t.correct, 0)).toBe(18);
   });
 });
+
+suite('sharing a WG Way result with the person', () => {
+  it('shares the score and topic counts only – no questions or answers', async () => {
+    const { releaseOf } = await import('../app/src/views/wgWayResults.js');
+    const { STAN_SAMPLE_RELEASE } = await import('../app/src/shared/wgWayReleaseStore.js');
+    const byTopic = Object.fromEntries(
+      ['history', 'way', 'products', 'supply', 'business', 'playbook', 'newbiz'].map((t) => [t, { correct: t === 'supply' ? 1 : 0, total: t === 'supply' ? 2 : 0 }]),
+    ) as Parameters<typeof releaseOf>[0]['byTopic'];
+    const r = releaseOf({ id: 's1', employeeId: 'e1', name: 'Alex', completedAt: '2026-10-06T09:00:00Z', correct: 1, total: 2, byTopic }, new Date('2026-10-07T09:00:00Z'));
+    expect(Object.keys(r).sort()).toEqual(['byTopic', 'completedAt', 'correct', 'employeeId', 'releasedAt', 'sittingId', 'total']);
+    expect(r.byTopic).toEqual([{ topic: 'supply', label: 'Supply, bespoke & lead times', correct: 1, total: 2 }]);
+    const text = JSON.stringify([r, STAN_SAMPLE_RELEASE]);
+    expect(text).not.toMatch(/"wg-\d+"|answer|option/i);
+    expect(STAN_SAMPLE_RELEASE.correct).toBe(67);
+    expect(STAN_SAMPLE_RELEASE.byTopic.reduce((n, t) => n + t.total, 0)).toBe(70);
+  });
+});

@@ -8,6 +8,7 @@ import { WG_WAY_DRAW, WG_WAY_TEST, WG_WAY_TOPICS, type WgWayTopic } from '../dem
 import { WG_WAY_ANSWERS } from '../demo/wgWayScoring.js';
 import { DEMO_SERVER_KEY } from '../shared/participationStore.js';
 import { listSittings } from '../wgway/store.js';
+import { STAN_SAMPLE_RELEASE, type WgWayRelease } from '../shared/wgWayReleaseStore.js';
 
 export const TOPICS = Object.keys(WG_WAY_TOPICS) as WgWayTopic[];
 export const QUESTIONS_PER_SITTING = Object.values(WG_WAY_DRAW).reduce((a, b) => a + b, 0);
@@ -51,23 +52,30 @@ export function scoreSitting(presentations: Presentation[], events: RunnerEvent[
 
 /** Stan's sample: the whole 70-question bank as a reference (a real sitting draws 25). */
 const SAMPLE: WgWayResult = {
-  id: 'sample-stan',
-  employeeId: 'stan',
+  id: STAN_SAMPLE_RELEASE.sittingId,
+  employeeId: STAN_SAMPLE_RELEASE.employeeId,
   name: 'Stan',
-  completedAt: '2026-10-04T11:00:00.000Z',
-  correct: 67,
-  total: 70,
-  byTopic: {
-    history: { correct: 8, total: 8 },
-    way: { correct: 6, total: 6 },
-    products: { correct: 6, total: 6 },
-    supply: { correct: 3, total: 4 },
-    business: { correct: 6, total: 6 },
-    playbook: { correct: 19, total: 20 },
-    newbiz: { correct: 19, total: 20 },
-  },
+  completedAt: STAN_SAMPLE_RELEASE.completedAt,
+  correct: STAN_SAMPLE_RELEASE.correct,
+  total: STAN_SAMPLE_RELEASE.total,
+  byTopic: Object.fromEntries(TOPICS.map((t) => {
+    const s = STAN_SAMPLE_RELEASE.byTopic.find((x) => x.topic === t);
+    return [t, { correct: s?.correct ?? 0, total: s?.total ?? 0 }];
+  })) as WgWayResult['byTopic'],
   sample: true,
 };
+
+/** What the person sees once a Director shares the result: the score and topic counts only. */
+export const releaseOf = (r: WgWayResult, now = new Date()): WgWayRelease => ({
+  sittingId: r.id,
+  employeeId: r.employeeId,
+  completedAt: r.completedAt,
+  correct: r.correct,
+  total: r.total,
+  byTopic: TOPICS.filter((t) => r.byTopic[t].total > 0).map((t) => ({ topic: t, label: WG_WAY_TOPICS[t], ...r.byTopic[t] })),
+  releasedAt: now.toISOString(),
+  ...(r.sample ? { sample: true } : {}),
+});
 
 function serverCopy(id: string): { presentations: Record<string, Presentation>; events: Record<string, RunnerEvent>; completedAt: string | null } | null {
   try {
