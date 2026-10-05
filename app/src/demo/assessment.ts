@@ -14,7 +14,7 @@ const media = (file: string, sha256: string, alt: string): MediaRef => ({
 export const DEMO_ASSESSMENT: AssessmentDefinition = {
   version: 'focusiq-demo-2026.1',
   title: 'FocusiQ assessment (demo)',
-  estimatedMinutes: 30,
+  estimatedMinutes: 25,
   sections: [
     {
       id: 'reading',
@@ -147,11 +147,11 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
       id: 'abstract',
       title: 'Abstract reasoning',
       instructions: [
-        'This section is timed: 6 minutes for 8 puzzles. A clock shows the time left.',
+        'This section is timed: 4½ minutes for 6 puzzles. A clock shows the time left.',
         'Each grid follows rules across its rows and columns – for example shape, number, size, shading or direction. Several rules can apply at once.',
         'Choose the tile that completes the grid. If you are stuck, move on and come back: you can change answers until you submit the section.',
       ],
-      timeLimitSeconds: 360,
+      timeLimitSeconds: 270,
       shuffleQuestions: false,
       scored: true,
       questions: ABSTRACT_QUESTIONS,
@@ -253,11 +253,11 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
       id: 'numbers',
       title: 'Sales figures',
       instructions: [
-        'This section is timed: 10 minutes for 8 questions. A clock shows the time left.',
+        'This section is timed: 7½ minutes for 6 questions. A clock shows the time left.',
         'Each question gives you some figures, like the ones a salesperson works with every day. Work out the answer as you would at work.',
         'You may use a calculator and paper.',
       ],
-      timeLimitSeconds: 600,
+      timeLimitSeconds: 450,
       shuffleQuestions: false,
       scored: true,
       questions: [
@@ -343,34 +343,6 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
             { id: 'c', text: '£11,000' },
             { id: 'd', text: '£16,500' },
             { id: 'e', text: '£33,000' },
-          ],
-        },
-        {
-          questionVersionId: 'sm-07',
-          kind: 'single_choice',
-          stem: 'A hotel group’s target this year is 15% growth on last year. If it keeps spending at the same monthly rate, how will it finish against the target?',
-          detail: ['Spend last year: £18,000', 'Target this year: last year + 15%', 'Spend so far: £13,200 after 9 months'],
-          shuffleOptions: false,
-          options: [
-            { id: 'a', text: '£7,500 short' },
-            { id: 'b', text: '£3,100 short' },
-            { id: 'c', text: '£400 short' },
-            { id: 'd', text: 'Exactly on target' },
-            { id: 'e', text: '£2,700 over' },
-          ],
-        },
-        {
-          questionVersionId: 'sm-08',
-          kind: 'single_choice',
-          stem: 'You have time for one more call today. Which call has the higher expected profit (chance × order value × margin), and by how much?',
-          detail: ['Call A: 60% chance of a £2,000 order at 35% margin', 'Call B: 30% chance of a £5,000 order at 20% margin'],
-          shuffleOptions: false,
-          options: [
-            { id: 'a', text: 'Call A, by £120' },
-            { id: 'b', text: 'Call A, by £280' },
-            { id: 'c', text: 'They are the same' },
-            { id: 'd', text: 'Call B, by £300' },
-            { id: 'e', text: 'Call B, by £3,000' },
           ],
         },
       ],

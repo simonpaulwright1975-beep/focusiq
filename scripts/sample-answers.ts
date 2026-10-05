@@ -83,8 +83,6 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
     shows: 'Puts the customer first and owns the problem instead of passing it on.',
   },
   // Abstract reasoning
-  'ar-01': { answer: 'c', seconds: 24, why: 'Each row and column has one circle, one square and one triangle, and the number goes 1, 2, 3 across each row: three squares.', shows: 'Spots two rules working together quickly.' },
-  'ar-02': { answer: 'f', seconds: 38, why: 'Shape and shading each appear once per row and column, and the number is the same across a row (3 in the last row): three outline circles.', shows: 'Keeps three rules in mind at once.' },
   'ar-03': { answer: 'a', seconds: 41, why: 'The third tile’s count is the first two added together (2 + 2 = 4), the shape stays the same across a row, and the shading appears once per row and column: four solid squares.', shows: 'Finds an arithmetic rule hidden in a picture.' },
   'ar-04': { answer: 'd', seconds: 44, why: 'Shape, number and size each appear once per row and column: two medium circles.', shows: 'Handles three independent rules without losing track.' },
   'ar-05': { answer: 'g', seconds: 27, why: 'The arrow turns a quarter clockwise and the dot moves one corner clockwise each step: arrow up, dot top-left.', shows: 'Tracks two movements at the same time.' },
@@ -103,8 +101,6 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   'sm-04': { answer: 'c', seconds: 35, why: 'Profit £4.00 − £2.40 = £1.60, divided by the price £4.00 = 40% margin. (66.7% is the mark-up on cost, a different measure.)', shows: 'Knows margin from mark-up – a common and costly mix-up.' },
   'sm-05': { answer: 'b', seconds: 70, why: 'Stan chose 333. At full price the profit is £3 a unit, £3,000 on 1,000. With 10% off the price is £9, so the profit falls to £2 a unit: 1,500 units are needed, 500 more. 333 more is what a 10% fall in profit would need, but the discount cuts profit by a third.', shows: 'Stan’s miss on the figures, and the best coaching point: a small discount on price is a big cut in profit. A useful one for any Director to share with the sales team.' },
   'sm-06': { answer: 'b', seconds: 55, why: '£8,000 × 50% = £4,000; £20,000 × 10% = £2,000; £5,000 × 80% = £4,000. Total £10,000.', shows: 'Values a pipeline realistically rather than at face value.' },
-  'sm-07': { answer: 'b', seconds: 80, why: 'Target: £18,000 + 15% = £20,700. At £13,200 ÷ 9 = £1,466.67 a month, the year ends at £17,600: £3,100 short.', shows: 'Projects forward and sees a shortfall early enough to act.' },
-  'sm-08': { answer: 'a', seconds: 60, why: 'A: 0.6 × £2,000 × 35% = £420. B: 0.3 × £5,000 × 20% = £300. Call A, by £120.', shows: 'Chooses on expected profit, not the size of the order.' },
   'demo-q13': {
     answer: 'team>customer_impact>progression>autonomy>recognition>mastery>financial_reward>security', seconds: 38,
     why: 'Not scored, and there is no right order. Stan ranked being part of a strong team and making a difference for customers highest.',

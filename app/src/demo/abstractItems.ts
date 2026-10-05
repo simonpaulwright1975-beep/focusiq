@@ -8,38 +8,6 @@ const m = (file: string, sha256: string, alt: string): MediaRef => ({ src: `./as
 
 export const ABSTRACT_QUESTIONS: QuestionDef[] = [
         {
-          questionVersionId: 'ar-01',
-          kind: 'single_choice',
-          stem: "Which tile completes the grid?",
-          image: m('ar-01-grid.svg', '7ebc2d20487f27be9325b4f87720dfecf7e76e1b939f3bb430716488b63d11ba', "3 by 3 grid with the last tile missing. Row 1: 1 medium solid circle; 2 medium solid squares; 3 medium solid triangles. Row 2: 1 medium solid square; 2 medium solid triangles; 3 medium solid circles. Row 3: 1 medium solid triangle; 2 medium solid circles; missing."),
-          options: [
-            { id: 'a', image: m('ar-01-a.svg', '9fb49dcafd7a1e806c1c9aefbc3c725d31c630fdb4bc0a109246b0d3d063d40f', "2 medium solid squares") },
-            { id: 'b', image: m('ar-01-b.svg', 'efcb499fa6aa37c4a27f89cb7a207dd8c3ed14b0cb70b92edfb56ed9cb287c81', "3 medium solid triangles") },
-            { id: 'c', image: m('ar-01-c.svg', '4713b606cba35cd4a17bfa173d9127e04a06bb575d10a0f083c146cf6d0117b0', "3 medium solid squares") },
-            { id: 'd', image: m('ar-01-d.svg', '0fb1a052cdcef9a4ebdcc0ecc27ccf7d117d697385dcedd78f6f251982bcae7a', "3 medium solid circles") },
-            { id: 'e', image: m('ar-01-e.svg', '72cc715efe2dcf2390a3fbbd7234db5070d1434dd19f100f0aa350f732f18a55', "3 medium outline squares") },
-            { id: 'f', image: m('ar-01-f.svg', '56622808206ec5aa41545a27b8f51a96f0e745c2b8c45261fe200bcb2ed17e60', "3 small solid squares") },
-            { id: 'g', image: m('ar-01-g.svg', 'd22e68ce16bf0d703743b3fcbf73e58fdb09eca146751b2ced7915659863a7a8', "1 medium solid square") },
-            { id: 'h', image: m('ar-01-h.svg', 'c5cf5e5c7f36108607d95452ab61f40cc94717ab2fb356fda28ae3153baa8bd2', "3 medium solid pentagons") },
-          ],
-        },
-        {
-          questionVersionId: 'ar-02',
-          kind: 'single_choice',
-          stem: "Which tile completes the grid?",
-          image: m('ar-02-grid.svg', 'a28c4013f32194d1bd182b6568e17053ed0ca2e079d117696dad79daa6e783ce', "3 by 3 grid with the last tile missing. Row 1: 1 medium solid circle; 1 medium outline square; 1 medium striped triangle. Row 2: 2 medium outline triangles; 2 medium striped circles; 2 medium solid squares. Row 3: 3 medium striped squares; 3 medium solid triangles; missing."),
-          options: [
-            { id: 'a', image: m('ar-02-a.svg', '0fb1a052cdcef9a4ebdcc0ecc27ccf7d117d697385dcedd78f6f251982bcae7a', "3 medium solid circles") },
-            { id: 'b', image: m('ar-02-b.svg', '480d21d93d41d76bb4db5fa314382d7d9f3adb5358ae912936d3a43cfee8210d', "3 medium striped circles") },
-            { id: 'c', image: m('ar-02-c.svg', '56f16c9cfdc312f4104fca36987cf075c72b1e3fd8b6e8a008c9ffb7f7c2b774', "2 medium outline circles") },
-            { id: 'd', image: m('ar-02-d.svg', '72cc715efe2dcf2390a3fbbd7234db5070d1434dd19f100f0aa350f732f18a55', "3 medium outline squares") },
-            { id: 'e', image: m('ar-02-e.svg', '596240067886a52a33cf17d4f15b4ce7674c4721b34cd9caa2f0da36b0af3f39', "3 medium outline triangles") },
-            { id: 'f', image: m('ar-02-f.svg', '89f5cfb520ad5fd962e1447e5bb5f49d9be43ba8b2f64dc71049ac6768a7a0b7', "3 medium outline circles") },
-            { id: 'g', image: m('ar-02-g.svg', '6521bffafb5badc499e3d6eb5e149fed890ecdecb5fbeb408817ae0922768735', "1 medium outline circle") },
-            { id: 'h', image: m('ar-02-h.svg', '98eba046207fcf758486ca2ca5e4e229725d8f3730193d8ba1ff917ddbf3a8cb', "3 medium outline pentagons") },
-          ],
-        },
-        {
           questionVersionId: 'ar-03',
           kind: 'single_choice',
           stem: "Which tile completes the grid?",

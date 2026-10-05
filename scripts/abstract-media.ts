@@ -12,7 +12,7 @@
  * with colour-vision differences. Every wrong option breaks at least one rule.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 type Shape = 'circle' | 'square' | 'triangle' | 'pentagon' | 'hexagon' | 'arrow' | 'lines';
 type Fill = 'solid' | 'outline' | 'striped';
@@ -159,20 +159,6 @@ const STEM = 'Which tile completes the grid?';
 
 const ITEMS: Item[] = [
   {
-    id: 'ar-01', stem: STEM,
-    rule: 'Shape: each once per row and column. Count: 1, 2, 3 across each row.',
-    grid: [S('circle', 1), S('square', 2), S('triangle', 3), S('square', 1), S('triangle', 2), S('circle', 3), S('triangle', 1), S('circle', 2)],
-    answer: S('square', 3),
-    distractors: [S('square', 2), S('triangle', 3), S('circle', 3), S('square', 3, 'outline'), S('square', 3, 'solid', 'small'), S('square', 1), S('pentagon', 3)],
-  },
-  {
-    id: 'ar-02', stem: STEM,
-    rule: 'Shape and fill: each once per row and column. Count: same across a row, 1 / 2 / 3 by row.',
-    grid: [S('circle', 1, 'solid'), S('square', 1, 'outline'), S('triangle', 1, 'striped'), S('triangle', 2, 'outline'), S('circle', 2, 'striped'), S('square', 2, 'solid'), S('square', 3, 'striped'), S('triangle', 3, 'solid')],
-    answer: S('circle', 3, 'outline'),
-    distractors: [S('circle', 3, 'solid'), S('circle', 3, 'striped'), S('circle', 2, 'outline'), S('square', 3, 'outline'), S('triangle', 3, 'outline'), S('circle', 1, 'outline'), S('pentagon', 3, 'outline')],
-  },
-  {
     id: 'ar-03', stem: STEM,
     rule: 'Count: third = first + second. Shape: same across a row. Fill: each once per row and column.',
     grid: [S('triangle', 1, 'solid'), S('triangle', 1, 'outline'), S('triangle', 2, 'striped'), S('hexagon', 1, 'striped'), S('hexagon', 2, 'solid'), S('hexagon', 3, 'outline'), S('square', 2, 'outline'), S('square', 2, 'striped')],
@@ -220,6 +206,7 @@ const ITEMS: Item[] = [
 // Output
 // ---------------------------------------------------------------------------
 const DIRNAME = 'app/public/assessment-media/demo/abstract';
+rmSync(DIRNAME, { recursive: true, force: true });
 mkdirSync(DIRNAME, { recursive: true });
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const LETTERS = 'abcdefgh';
@@ -227,7 +214,8 @@ const LETTERS = 'abcdefgh';
 const display: string[] = [];
 const keys: string[] = [];
 const rules: string[] = [];
-ITEMS.forEach((item, n) => {
+ITEMS.forEach((item) => {
+  const n = Number(item.id.slice(3)) - 1;
   const seen = new Set<string>();
   for (const c of [item.answer, ...item.distractors]) {
     const k = describe(c);

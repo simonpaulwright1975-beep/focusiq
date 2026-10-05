@@ -171,7 +171,7 @@ suite('completion, resume and evidence', () => {
   it('feeds the insight engine directly – motivation is never used as performance evidence', () => {
     const { state } = completeAll();
     const { presentations, events } = scoredEvidence(state);
-    expect(presentations).toHaveLength(32);
+    expect(presentations).toHaveLength(28);
     const evidence = deriveExerciseEvidence(
       presentations.map<EvidencePresentation>((p) => ({
         id: p.id,
@@ -182,9 +182,9 @@ suite('completion, resume and evidence', () => {
       })),
       events.map((e) => ({ presentationId: e.presentationId!, clientSequence: e.clientSequence, type: e.type, occurredAt: e.occurredAt, payload: e.payload as never })),
     );
-    expect(evidence).toHaveLength(32);
+    expect(evidence).toHaveLength(28);
     expect(evidence.every((e) => e.correct && e.firstAnswerCorrect && !e.reopened)).toBe(true);
-    expect(evidence.filter((e) => e.timed)).toHaveLength(24);
+    expect(evidence.filter((e) => e.timed)).toHaveLength(20);
     expect(evidence.find((e) => e.questionVersionId === 'demo-q12')).toMatchObject({ choseOutcomeAction: true, escalatedUnnecessarily: false });
   });
 });

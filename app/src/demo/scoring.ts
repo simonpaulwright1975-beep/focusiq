@@ -32,6 +32,4 @@ export const DEMO_SCORING: Record<string, ExerciseMeta> = {
   'sm-04': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
   'sm-05': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
   'sm-06': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
-  'sm-07': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
-  'sm-08': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'a' },
 };

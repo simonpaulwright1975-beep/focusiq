@@ -5,8 +5,6 @@
 import type { ExerciseMeta } from '../../../src/insight/index.js';
 
 export const ABSTRACT_SCORING: Record<string, ExerciseMeta> = {
-  'ar-01': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'c' },
-  'ar-02': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'f' },
   'ar-03': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'a' },
   'ar-04': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'd' },
   'ar-05': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'g' },
@@ -17,8 +15,6 @@ export const ABSTRACT_SCORING: Record<string, ExerciseMeta> = {
 
 /** The rules behind each puzzle, for the Directors' question book. */
 export const ABSTRACT_RULES: Record<string, string> = {
-  'ar-01': "Shape: each once per row and column. Count: 1, 2, 3 across each row.",
-  'ar-02': "Shape and fill: each once per row and column. Count: same across a row, 1 / 2 / 3 by row.",
   'ar-03': "Count: third = first + second. Shape: same across a row. Fill: each once per row and column.",
   'ar-04': "Shape, count and size: each value once per row and column (three independent rules).",
   'ar-05': "Arrow: turns a quarter clockwise each step. Dot: moves one corner clockwise each step.",
