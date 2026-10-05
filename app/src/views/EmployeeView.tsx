@@ -101,7 +101,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
             <BandDonut
               counts={bandCounts}
               noun={banded.length === 1 ? 'area' : 'areas'}
-              centre={{ value: `${bandCounts.strong + bandCounts.expected}/${banded.length}`, label: 'expected or above' }}
+              centre={{ value: `${bandCounts.strong} of ${banded.length}`, label: 'areas above\nexpectations' }}
             />
           </div>
         </Card>

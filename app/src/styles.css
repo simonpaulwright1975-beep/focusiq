@@ -279,8 +279,9 @@ fieldset.plain legend { margin-bottom: 8px; padding: 0; }
 .donut { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 .donut svg { flex: none; }
 .donut-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.donut-key li { display: grid; grid-template-columns: 14px 96px 52px auto; align-items: center; gap: 8px; font-size: 15px; }
+.donut-key li { display: grid; grid-template-columns: 14px 150px 52px auto; align-items: center; gap: 8px; font-size: 15px; }
 .donut-key .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.donut-band { display: flex; flex-direction: column; line-height: 1.2; }
 .donut-num { font-size: 1.15rem; font-weight: 800; text-align: right; }
 details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700; }
 

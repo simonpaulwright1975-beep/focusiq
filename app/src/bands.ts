@@ -15,6 +15,8 @@ export interface ExpectationBands {
 export type BandKey = 'strong' | 'expected' | 'develop';
 export const BAND_ORDER: BandKey[] = ['strong', 'expected', 'develop'];
 export const BAND_LABEL: Record<BandKey, string> = { strong: 'Strong', expected: 'Expected', develop: 'Development' };
+/** Plain-English meaning of each band, shown beside the band name. */
+export const BAND_MEANING: Record<BandKey, string> = { strong: 'above expectations', expected: 'meets expectations', develop: 'below expectations' };
 export const BAND_FILL: Record<BandKey, string> = { strong: 'var(--band-strong)', expected: 'var(--band-expected)', develop: 'var(--band-develop)' };
 export const BAND_INK: Record<BandKey, string> = { strong: 'var(--band-strong-ink)', expected: 'var(--band-expected-ink)', develop: 'var(--band-develop-ink)' };
 

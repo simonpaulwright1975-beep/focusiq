@@ -7,7 +7,7 @@
  * the only cue. Amber, never red: a development area is not a failure.
  */
 import type { ReactNode } from 'react';
-import { BAND_FILL, BAND_INK, BAND_LABEL, BAND_ORDER, bandKey, pct, type BandCounts, type BandKey, type ExpectationBands } from '../bands.js';
+import { BAND_FILL, BAND_INK, BAND_LABEL, BAND_MEANING, BAND_ORDER, bandKey, pct, type BandCounts, type BandKey, type ExpectationBands } from '../bands.js';
 import { useTooltip } from './ui.js';
 
 const W = 640;
@@ -147,10 +147,10 @@ export function BandDonut({ counts, noun, centre }: { counts: BandCounts; noun: 
           offset += len;
           return seg;
         })}
-        <text x={size / 2} y={size / 2 - 2} fontSize="28" fontWeight="800" textAnchor="middle" fill="var(--ink)">
+        <text x={size / 2} y={size / 2 - 2} fontSize={(centre?.value.length ?? 0) > 5 ? 23 : 28} fontWeight="800" textAnchor="middle" fill="var(--ink)">
           {centre?.value ?? `${pct(atOrAbove, total)}%`}
         </text>
-        {(centre?.label ?? 'expected or above').split(/ (?=or )/).map((line, i) => (
+        {(centre?.label ?? 'meet or exceed\nexpectations').split('\n').map((line, i) => (
           <text key={line} x={size / 2} y={size / 2 + 18 + i * 14} fontSize="12" textAnchor="middle" fill="var(--ink-soft)">{line}</text>
         ))}
       </svg>
@@ -158,7 +158,7 @@ export function BandDonut({ counts, noun, centre }: { counts: BandCounts; noun: 
         {BAND_ORDER.map((k) => (
           <li key={k}>
             <span className="swatch" style={{ background: BAND_FILL[k] }} />
-            <strong>{BAND_LABEL[k]}</strong>
+            <span className="donut-band"><strong>{BAND_LABEL[k]}</strong><span className="muted small">{BAND_MEANING[k]}</span></span>
             <span className="donut-num">{pct(counts[k], total)}%</span>
             <span className="muted small">{counts[k]} {noun}</span>
           </li>
