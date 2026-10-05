@@ -17,6 +17,15 @@ export const WG_WAY_TOPICS = {
 } as const;
 export type WgWayTopic = keyof typeof WG_WAY_TOPICS;
 
+/** Questions too alike to appear in the same sitting. */
+export const WG_WAY_NOT_TOGETHER: [string, string][] = [
+  ['wg-13', 'wg-33'], // what CalliQ / the FLIRT score rewards
+  ['wg-10', 'wg-44'], // Playbook phrases
+  ['wg-10', 'wg-45'],
+  ['wg-61', 'wg-53'], // Call 1
+  ['wg-61', 'wg-54'],
+];
+
 /** Questions per sitting from each topic: 25 in all. */
 export const WG_WAY_DRAW: Record<WgWayTopic, number> = { history: 4, way: 3, products: 3, supply: 2, playbook: 7, newbiz: 6 };
 
@@ -857,6 +866,7 @@ export const WG_WAY_TEST: AssessmentDefinition = {
       ],
       timeLimitSeconds: 600,
       draw: WG_WAY_DRAW,
+      notTogether: WG_WAY_NOT_TOGETHER,
       shuffleQuestions: true,
       scored: true,
       questions: BANK,

@@ -101,10 +101,22 @@ export interface SessionOptions {
 export function sectionQuestions(s: SectionDef, seed: string): QuestionDef[] {
   let questions = s.questions;
   if (s.draw) {
+    const clash = new Map<string, string[]>();
+    for (const [a, b] of s.notTogether ?? []) {
+      clash.set(a, [...(clash.get(a) ?? []), b]);
+      clash.set(b, [...(clash.get(b) ?? []), a]);
+    }
+    const picked = new Set<string>();
     questions = Object.entries(s.draw).flatMap(([topic, n]) => {
-      const bank = s.questions.filter((q) => q.topic === topic);
-      if (bank.length < n) throw new Error(`Section ${s.id}: topic ${topic} has ${bank.length} questions, ${n} needed.`);
-      return seededShuffle(bank, `${seed}:${s.id}:draw:${topic}`).slice(0, n);
+      const chosen: QuestionDef[] = [];
+      for (const q of seededShuffle(s.questions.filter((x) => x.topic === topic), `${seed}:${s.id}:draw:${topic}`)) {
+        if (chosen.length === n) break;
+        if ((clash.get(q.questionVersionId) ?? []).some((id) => picked.has(id))) continue;
+        chosen.push(q);
+        picked.add(q.questionVersionId);
+      }
+      if (chosen.length < n) throw new Error(`Section ${s.id}: topic ${topic} cannot supply ${n} questions.`);
+      return chosen;
     });
   }
   return s.shuffleQuestions ? seededShuffle(questions, `${seed}:${s.id}`) : questions;

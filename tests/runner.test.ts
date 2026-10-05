@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { describe as suite, expect, it } from 'vitest';
 import { DEMO_ASSESSMENT } from '../app/src/demo/assessment.js';
 import { DEMO_SCORING } from '../app/src/demo/scoring.js';
-import { WG_WAY_DRAW, WG_WAY_TEST } from '../app/src/demo/wgWayBank.js';
+import { WG_WAY_DRAW, WG_WAY_NOT_TOGETHER, WG_WAY_TEST } from '../app/src/demo/wgWayBank.js';
 import { WG_WAY_ANSWERS } from '../app/src/demo/wgWayScoring.js';
 import { deriveExerciseEvidence, type Presentation as EvidencePresentation } from '../src/insight/index.js';
 import {
@@ -260,6 +260,14 @@ suite('question banks', () => {
     for (const ids of [a, b]) {
       const count = (t: string) => topics(ids).filter((x) => x === t).length;
       expect(Object.fromEntries(Object.keys(WG_WAY_DRAW).map((t) => [t, count(t)]))).toEqual(WG_WAY_DRAW);
+    }
+  });
+
+  it('never puts two questions that are too alike in the same sitting', () => {
+    for (let i = 0; i < 300; i++) {
+      const ids = new Set(createSession({ definition: WG_WAY_TEST, assessmentId: `a${i}`, seed: `s${i}` }).order[0]!.questionIds);
+      expect(ids.size).toBe(25);
+      for (const [x, y] of WG_WAY_NOT_TOGETHER) expect(ids.has(x) && ids.has(y)).toBe(false);
     }
   });
 

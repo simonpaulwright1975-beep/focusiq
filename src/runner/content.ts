@@ -53,6 +53,8 @@ export interface SectionDef {
    * covers each topic equally, so scores from different sittings compare.
    */
   draw?: Record<string, number>;
+  /** Pairs of question ids that are too alike to appear in the same sitting (with `draw`). */
+  notTogether?: [string, string][];
   /** Unscored sections (e.g. motivation) are never used as performance evidence. */
   scored: boolean;
   /** Motivation sections produce a ranked motivation profile. */
