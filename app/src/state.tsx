@@ -46,7 +46,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     version: 'all',
     window: 'latest',
     from: '2026-01-01',
-    to: '2026-10-02',
+    to: '2026-10-05',
     population: 'current',
     hidden: [],
   });

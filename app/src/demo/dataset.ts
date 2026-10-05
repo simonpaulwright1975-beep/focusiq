@@ -5,7 +5,7 @@
 import { DEFAULT_METRICS, EligibilityLedger, type Actor, type Assessment, type Department, type Employee } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, MotivationProfile, MotivatorKey } from '../../../src/insight/index.js';
 
-export const DEMO_NOW = new Date('2026-10-02T12:00:00Z');
+export const DEMO_NOW = new Date('2026-10-05T12:00:00Z');
 /** Stan: the fictional sample reference profile (see SEEDS). */
 export const SAMPLE_EMPLOYEE_ID = 'stan';
 export const DEMO_DIRECTOR: Actor = { id: 'director-demo', name: 'Demo Director', role: 'director' };
@@ -100,6 +100,11 @@ const SEEDS: Seed[] = [
  * strongest at owning outcomes, deciding and driving; Complete and Focus are
  * Expected, and competing priorities are the one thing to talk about.
  */
+/** Stan's assessment dates: the latest completed on 4 October 2026. */
+const REFERENCE_DATES: Record<string, Record<1 | 2, string>> = {
+  stan: { 1: '2026-04-08T10:00:00.000Z', 2: '2026-10-04T10:00:00.000Z' },
+};
+
 const REFERENCE_SCORES: Record<1 | 2, Record<string, number>> = {
   1: {
     think: 83, absorb: 81, remember: 80, prioritise: 79, decide: 84, act: 83, own: 86, drive: 84, complete: 76, focus: 74,
@@ -314,13 +319,14 @@ export function buildDemoData({ sampleOnly = false }: { sampleOnly?: boolean } =
       const month = round === 1 ? 1 + Math.floor(r() * 3) : 7 + Math.floor(r() * 3);
       const day = 2 + Math.floor(r() * 25);
       const id = `${s.id}-r${round}`;
+      const generated = new Date(Date.UTC(2026, month - 1, day, 9 + Math.floor(r() * 6))).toISOString();
       assessments.push({
         id,
         employeeId: s.id,
         version: 'focusiq-2026.1',
         scoringVersion: 'scoring/1.0.0',
         type: 'full',
-        completedAt: new Date(Date.UTC(2026, month - 1, day, 9 + Math.floor(r() * 6))).toISOString(),
+        completedAt: REFERENCE_DATES[s.id]?.[round] ?? generated,
         complete: true,
         validity: 'valid',
         scores: scoresFor(s, round, r),
