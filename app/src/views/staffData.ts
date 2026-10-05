@@ -35,6 +35,8 @@ export interface StaffRow {
   expectations: ExpectationLevel | null;
   lastInvitedAt: string | null;
   invitationStatus: string | null;
+  /** Latest one-time sign-in code (never the code itself). */
+  signInCode?: { createdAt: string; expiresAt: string; usedAt: string | null } | null;
   /** Latest assessment: not started, in progress, or completed (with when). */
   assessment?: { status: 'not_started' | 'in_progress' | 'completed'; at: string | null };
 }
@@ -47,6 +49,8 @@ export interface StaffSource {
   add(staffId: string, department: Department, startDate: string | null, expectations: ExpectationLevel): Promise<string>;
   setExpectations(employeeId: string, expectations: ExpectationLevel): Promise<void>;
   invite(employeeId: string): Promise<InviteResult>;
+  /** A one-time sign-in code for the person (12 hours; a new one cancels the old). Shown once. */
+  createSignInCode(employeeId: string): Promise<{ code: string; expiresAt: string }>;
   /** Live only: bring names, logins and leavers up to date now (it also runs nightly). */
   sync?(): Promise<Record<string, number>>;
 }
@@ -71,6 +75,10 @@ const liveSource: StaffSource = {
     const levels = new Map(
       (check(await db().from('employees').select('id, expectations')) as { id: string; expectations: ExpectationLevel }[]).map((e) => [e.id, e.expectations]),
     );
+    const codes = new Map(
+      ((check(await db().rpc('sign_in_code_status')) ?? []) as { employee_id: string; created_at: string; expires_at: string; used_at: string | null }[])
+        .map((c) => [c.employee_id, { createdAt: c.created_at, expiresAt: c.expires_at, usedAt: c.used_at }]),
+    );
     const latest = new Map<string, (typeof assessments)[number]>();
     for (const a of assessments) if (!latest.has(a.employee_id)) latest.set(a.employee_id, a);
     return rows.map((r) => ({
@@ -87,6 +95,7 @@ const liveSource: StaffSource = {
       expectations: r.employee_id ? levels.get(r.employee_id) ?? 'standard' : null,
       lastInvitedAt: r.employee_id ? byEmployee.get(r.employee_id)?.last_invited_at ?? null : null,
       invitationStatus: r.employee_id ? byEmployee.get(r.employee_id)?.invitation_status ?? null : null,
+      signInCode: r.employee_id ? codes.get(r.employee_id) ?? null : null,
       assessment: (() => {
         const a = r.employee_id ? latest.get(r.employee_id) : undefined;
         if (!a) return { status: 'not_started' as const, at: null };
@@ -104,6 +113,11 @@ const liveSource: StaffSource = {
   },
   async invite(employeeId) {
     return check(await db().rpc('invite_staff', { p_employee_id: employeeId })) as InviteResult;
+  },
+  async createSignInCode(employeeId) {
+    const rows = check(await db().rpc('create_sign_in_code', { p_employee_id: employeeId })) as { code: string; expires_at: string }[];
+    if (!rows[0]) throw new Error('The code could not be made. Please try again.');
+    return { code: rows[0].code, expiresAt: rows[0].expires_at };
   },
   async sync() {
     return check(await db().rpc('sync_staff_directory')) as Record<string, number>;
@@ -140,6 +154,25 @@ function readDemo(data: DemoData): StaffRow[] {
   }));
 }
 
+const CODES_KEY = 'focusiq-demo-sign-in-codes';
+type CodeStatus = NonNullable<StaffRow['signInCode']>;
+
+function readDemoCodes(): Record<string, CodeStatus> {
+  try {
+    return JSON.parse(localStorage.getItem(CODES_KEY) ?? '{}') as Record<string, CodeStatus>;
+  } catch {
+    return {};
+  }
+}
+
+function writeDemoCodes(codes: Record<string, CodeStatus>) {
+  try {
+    localStorage.setItem(CODES_KEY, JSON.stringify(codes));
+  } catch {
+    /* demo only */
+  }
+}
+
 function writeDemo(rows: StaffRow[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(rows));
@@ -165,7 +198,8 @@ function demoSource(data: DemoData): StaffSource {
           : row;
         if (!r.employeeId) return r;
         const n = box.filter((x) => x.coalesceKey === coalesceKeys.invitation(r.employeeId!)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-        return n ? { ...r, lastInvitedAt: n.sentAt ?? n.createdAt, invitationStatus: n.status } : r;
+        const withCode = { ...r, signInCode: readDemoCodes()[r.employeeId] ?? null };
+        return n ? { ...withCode, lastInvitedAt: n.sentAt ?? n.createdAt, invitationStatus: n.status } : withCode;
       });
     },
     async add(staffId, department, startDate, expectations) {
@@ -184,6 +218,21 @@ function demoSource(data: DemoData): StaffSource {
       const person = data.employees.find((e) => e.id === employeeId);
       if (person) person.expectations = expectations;
       writeDemo(readDemo(data).map((r) => (r.employeeId === employeeId ? { ...r, expectations } : r)));
+    },
+    async createSignInCode(employeeId) {
+      const row = readDemo(data).find((r) => r.employeeId === employeeId);
+      if (!row) throw new Error('That person is not in FocusiQ.');
+      if (row.status !== 'active') throw new Error('That person is not active in FocusiQ.');
+      if (!row.hasLogin) throw new Error('That person has no Walter Geering login yet: set one up in the Hub first.');
+      // Demo: a made-up code that signs nobody in (live codes are made and checked by WG Main).
+      const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      const bytes = globalThis.crypto.getRandomValues(new Uint8Array(10));
+      const raw = [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 12 * 3_600_000).toISOString();
+      writeDemoCodes({ ...readDemoCodes(), [employeeId]: { createdAt: now.toISOString(), expiresAt, usedAt: null } });
+      window.dispatchEvent(new Event(CHANGED));
+      return { code: `${raw.slice(0, 5)}-${raw.slice(5)}`, expiresAt };
     },
     async invite(employeeId) {
       const row = readDemo(data).find((r) => r.employeeId === employeeId);

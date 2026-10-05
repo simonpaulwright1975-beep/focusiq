@@ -109,13 +109,37 @@ export function AuthGate({
       </>
     );
   }
-  return <>{frame(<SignInForm notice={state.notice} />)}</>;
+  return <>{frame(<SignInForm notice={state.notice} app={app} />)}</>;
 }
 
-function SignInForm({ notice }: { notice?: string }) {
+/**
+ * Swaps a one-time sign-in code (made by a Director in the Staff tab) for a
+ * sign-in, through the focusiq-code-sign-in Edge Function. No email is involved.
+ */
+export async function signInWithCode(code: string): Promise<void> {
+  const { data, error } = await db().functions.invoke('focusiq-code-sign-in', { body: { code } });
+  if (error) {
+    let message = 'That code could not sign you in. Please check it and try again.';
+    try {
+      const body = (await (error as { context?: Response }).context?.json()) as { error?: string } | undefined;
+      if (body?.error) message = body.error;
+    } catch {
+      /* keep the general message */
+    }
+    throw new Error(message);
+  }
+  const tokenHash = (data as { token_hash?: string } | null)?.token_hash;
+  if (!tokenHash) throw new Error('That code could not sign you in. Please ask for a new one.');
+  const { error: verifyError } = await db().auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+  if (verifyError) throw new Error('That code could not sign you in. Please ask for a new one.');
+}
+
+function SignInForm({ notice, app }: { notice?: string; app: 'director' | 'employee' }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'password' | 'link' | 'reset'>('password');
+  const [code, setCode] = useState('');
+  // Staff usually arrive with a code from a Director; Directors sign in with their Hub details.
+  const [mode, setMode] = useState<'code' | 'password' | 'link' | 'reset'>(app === 'employee' ? 'code' : 'password');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(notice ?? null);
@@ -124,6 +148,18 @@ function SignInForm({ notice }: { notice?: string }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (mode === 'code') {
+      if (code.replace(/[^A-Za-z0-9]/g, '').length !== 10) return setError('Enter the 10-character code you were given, e.g. ABCDE-23456.');
+      setBusy(true);
+      try {
+        await signInWithCode(code);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!email.trim()) return setError('Enter your work email address.');
     setBusy(true);
     try {
@@ -150,10 +186,26 @@ function SignInForm({ notice }: { notice?: string }) {
     <form className="auth-form" onSubmit={submit} noValidate>
       {sent && <p className="tag-green auth-sent" role="status">{sent}</p>}
       {error && <p className="field-error" role="alert">{error}</p>}
-      <div className="field">
-        <label htmlFor="auth-email">Work email</label>
-        <input id="auth-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
+      {mode === 'code' ? (
+        <div className="field">
+          <label htmlFor="auth-code">Your sign-in code</label>
+          <input
+            id="auth-code"
+            className="auth-code"
+            autoComplete="one-time-code"
+            autoCapitalize="characters"
+            spellCheck={false}
+            placeholder="ABCDE-23456"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+          />
+        </div>
+      ) : (
+        <div className="field">
+          <label htmlFor="auth-email">Work email</label>
+          <input id="auth-email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      )}
       {mode === 'password' && (
         <div className="field">
           <label htmlFor="auth-password">Password</label>
@@ -161,11 +213,16 @@ function SignInForm({ notice }: { notice?: string }) {
         </div>
       )}
       <button className="btn" type="submit" disabled={busy}>
-        {mode === 'password' ? 'Sign in' : mode === 'link' ? 'Email me a sign-in link' : 'Email me a reset link'} <span aria-hidden="true">→</span>
+        {mode === 'password' || mode === 'code' ? 'Sign in' : mode === 'link' ? 'Email me a sign-in link' : 'Email me a reset link'} <span aria-hidden="true">→</span>
       </button>
-      <p className="small muted auth-hint">Use the same email and password as for the Walter Geering Hub.</p>
+      <p className="small muted auth-hint">
+        {mode === 'code'
+          ? 'Your Director gives you a code. It works once, so you stay signed in on this computer for both checks.'
+          : 'Use the same email and password as for the Walter Geering Hub.'}
+      </p>
       <div className="auth-links">
-        {mode !== 'password' && <button type="button" className="btn link" onClick={() => { setMode('password'); setSent(null); }}>Sign in with a password</button>}
+        {mode !== 'code' && <button type="button" className="btn link" onClick={() => { setMode('code'); setSent(null); setError(null); }}>I have a sign-in code</button>}
+        {mode !== 'password' && <button type="button" className="btn link" onClick={() => { setMode('password'); setSent(null); setError(null); }}>{mode === 'code' ? 'Sign in with your Hub email and password' : 'Sign in with a password'}</button>}
         {mode !== 'link' && <button type="button" className="btn link" onClick={() => { setMode('link'); setSent(null); }}>Email me a sign-in link instead</button>}
         {mode !== 'reset' && <button type="button" className="btn link" onClick={() => { setMode('reset'); setSent(null); }}>Forgotten your password?</button>}
       </div>

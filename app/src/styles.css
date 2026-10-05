@@ -313,6 +313,7 @@ details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700
 .auth-form { display: grid; gap: 14px; text-align: left; }
 .auth-form .btn { justify-self: center; }
 .auth-form input { width: 100%; box-sizing: border-box; }
+.auth-code { font-size: 1.3rem; letter-spacing: 0.12em; text-align: center; font-weight: 700; text-transform: uppercase; }
 .auth-hint { text-align: center; margin: 0; }
 .auth-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
 .auth-links .btn.link { font-size: 13px; }
@@ -331,3 +332,13 @@ details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700
 .wg-topic { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .wg-bar { display: inline-block; width: 46px; height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
 .wg-bar > span { display: block; height: 100%; background: var(--accent); }
+
+/* One-time sign-in codes (Staff tab) */
+.staff-codes-bar { gap: 12px; align-items: center; margin: 4px 0 10px; }
+.codes-table { width: 100%; margin: 10px 0; }
+.codes-table .code-cell { font-family: ui-monospace, Consolas, monospace; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap; }
+@media print {
+  body:has(.codes-table) * { visibility: hidden; }
+  body:has(.codes-table) .modal:has(.codes-table), body:has(.codes-table) .modal:has(.codes-table) * { visibility: visible; }
+  body:has(.codes-table) .modal:has(.codes-table) { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; border: 0; }
+}

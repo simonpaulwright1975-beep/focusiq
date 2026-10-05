@@ -30,6 +30,69 @@ function InvitationCell({ row }: { row: StaffRow }) {
   return <span className="tag tag-red">⚠ Invitation not sent ({row.invitationStatus})</span>;
 }
 
+const time = (iso: string) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/** Can be given a one-time sign-in code: in FocusiQ, active and with a WG login. */
+const codeable = (r: StaffRow) => !!r.employeeId && r.status === 'active' && r.hasLogin;
+
+function CodeCell({ row }: { row: StaffRow }) {
+  const c = row.signInCode;
+  if (!codeable(row) || !c) return <span className="muted small">—</span>;
+  if (c.usedAt) return <span className="tag tag-green">✓ Used {time(c.usedAt)}</span>;
+  if (Date.parse(c.expiresAt) < Date.now()) return <span className="tag">Expired</span>;
+  return <span className="tag tag-amber">● Unused, until {time(c.expiresAt)}</span>;
+}
+
+interface IssuedCode { name: string; code: string; expiresAt: string }
+
+const EMPLOYEE_URL = new URL('./employee.html', window.location.href).href;
+const WG_WAY_URL = new URL('./wg-way.html', window.location.href).href;
+
+/** The codes just made: shown once, to copy into a private message or print and hand out. */
+function CodesModal({ codes, failures, onClose }: { codes: IssuedCode[]; failures: string[]; onClose: () => void }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const messageFor = (c: IssuedCode) =>
+    `Your FocusiQ sign-in code: ${c.code}\nIt works once, until ${time(c.expiresAt)}.\n` +
+    `1. Open ${EMPLOYEE_URL} and choose Get started, then enter the code.\n` +
+    `2. Afterwards, the Walter Geering Way check is at ${WG_WAY_URL} – you stay signed in on the same computer.`;
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+    } catch {
+      setCopied(null);
+    }
+  };
+  return (
+    <Modal title={`Sign-in code${codes.length === 1 ? '' : 's'}`} onClose={onClose}>
+      <p className="small secondary">
+        Each code works <strong>once</strong>, for <strong>12 hours</strong>, and signs the person in to their own Walter Geering account.
+        Give each person only their own code – in person or in a private Teams message, never in a group chat. Codes are shown only now:
+        if one is lost, make a new one (the old one stops working).
+      </p>
+      {failures.length > 0 && <p className="field-error" role="alert">{failures.join(' ')}</p>}
+      <table className="codes-table">
+        <thead><tr><th>Name</th><th>Code</th><th>Valid until</th><th /></tr></thead>
+        <tbody>
+          {codes.map((c) => (
+            <tr key={c.name}>
+              <td><strong>{c.name}</strong></td>
+              <td className="code-cell">{c.code}</td>
+              <td className="small">{time(c.expiresAt)}</td>
+              <td className="no-print"><button className="btn link" onClick={() => copy(messageFor(c), c.name)}>{copied === c.name ? 'Copied ✓' : 'Copy message'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted">Staff go to {EMPLOYEE_URL}, choose Get started and type the code. One sign-in covers both checks on that computer.</p>
+      <div className="nav no-print">
+        <button className="btn secondary" onClick={() => window.print()}>Print</button>
+        <button className="btn" onClick={onClose}>Done</button>
+      </div>
+    </Modal>
+  );
+}
+
 function AssessmentCell({ row }: { row: StaffRow }) {
   if (!row.employeeId || !row.assessment) return <span className="muted small">—</span>;
   if (row.assessment.status === 'completed') return <span className="tag tag-green">✓ Completed {row.assessment.at ? shortDate(row.assessment.at) : ''}</span>;
@@ -46,6 +109,8 @@ export function StaffView() {
   const [adding, setAdding] = useState<StaffRow | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [issued, setIssued] = useState<{ codes: IssuedCode[]; failures: string[] } | null>(null);
 
   const load = useCallback(() => {
     source.list().then(
@@ -64,6 +129,9 @@ export function StaffView() {
   const notAdded = active.filter((r) => !r.employeeId);
   const inFocusiq = (rows ?? []).filter((r) => r.employeeId);
   const shown = filter === 'not_added' ? notAdded : filter === 'in_focusiq' ? inFocusiq : rows ?? [];
+  const selectable = shown.filter(codeable);
+  const allSelected = selectable.length > 0 && selectable.every((r) => selected.includes(r.staffId));
+  const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const invite = async (row: StaffRow) => {
     setBusy(true);
@@ -76,6 +144,25 @@ export function StaffView() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const makeCodes = async (people: StaffRow[]) => {
+    setBusy(true);
+    setMessage(null);
+    const codes: IssuedCode[] = [];
+    const failures: string[] = [];
+    for (const r of people) {
+      try {
+        const c = await source.createSignInCode(r.employeeId!);
+        codes.push({ name: r.fullName, ...c });
+      } catch (e) {
+        failures.push(`${r.fullName}: ${(e as Error).message}`);
+      }
+    }
+    setIssued({ codes, failures });
+    setSelected([]);
+    setBusy(false);
+    load();
   };
 
   const changeExpectations = async (row: StaffRow, level: ExpectationLevel) => {
@@ -131,6 +218,14 @@ export function StaffView() {
           ))}
         </div>
 
+        {selectable.length > 0 && (
+          <div className="row staff-codes-bar">
+            <button className="btn" disabled={busy || selected.length === 0} onClick={() => makeCodes(selectable.filter((r) => selected.includes(r.staffId)))}>
+              Make sign-in codes{selected.length ? ` (${selected.length})` : ''}
+            </button>
+            <span className="small muted">Tick people (or tick the box at the top for everyone shown). Each gets a one-time code, valid for 12 hours.</span>
+          </div>
+        )}
         {message && <p className="tag-green staff-message" role="status">{message}</p>}
         {error && <p className="field-error" role="alert">{error}</p>}
         {!rows && !error && <p className="empty">Loading the staff directory…</p>}
@@ -142,11 +237,20 @@ export function StaffView() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Name</th><th>Job title</th><th>WG login</th><th>FocusiQ</th><th>Expectations</th><th>Invitation</th><th>Assessment</th><th /></tr>
+                  <tr>
+                    <th>
+                      {selectable.length > 0 && (
+                        <input type="checkbox" aria-label="Select everyone shown for sign-in codes" checked={allSelected}
+                          onChange={() => setSelected(allSelected ? [] : selectable.map((r) => r.staffId))} />
+                      )}
+                    </th>
+                    <th>Name</th><th>Job title</th><th>WG login</th><th>FocusiQ</th><th>Expectations</th><th>Invitation</th><th>Sign-in code</th><th>Assessment</th><th />
+                  </tr>
                 </thead>
                 <tbody>
                   {shown.map((r) => (
                     <tr key={r.staffId}>
+                      <td>{codeable(r) && <input type="checkbox" aria-label={`Select ${r.fullName} for a sign-in code`} checked={selected.includes(r.staffId)} onChange={() => toggle(r.staffId)} />}</td>
                       <td><strong>{r.fullName}</strong>{!r.isActive && <div className="small muted">Left (inactive in the directory)</div>}</td>
                       <td>{r.jobTitle ?? '—'}</td>
                       <td>{r.hasLogin ? <span className="tag tag-green">✓ Yes</span> : <span className="tag tag-amber">⚠ Not yet</span>}</td>
@@ -173,12 +277,14 @@ export function StaffView() {
                         )}
                       </td>
                       <td><InvitationCell row={r} /></td>
+                      <td><CodeCell row={r} /></td>
                       <td><AssessmentCell row={r} /></td>
                       <td className="num">
                         {!r.employeeId && r.isActive && <button className="btn" disabled={busy} onClick={() => { setMessage(null); setAdding(r); }}>Add…</button>}
                         {r.employeeId && r.status === 'active' && r.hasLogin && (
                           <button className="btn secondary" disabled={busy} onClick={() => invite(r)}>{r.invitationStatus ? 'Resend invitation' : 'Send invitation'}</button>
                         )}
+                        {codeable(r) && <button className="btn link" disabled={busy} onClick={() => makeCodes([r])}>Sign-in code</button>}
                       </td>
                     </tr>
                   ))}
@@ -194,6 +300,8 @@ export function StaffView() {
           Expected 70–79, Development under 70 – instead of the standard Strong 75+, Expected 60–74, Development under 60.
         </p>
       </Card>
+
+      {issued && <CodesModal codes={issued.codes} failures={issued.failures} onClose={() => setIssued(null)} />}
 
       {adding && (
         <AddModal

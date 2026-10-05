@@ -27,6 +27,11 @@ FocusiQ runs in two modes:
   `20261006090100_focusiq_wg_way_retention.sql` (the full `apply_retention`, now including WG Way sittings)
   instead of the `apply_retention` part of the earlier retention migration, plus the schedule above.
 
+- One-time sign-in codes (`20261006090200_focusiq_sign_in_codes.sql`, Edge Function `focusiq-code-sign-in`,
+  deployed with `--no-verify-jwt`). In the Staff tab, tick people (or the box at the top) and choose
+  **Make sign-in codes**, or use **Sign-in code** on one row. Each code works once, for 12 hours; give each person
+  only their own code. Staff choose Get started and type it; one sign-in covers both checks on that computer.
+
 ## Status (5 October 2026)
 
 Live: schema exposed (added to the API's schema list), redirect URL added, Managing Director set as the only
