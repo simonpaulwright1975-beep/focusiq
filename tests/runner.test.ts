@@ -42,7 +42,7 @@ suite('per-person randomisation', () => {
   it('keeps option order where it carries meaning and never reorders sections', () => {
     const s = createSession({ ...opts, seed: 'x' });
     expect(s.optionOrder['demo-q07']).toEqual(['a', 'b', 'c', 'd']);
-    expect(s.order.map((o) => o.sectionId)).toEqual(['reading', 'quick', 'abstract', 'code', 'numbers', 'priorities', 'motivation']);
+    expect(s.order.map((o) => o.sectionId)).toEqual(['reading', 'quick', 'abstract', 'code', 'numbers', 'commercial', 'priorities', 'motivation']);
   });
 
   it('records exactly what was rendered, in the order shown', () => {
@@ -171,7 +171,7 @@ suite('completion, resume and evidence', () => {
   it('feeds the insight engine directly – motivation is never used as performance evidence', () => {
     const { state } = completeAll();
     const { presentations, events } = scoredEvidence(state);
-    expect(presentations).toHaveLength(39);
+    expect(presentations).toHaveLength(58);
     const evidence = deriveExerciseEvidence(
       presentations.map<EvidencePresentation>((p) => ({
         id: p.id,
@@ -182,9 +182,9 @@ suite('completion, resume and evidence', () => {
       })),
       events.map((e) => ({ presentationId: e.presentationId!, clientSequence: e.clientSequence, type: e.type, occurredAt: e.occurredAt, payload: e.payload as never })),
     );
-    expect(evidence).toHaveLength(39);
+    expect(evidence).toHaveLength(58);
     expect(evidence.every((e) => e.correct && e.firstAnswerCorrect && !e.reopened)).toBe(true);
-    expect(evidence.filter((e) => e.timed)).toHaveLength(24);
+    expect(evidence.filter((e) => e.timed)).toHaveLength(43);
     expect(evidence.find((e) => e.questionVersionId === 'demo-q12')).toMatchObject({ choseOutcomeAction: true, escalatedUnnecessarily: false });
   });
 });
