@@ -20,6 +20,13 @@ FocusiQ runs in two modes:
   `select cron.schedule('focusiq-retention', '5 3 * * *', 'select focusiq.apply_retention()');` into the SQL editor.
   Until then nothing is deleted and the evidence tables stay locked as before.
 
+## Status (5 October 2026)
+
+Live: schema exposed (added to the API's schema list), redirect URL added, Managing Director set as the only
+Director, content and notice published, Netlify switched to live (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`).
+Still to do: paste the `apply_retention` part of `20261005090300_focusiq_retention.sql` and its schedule into the
+SQL editor; email (Resend) when wanted.
+
 ## Steps, in order
 
 1. **Expose the schema to the API.** Supabase → WG Main → Project Settings → API (Data API) →
