@@ -101,7 +101,11 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
             <BandDonut
               counts={bandCounts}
               noun={banded.length === 1 ? 'area' : 'areas'}
-              centre={{ value: `${bandCounts.strong} of ${banded.length}`, label: 'areas above\nexpectations' }}
+              centre={
+                average != null
+                  ? { value: String(average), label: 'average\nout of 100' }
+                  : { value: `${bandCounts.strong} of ${banded.length}`, label: 'areas above\nexpectations' }
+              }
             />
           </div>
         </Card>
