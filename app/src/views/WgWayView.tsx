@@ -4,6 +4,7 @@
  * team's weakest topics – to plan Playbook training. Staff never see answers.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { ScoreDonut } from '../components/bandCharts.js';
 import { Card } from '../components/ui.js';
 import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
 import { useStore } from '../state.js';
@@ -54,6 +55,22 @@ export function WgWayView() {
           Demo: sittings are kept in this browser. Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
         </p>
       </Card>
+
+      {latest.length > 0 && (
+        <Card title="Latest scores" sub="Each person’s most recent sitting – share of questions answered correctly">
+          <div className="wg-donuts">
+            {latest.map((r) => (
+              <figure key={r.id} className="wg-donut">
+                <ScoreDonut correct={r.correct} total={r.total} />
+                <figcaption>
+                  <strong>{r.name}</strong>
+                  <span className="small muted">{date(r.completedAt)}{r.sample ? ' · sample' : ''}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {latest.length > 0 && (
         <Card title="Where the team needs most help" sub="Latest sitting for each person, weakest topic first">
