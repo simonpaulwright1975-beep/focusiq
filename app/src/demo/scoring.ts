@@ -4,6 +4,7 @@
  * readable only by Directors. The employee app must never import this file.
  */
 import type { ExerciseMeta } from '../../../src/insight/index.js';
+import { ABSTRACT_SCORING } from './abstractScoring.js';
 
 export const DEMO_SCORING: Record<string, ExerciseMeta> = {
   'demo-q01': { family: 'routine-request', dimension: 'decide', modality: 'text', risk: 'low', correctAnswer: 'a', unnecessaryEscalationOptions: ['b'] },
@@ -18,4 +19,19 @@ export const DEMO_SCORING: Record<string, ExerciseMeta> = {
   'demo-q10': { family: 'ownership', dimension: 'own', modality: 'scenario', risk: 'high', correctAnswer: 'b', outcomeActionOptions: ['b'] },
   'demo-q11': { family: 'next-action', dimension: 'act', modality: 'scenario', risk: 'high', correctAnswer: 'a', nextActionOptions: ['a'], unnecessaryEscalationOptions: ['c'] },
   'demo-q12': { family: 'customer-impact', dimension: 'own', modality: 'scenario', risk: 'high', customerImpactScenario: true, correctAnswer: 'a', outcomeActionOptions: ['a'], unnecessaryEscalationOptions: ['d'] },
+  ...ABSTRACT_SCORING,
+  // Crack the code: deduction from several clues held in mind together.
+  'cc-01': { family: 'code-deduction', dimension: 'think', modality: 'text', risk: 'low', correctAnswer: 'e' },
+  'cc-02': { family: 'code-deduction', dimension: 'think', modality: 'text', risk: 'low', correctAnswer: 'b' },
+  'cc-03': { family: 'code-deduction', dimension: 'think', modality: 'text', risk: 'low', correctAnswer: 'c' },
+  'cc-04': { family: 'code-deduction', dimension: 'think', modality: 'text', risk: 'low', correctAnswer: 'e' },
+  // Sales figures: numerical reasoning with commercial figures.
+  'sm-01': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'e' },
+  'sm-02': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'd' },
+  'sm-03': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
+  'sm-04': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
+  'sm-05': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
+  'sm-06': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
+  'sm-07': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
+  'sm-08': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'a' },
 };

@@ -61,6 +61,8 @@ legend { font-weight: 700; margin-bottom: 10px; padding: 0; }
 .option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .option-grid .choice { align-items: center; margin: 0; }
 .option-image { width: 72px; height: 72px; }
+@media (min-width: 560px) { .option-grid-many { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.option-grid-many .choice { padding: 8px 10px; gap: 8px; }
 .img-loading { min-height: 72px; background: var(--track); border-radius: 12px; }
 .ranking { list-style: none; padding: 0; margin: 12px 0; }
 .ranking li { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: #fffdfb; }

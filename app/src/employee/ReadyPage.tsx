@@ -12,8 +12,8 @@ const CHECKS = (total: number) => [
   { id: 'time', text: `I have about ${total} minutes free, without interruptions.` },
   { id: 'quiet', text: 'I am somewhere quiet where I can concentrate.' },
   { id: 'device', text: 'I am on a computer or laptop if possible (a phone works, but a bigger screen is easier), and it is charged or plugged in.' },
-  { id: 'comfort', text: 'I have anything I normally use to work comfortably – glasses, a drink, headphones or other aids.' },
-  { id: 'own', text: 'I will do this on my own, without help or notes, and not share the questions with anyone.' },
+  { id: 'comfort', text: 'I have anything I normally use to work comfortably – glasses, a drink, headphones or other aids – plus a calculator and paper for the sales figures.' },
+  { id: 'own', text: 'I will do this on my own, without help from anyone, and not share the questions with anyone.' },
 ];
 
 export function ReadyPage({

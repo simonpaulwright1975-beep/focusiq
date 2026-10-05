@@ -420,7 +420,7 @@ function Question({
       {content.kind === 'single_choice' ? (
         <fieldset>
           <legend className="sr-only">Choose one answer</legend>
-          <div className={content.options.some((o) => o.image) ? 'option-grid' : undefined}>
+          <div className={content.options.some((o) => o.image) ? `option-grid${content.options.length > 4 ? ' option-grid-many' : ''}` : undefined}>
             {content.options.map((o) => (
               <label key={o.id} className="choice">
                 <input type="radio" name={content.questionVersionId} checked={answer === o.id} onChange={() => onAnswer(o.id)} />
