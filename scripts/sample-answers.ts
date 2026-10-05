@@ -24,8 +24,8 @@ if (!out || process.argv.indexOf('--out') < 0) throw new Error('Use --out <file.
 const STAN: Record<string, { answer: string; seconds: number; why: string; shows: string }> = {
   'demo-q01': {
     answer: 'a', seconds: 14,
-    why: 'Sending a hotel a copy of its own invoice is routine. Nothing needs checking or approving.',
-    shows: 'Handles routine requests straight away instead of escalating them.',
+    why: 'Invoice copies go through the accounts team, who make sure the correct invoice is sent. No manager needs to be involved.',
+    shows: 'Knows the process and passes the request to the right team straight away, instead of escalating it.',
   },
   'demo-q02': {
     answer: 'b', seconds: 41,
@@ -34,13 +34,13 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   },
   'demo-q03': {
     answer: 'a', seconds: 9,
-    why: 'Deliveries to The Harbour Hotel go out on Tuesdays and Fridays, so offer the head housekeeper those two days.',
-    shows: 'Keeps hold of key details and answers quickly and confidently.',
+    why: 'Bespoke packs need 3–5 working days, so an order on Monday can arrive on Thursday at the earliest. (Standard packs could go any weekday.)',
+    shows: 'Keeps hold of key details from the start of the section and sets an honest expectation.',
   },
   'demo-q04': {
     answer: 'a', seconds: 22,
-    why: 'A difference of 2 boxes on a low-value line that sells about 200 boxes a month is small. Correct the record and leave a note so the change can be traced.',
-    shows: 'Makes proportionate decisions within their own authority.',
+    why: 'Stock differences go to the stock controller. A direct email or Teams message with the details is enough – no need to copy everyone in or involve a Director.',
+    shows: 'Proportionate: raises it with the right person, directly, without escalating or creating noise.',
   },
   'demo-q05': {
     answer: 'd', seconds: 18,
@@ -64,12 +64,12 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   },
   'demo-q09': {
     answer: 'quote>call>crm>drive', seconds: 64,
-    why: 'Stan sent the £4,200 quote first to keep the sale moving, then called the accommodation manager about the damaged welcome packs. The suggested order is the other way round: an unhappy customer with guests arriving is the bigger risk to the relationship, and the call takes a few minutes before the quote goes out.',
+    why: 'Stan sent the £4,200 quote first to keep the sale moving, then passed the damage details to Customer Service. The suggested order is the other way round: an unhappy customer with guests arriving is the bigger risk to the relationship, and handing the details to Customer Service takes a few minutes before the quote goes out.',
     shows: 'Stan’s one slip, and it fits the report: Stan does best when priorities are clearly defined, and less well when several competing tasks have to be ordered without a rule. This is a good coaching point rather than a concern.',
   },
   'demo-q10': {
     answer: 'b', seconds: 16,
-    why: 'The calls were only the plan. The goal is the third order, so use the last hour on the hotels that already asked for samples.',
+    why: 'The calls were only the plan. The goal is the third order, so use the time on the hotels that already asked for samples – and still plan tomorrow, as the daily routine asks.',
     shows: 'Owns the outcome, not just the activity.',
   },
   'demo-q11': {
@@ -101,6 +101,14 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   'sm-04': { answer: 'c', seconds: 35, why: 'Profit £4.00 − £2.40 = £1.60, divided by the price £4.00 = 40% margin. (66.7% is the mark-up on cost, a different measure.)', shows: 'Knows margin from mark-up – a common and costly mix-up.' },
   'sm-05': { answer: 'b', seconds: 70, why: 'Stan chose 333. At full price the profit is £3 a unit, £3,000 on 1,000. With 10% off the price is £9, so the profit falls to £2 a unit: 1,500 units are needed, 500 more. 333 more is what a 10% fall in profit would need, but the discount cuts profit by a third.', shows: 'Stan’s miss on the figures, and the best coaching point: a small discount on price is a big cut in profit. A useful one for any Director to share with the sales team.' },
   'sm-06': { answer: 'b', seconds: 55, why: '£8,000 × 50% = £4,000; £20,000 × 10% = £2,000; £5,000 × 80% = £4,000. Total £10,000.', shows: 'Values a pipeline realistically rather than at face value.' },
+  'sm-07': { answer: 'b', seconds: 80, why: 'Target: £18,000 + 15% = £20,700. At £13,200 ÷ 9 = £1,466.67 a month, the year ends at £17,600: £3,100 short.', shows: 'Projects forward and sees a shortfall early enough to act.' },
+  'sm-08': { answer: 'a', seconds: 60, why: 'A: 0.6 × £2,000 × 35% = £420. B: 0.3 × £5,000 × 20% = £300. Call A, by £120.', shows: 'Chooses on expected profit, not the size of the order.' },
+  'sm-09': { answer: 'b', seconds: 50, why: '52 ÷ 6 = about 8.7 orders a year, × £1,800 = £15,600.', shows: 'Thinks about an account’s value over the year, not one order at a time.' },
+  'sm-10': { answer: 'c', seconds: 55, why: 'Margin is a share of the selling price, so price = cost ÷ (1 − 30%) = £3.15 ÷ 0.7 = £4.50. (£4.10 is a 30% mark-up on cost, which is only a 23% margin.)', shows: 'Prices to a margin correctly – the mark-up trap again.' },
+  'demo-q14': { answer: 'a', seconds: 20, why: 'Bespoke labels are a normal order. Confirm it, set the 3–5 working day expectation and quote it properly.', shows: 'Sells the bespoke service confidently, with the right lead time and a price agreed up front.' },
+  'demo-q15': { answer: 'a', seconds: 18, why: 'Running out mid-week is a problem worth solving now: a regular delivery sized to their usage keeps rooms stocked and builds a steady order.', shows: 'Turns a passing comment into a next step that helps the customer and grows the account.' },
+  'demo-q16': { answer: 'a', seconds: 22, why: 'Customer Service handles missing items. Passing the full details over straight away, and telling the operations manager it is in hand, protects the wedding weekend.', shows: 'Owns the customer’s outcome while using the right team, instead of passing the problem back.' },
+  'demo-q17': { answer: 'a', seconds: 25, why: 'A six-site proposal is a live opportunity worth a call today; the CRM notes still get done before finishing.', shows: 'Puts the opportunity first without dropping the daily routine.' },
   'demo-q13': {
     answer: 'team>customer_impact>progression>autonomy>recognition>mastery>financial_reward>security', seconds: 38,
     why: 'Not scored, and there is no right order. Stan ranked being part of a strong team and making a difference for customers highest.',

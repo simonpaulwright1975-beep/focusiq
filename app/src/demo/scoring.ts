@@ -32,4 +32,13 @@ export const DEMO_SCORING: Record<string, ExerciseMeta> = {
   'sm-04': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
   'sm-05': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
   'sm-06': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
+  'sm-07': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
+  'sm-08': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'a' },
+  'sm-09': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'b' },
+  'sm-10': { family: 'sales-maths', dimension: 'think', modality: 'numerical', risk: 'low', commercial: true, correctAnswer: 'c' },
+  // More scenarios
+  'demo-q14': { family: 'bespoke-request', dimension: 'decide', modality: 'scenario', risk: 'low', correctAnswer: 'a', unnecessaryEscalationOptions: ['b'] },
+  'demo-q15': { family: 'next-action', dimension: 'act', modality: 'scenario', risk: 'high', correctAnswer: 'a', nextActionOptions: ['a'], unnecessaryEscalationOptions: ['d'] },
+  'demo-q16': { family: 'customer-impact', dimension: 'own', modality: 'scenario', risk: 'high', customerImpactScenario: true, correctAnswer: 'a', outcomeActionOptions: ['a'], unnecessaryEscalationOptions: ['d'] },
+  'demo-q17': { family: 'sales-priority', dimension: 'prioritise', modality: 'scenario', risk: 'high', priorityContext: 'competing', correctAnswer: 'a', routineOverOpportunityOptions: ['b'] },
 };
