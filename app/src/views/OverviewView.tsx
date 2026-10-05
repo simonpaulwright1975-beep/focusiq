@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   computeBenchmark,
   confidenceFor,
@@ -9,10 +9,12 @@ import {
 } from '../../../src/benchmarking/index.js';
 import { MOTIVATORS, organisationInsights } from '../../../src/insight/index.js';
 import { bandKey, emptyCounts, type BandCounts } from '../bands.js';
-import { BandDonut, BandSplit, Headline, ScoreBars } from '../components/bandCharts.js';
+import { BandDonut, BandSplit, Headline, ScoreBars, ScoreDonut } from '../components/bandCharts.js';
 import { BarList, Scatter } from '../components/charts.js';
 import { Card, ConfidenceBadge, Explanation, Stat, fmt } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
+import { subscribeSittings } from '../wgway/store.js';
+import { demoWgWayResults, type WgWayResult } from './wgWayResults.js';
 import { baseDefinition, CORE_KEYS, definitionFor, expectationBands, metricLabel, useStore } from '../state.js';
 
 const SEQ = ['--seq-100', '--seq-200', '--seq-300', '--seq-400', '--seq-500', '--seq-600'];
@@ -143,6 +145,17 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
     : undefined;
   const scopeName = filters.department === 'all' ? 'the company' : filters.department;
 
+  // Live the Walter Geering Way: latest sitting per person in scope, kept apart from the bands above.
+  const names = useMemo(() => new Map(data.employees.map((e) => [e.id, e.displayName])), [data]);
+  const [wgResults, setWgResults] = useState<WgWayResult[]>(() => demoWgWayResults(names));
+  useEffect(() => subscribeSittings(() => setWgResults(demoWgWayResults(names))), [names]);
+  const wgLatest = [...new Map(wgResults.map((r) => [r.employeeId, r])).values()].filter((r) => {
+    const e = data.employees.find((x) => x.id === r.employeeId);
+    return e && !filters.hidden.includes(e.id) && (filters.department === 'all' || e.department === filters.department);
+  });
+  const wgCorrect = wgLatest.reduce((n, r) => n + r.correct, 0);
+  const wgTotal = wgLatest.reduce((n, r) => n + r.total, 0);
+
   return (
     <div className="stack">
       <div className="grid cols-4">
@@ -163,6 +176,23 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
                 : ' Nobody is below expectations on any dimension.'}
             </Headline>
             <BandDonut counts={split.total} noun="results" />
+          </div>
+        </Card>
+      )}
+
+      {wgLatest.length > 0 && (
+        <Card
+          title="Live the Walter Geering Way"
+          sub={`Knowledge check (right or wrong) – latest sitting for each person in ${scopeName}, kept separate from the working-style results`}
+        >
+          <div className="glance">
+            <Headline>
+              {wgLatest.length === 1
+                ? `${wgLatest[0]!.name} answered ${wgCorrect} of ${wgTotal} questions correctly${wgLatest[0]!.sample ? ' (sample)' : ''}.`
+                : `${wgLatest.length} people answered ${Math.round((wgCorrect / wgTotal) * 100)}% of questions correctly in their latest sitting.`}{' '}
+              See the WG Way check tab for each topic.
+            </Headline>
+            <ScoreDonut correct={wgCorrect} total={wgTotal} />
           </div>
         </Card>
       )}
@@ -286,7 +316,7 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
           </table>
         </div>
         <div className="legend">
-          {SEQ.map((s, i) => <span key={s}><span className="swatch" style={{ background: `var(${s})` }} />{i === 0 ? `${Math.round(hMin)} (lowest)` : i === 5 ? `${Math.round(hMax)} (highest)` : ''}</span>)}
+          {SEQ.map((s, i) => <span key={s}><span className="swatch" style={{ background: `var(${s})` }} />{allMedians.length === 0 ? (i === 0 ? 'Lowest' : i === 5 ? 'Highest' : '') : i === 0 ? `${Math.round(hMin)} (lowest)` : i === 5 ? `${Math.round(hMax)} (highest)` : ''}</span>)}
           <span><span className="swatch" style={{ background: 'repeating-linear-gradient(45deg, transparent 0 3px, var(--axis) 3px 4px)' }} />Benchmark unavailable – fewer than 5 people</span>
         </div>
       </Card>
