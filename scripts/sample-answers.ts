@@ -1,6 +1,6 @@
 /**
  * Prints Stan's answer sheet: the fictional sample reference profile in the
- * Director demo (core average 85). Every question as staff see it, the answer
+ * Director demo (a Director on leader expectations). Every question as staff see it, the answer
  * Stan gave, whether it is the best answer, and the reasoning – a worked
  * example for managers of what a strong result looks like.
  *
@@ -13,6 +13,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEMO_ASSESSMENT } from '../app/src/demo/assessment.js';
 import { DEMO_SCORING } from '../app/src/demo/scoring.js';
+import { buildDemoData, SAMPLE_EMPLOYEE_ID } from '../app/src/demo/dataset.js';
+import { absoluteBandFor, DEFAULT_METRICS } from '../src/benchmarking/index.js';
 import type { MediaRef } from '../src/runner/index.js';
 
 const out = process.argv[process.argv.indexOf('--out') + 1];
@@ -93,6 +95,19 @@ const img = (m: MediaRef, cls: string) => {
   return `<img class="${cls}" alt="${esc(m.alt)}" src="data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}">`;
 };
 const fmtTime = (s?: number) => (s ? `Timed: ${s / 60} minutes` : 'No time limit');
+
+// Stan's latest results against leader expectations, from the same demo data as the report.
+const demo = buildDemoData({ sampleOnly: true });
+const stan = demo.employees.find((e) => e.id === SAMPLE_EMPLOYEE_ID)!;
+const latest = demo.assessments.filter((a) => a.employeeId === stan.id).at(-1)!;
+const dims = DEFAULT_METRICS.filter((m) => m.coreDimension).map((m) => ({
+  label: m.label,
+  value: latest.scores[m.key]!,
+  band: absoluteBandFor(m, latest.scores[m.key]!, stan.expectations).band,
+}));
+const strong = dims.filter((d) => d.band === 'Strong');
+const expected = dims.filter((d) => d.band === 'Expected / Typical');
+const range = `${Math.min(...dims.map((d) => d.value))}–${Math.max(...dims.map((d) => d.value))}`;
 
 let n = 0;
 let scored = 0;
@@ -180,13 +195,14 @@ p{margin:6px 0}
 <p>${esc(DEMO_ASSESSMENT.title)} · version <code>${esc(DEMO_ASSESSMENT.version)}</code> · ${n} questions in ${DEMO_ASSESSMENT.sections.length} sections</p>
 <div class="warn">Contains the answers. Directors only – do not share with staff, or the assessment stops meaning anything.</div>
 <div class="card"><div class="lbl">About Stan</div>
-<p>Stan is a <strong>fictional</strong> Sales Manager in the Director demo, a worked example of a strong result. The full report is under <em>Employee report → Stan</em>. Stan is a test user, so the results never count towards anyone else’s benchmarks.</p>
+<p>Stan is a <strong>fictional</strong> ${esc(stan.role ?? 'Director')}, a worked example of a strong, realistic leader’s result. The full report is under <em>Employee report → Stan</em>. Stan is measured against <strong>leader expectations</strong>: Strong 80+, Expected 70–79, Development under 70.</p>
 <div class="stats">
-<div class="stat"><b>85</b>average across the 10 dimensions</div>
-<div class="stat"><b>10 / 10</b>dimensions Strong</div>
+<div class="stat"><b>${strong.length} / ${dims.length}</b>dimensions Strong</div>
+<div class="stat"><b>${expected.length} / ${dims.length}</b>Expected (${esc(expected.map((d) => d.label).join(', '))})</div>
+<div class="stat"><b>${range}</b>score range, out of 100</div>
 <div class="stat"><b>${best} / ${scored}</b>best answers</div>
 </div>
-<p class="shows">The 85 is not a percentage of correct answers. FocusiQ’s scores also reflect <em>how</em> someone works: speed, first-time accuracy, answers changed and questions revisited. Stan answered quickly, rarely changed an answer and had time to spare in the timed section.</p></div>
+<p class="shows">There is no overall score. Each dimension is scored out of 100, and the scores are not a percentage of correct answers: they also reflect <em>how</em> someone works – speed, first-time accuracy, answers changed and questions revisited. Stan answered quickly, rarely changed an answer and had time to spare in the timed section.</p></div>
 ${sections.join('\n')}
 </main></body></html>`;
 

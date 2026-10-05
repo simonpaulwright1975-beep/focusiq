@@ -22,6 +22,8 @@ const provisional = (development: number, strong: number): AbsoluteBandThreshold
 
 /** 0–100 scored measures: < 60 Development Opportunity, ≥ 75 Strong. */
 const SCORE_BANDS = provisional(60, 75);
+/** The same measures for leaders (Directors, managers, team leaders): < 70 Development Opportunity, ≥ 80 Strong. */
+const LEADER_SCORE_BANDS = provisional(70, 80);
 
 const core = (key: string, label: string): MetricDefinition => ({
   key,
@@ -33,6 +35,7 @@ const core = (key: string, label: string): MetricDefinition => ({
   requiresSameRole: false,
   coreDimension: true,
   absoluteBands: SCORE_BANDS,
+  leaderBands: LEADER_SCORE_BANDS,
 });
 
 const measure = (
@@ -51,6 +54,7 @@ const measure = (
   departmentComparable: true,
   requiresSameRole: false,
   absoluteBands,
+  ...(absoluteBands === SCORE_BANDS ? { leaderBands: LEADER_SCORE_BANDS } : {}),
 });
 
 export const DEFAULT_METRICS: MetricDefinition[] = [

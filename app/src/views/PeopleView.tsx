@@ -27,8 +27,12 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
     [data, filters, showExcluded, sortBy],
   );
 
-  // Heatmap columns are core dimensions, which share one set of expectations.
+  // Heatmap columns are core dimensions, which share one set of expectations;
+  // leaders' cells are coloured against the leader thresholds.
   const bands = expectationBands(CORE_KEYS[0]!);
+  const leaderBands = expectationBands(CORE_KEYS[0]!, 'leader');
+  const isLeader = (id: string) => data.employees.find((e) => e.id === id)?.expectations === 'leader';
+  const anyLeader = heat.rows.some((r) => isLeader(r.employeeId));
 
   const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const runCompare = () => setComparison(compareEmployees(actor, data, selected, COMPARE_KEYS, { blind, blindSeed: selected.join('|') }));
@@ -66,7 +70,7 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
                   <td><input type="checkbox" aria-label={`Select ${r.label}`} checked={selected.includes(r.employeeId)} onChange={() => toggle(r.employeeId)} /></td>
                   <td>
                     <button className="btn link" onClick={() => onOpenEmployee(r.employeeId)}>{r.label}</button>
-                    <div className="small muted">{r.department}{r.excluded ? ` · excluded (${r.exclusionReason?.replaceAll('_', ' ')})` : ''}</div>
+                    <div className="small muted">{r.department}{isLeader(r.employeeId) ? ' · Leader' : ''}{r.excluded ? ` · excluded (${r.exclusionReason?.replaceAll('_', ' ')})` : ''}</div>
                   </td>
                   {heat.metrics.map((m) => {
                     const v = r.values[m.key];
@@ -89,9 +93,17 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
           </table>
         </div>
         <div className="legend">
+          {anyLeader && <strong className="small">Standard:</strong>}
           <BandLegend bands={bands} />
           <span>There is deliberately no overall score or ranking.</span>
         </div>
+        {anyLeader && (
+          <div className="legend">
+            <strong className="small">Leader:</strong>
+            <BandLegend bands={leaderBands} />
+            <span>People marked Leader are measured against the leader expectations.</span>
+          </div>
+        )}
       </Card>
 
       <Card

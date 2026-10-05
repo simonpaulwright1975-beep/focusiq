@@ -29,6 +29,7 @@ import type {
   BenchmarkValue,
   Confidence,
   EligibilityState,
+  ExpectationLevel,
   MetricDefinition,
   NormalisationMethod,
   PopulationCounts,
@@ -180,21 +181,29 @@ export function benchmarkFromPopulation(
 
 export interface AbsoluteBandResult {
   band: AbsoluteBand | null;
+  /** The expectations used: leader thresholds only when the person is on them and the measure has them. */
+  level: ExpectationLevel;
   /** 'not_configured' until expectation thresholds exist for the metric. */
   status: 'validated' | 'provisional' | 'not_configured';
   thresholdsVersion: string | null;
 }
 
-export function absoluteBandFor(metric: MetricDefinition, value: number): AbsoluteBandResult {
-  const t = metric.absoluteBands;
-  if (!t) return { band: null, status: 'not_configured', thresholdsVersion: null };
+export function absoluteBandFor(metric: MetricDefinition, value: number, expectations: ExpectationLevel = 'standard'): AbsoluteBandResult {
+  const level: ExpectationLevel = expectations === 'leader' && metric.leaderBands ? 'leader' : 'standard';
+  const t = level === 'leader' ? metric.leaderBands : metric.absoluteBands;
+  if (!t) return { band: null, level, status: 'not_configured', thresholdsVersion: null };
   let band: AbsoluteBand;
   if (metric.higherIsBetter) {
     band = value >= t.strong ? 'Strong' : value < t.development ? 'Development Opportunity' : 'Expected / Typical';
   } else {
     band = value <= t.strong ? 'Strong' : value > t.development ? 'Development Opportunity' : 'Expected / Typical';
   }
-  return { band, status: t.validated ? 'validated' : 'provisional', thresholdsVersion: t.version };
+  return { band, level, status: t.validated ? 'validated' : 'provisional', thresholdsVersion: t.version };
+}
+
+/** The expectations an employee is measured against (unknown people: standard). */
+export function expectationLevelOf(data: Pick<BenchmarkDataset, 'employees'>, employeeId: string | undefined): ExpectationLevel {
+  return data.employees.find((e) => e.id === employeeId)?.expectations ?? 'standard';
 }
 
 // ---------------------------------------------------------------------------
@@ -322,12 +331,13 @@ export function positionAgainst(
   subjectEmployeeId?: string,
   configOverrides?: Partial<BenchmarkConfig>,
   subjectAssessmentAdjusted = false,
+  expectations: ExpectationLevel = 'standard',
 ): BenchmarkPosition {
   const config = resolveConfig(configOverrides);
   const others = benchmark.values
     .filter((v) => v.employeeId !== subjectEmployeeId)
     .map((v) => v.value);
-  const absolute = absoluteBandFor(metric, value);
+  const absolute = absoluteBandFor(metric, value, expectations);
   const comparison: ComparisonContext = {
     populationLabel: benchmark.explanation.populationLabel,
     comparisonPopulationSize: others.length,
@@ -358,7 +368,7 @@ export function positionAgainst(
   }
 
   const bandText = absolute.band
-    ? `${absolute.band}${absolute.status === 'provisional' ? ' (provisional expectations)' : ''}`
+    ? `${absolute.band}${absolute.level === 'leader' ? ' against leader expectations' : ''}${absolute.status === 'provisional' ? ' (provisional expectations)' : ''}`
     : 'no expectation band configured';
   const pctText =
     percentile !== null
@@ -452,6 +462,7 @@ export function compareEmployeeByDimension(
               employeeId,
               options.config,
               subject ? (data.eligibility.adjustments?.has(subject.id) ?? false) : false,
+              expectationLevelOf(data, employeeId),
             ),
       benchmark,
     };
@@ -550,7 +561,7 @@ const EMPLOYEE_BAND_MESSAGES: Record<AbsoluteBand, string> = {
   'Development Opportunity': 'A development opportunity',
 };
 
-export function employeeFacingResult(metric: MetricDefinition, value: number): EmployeeFacingResult {
-  const { band } = absoluteBandFor(metric, value);
+export function employeeFacingResult(metric: MetricDefinition, value: number, expectations: ExpectationLevel = 'standard'): EmployeeFacingResult {
+  const { band } = absoluteBandFor(metric, value, expectations);
   return { metricLabel: metric.label, band, message: band ? EMPLOYEE_BAND_MESSAGES[band] : null };
 }

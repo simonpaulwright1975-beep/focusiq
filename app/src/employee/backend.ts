@@ -104,7 +104,7 @@ export interface EmployeeBackend {
  */
 const DEMO_NOTICE: PrivacyNotice = { ...NOTICE_V1, publishedAt: '2026-10-01T00:00:00Z' };
 // Demo: the employee page signs in as Stan, the fictional sample profile (SAMPLE_EMPLOYEE_ID in the Director demo data).
-const DEMO_ME: EmployeeRecordDetails = { employeeId: 'stan', fullName: 'Stan', department: 'Sales', jobRole: 'Sales Manager', startDate: '2015-05-11' };
+const DEMO_ME: EmployeeRecordDetails = { employeeId: 'stan', fullName: 'Stan', department: 'Sales', jobRole: 'Director', startDate: '2012-05-14' };
 
 const demoBackend: EmployeeBackend = {
   live: false,

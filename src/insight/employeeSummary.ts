@@ -3,7 +3,7 @@
  * Director-side only (uses the engines); the employee app receives the frozen
  * result. Constructive, absolute bands only, never comparisons with colleagues.
  */
-import { absoluteBandFor, assertCanViewDirectorComparisons, personalImprovement, type Actor, type BenchmarkDataset } from '../benchmarking/index.js';
+import { absoluteBandFor, assertCanViewDirectorComparisons, expectationLevelOf, personalImprovement, type Actor, type BenchmarkDataset } from '../benchmarking/index.js';
 import type { EmployeeBand, EmployeeSummary, SummaryDimension, SupportAction } from '../participation/summary.js';
 import { assertSafeLanguage } from './language.js';
 import { MOTIVATORS } from './library.js';
@@ -96,7 +96,7 @@ export function buildEmployeeSummary(input: {
       const metric = data.metrics.find((m) => m.key === key);
       const value = assessment.scores[key];
       if (!metric || value === undefined) continue;
-      const band = absoluteBandFor(metric, value);
+      const band = absoluteBandFor(metric, value, expectationLevelOf(data, employeeId));
       if (!band.band) continue;
       if (band.status !== 'validated') provisional = true;
       // "Since last time" only against this person's own previous assessment.

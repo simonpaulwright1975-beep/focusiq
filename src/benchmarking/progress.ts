@@ -9,6 +9,7 @@ import {
   type BenchmarkOptions,
   type BenchmarkPosition,
   ordinal as ordinalOf,
+  expectationLevelOf,
 } from './benchmark.js';
 import { resolveConfig } from './config.js';
 import { validityOf, type BenchmarkDataset } from './population.js';
@@ -152,7 +153,7 @@ export function retestComparison(
   const position =
     base.current === null
       ? null
-      : positionAgainst(benchmark, metric, base.current, employeeId, options.config);
+      : positionAgainst(benchmark, metric, base.current, employeeId, options.config, false, expectationLevelOf(data, employeeId));
   const benchmarkMedian = benchmark.stats?.median ?? null;
 
   const parts: string[] = [];

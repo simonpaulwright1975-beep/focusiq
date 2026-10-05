@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { compareEmployeeByDimension, personalImprovement, tenureBandFor } from '../../../src/benchmarking/index.js';
 import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insight/index.js';
-import { BAND_LABEL, bandKey, emptyCounts, personHeadline } from '../bands.js';
+import { bandKey, emptyCounts, personHeadline } from '../bands.js';
 import { BandDonut, Headline, ScoreBars } from '../components/bandCharts.js';
 import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
@@ -45,13 +45,13 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
       marker: r.benchmark.available && r.benchmarkMedian != null ? Math.round(r.benchmarkMedian) : null,
       note: r.benchmark.available ? undefined : `${employee.department} median unavailable: ${r.benchmark.unavailableReason ?? 'too few colleagues'}`,
     }));
-  const bands = expectationBands(CORE_KEYS[0]!);
+  const level = employee.expectations ?? 'standard';
+  const leader = level === 'leader';
+  const bands = expectationBands(CORE_KEYS[0]!, level);
   const banded = bands
     ? dimensionRows.flatMap((r) => (r.value == null ? [] : [{ label: r.label, band: bandKey(bands, r.value) }]))
     : [];
   const bandCounts = banded.reduce((c, r) => ({ ...c, [r.band]: c[r.band] + 1 }), emptyCounts());
-  const scored = dimensionRows.flatMap((r) => (r.value == null ? [] : [r.value]));
-  const average = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
 
   return (
     <div className="stack">
@@ -65,6 +65,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
           </label>
           <span className="tag">{employee.role}</span>
           <span className="tag">{tenure?.label ?? '—'} service</span>
+          {leader && <span className="tag">Leader expectations</span>}
           {employee.status !== 'active' && <span className="tag">{employee.status === 'former' ? 'Former employee' : 'Test user'}</span>}
           {exclusion && <span className="tag">Excluded from benchmarks: {exclusion.reason.replaceAll('_', ' ')}</span>}
           {employee.cohortTags.map((t) => <span key={t} className="tag">{t}</span>)}
@@ -74,16 +75,12 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
       </div>
 
       {banded.length > 0 && (
-        <Card title="At a glance" sub={bands?.note === 'provisional' ? 'Against FocusiQ expectations (provisional)' : 'Against FocusiQ expectations'}>
+        <Card
+          title="At a glance"
+          sub={`Against FocusiQ ${leader ? 'leader ' : ''}expectations${bands?.note === 'provisional' ? ' (provisional)' : ''}${leader && bands ? ` – Strong ${bands.strong}+, Expected ${bands.development}–${bands.strong - 1}` : ''}`}
+        >
           <div className="glance">
-            <div className="glance-text">
-              <Headline>{personHeadline(employee.displayName, banded)}</Headline>
-              {average != null && bands && (
-                <p className="glance-average">
-                  Average across the {scored.length} dimensions: <strong>{average}</strong> out of 100 ({BAND_LABEL[bandKey(bands, average)]})
-                </p>
-              )}
-            </div>
+            <Headline>{personHeadline(employee.displayName, banded)}</Headline>
             <BandDonut
               counts={bandCounts}
               noun={banded.length === 1 ? 'area' : 'areas'}
@@ -108,7 +105,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
           <select value={trendKey} onChange={(e) => setTrendKey(e.target.value)} aria-label="Trend measure">
             {TREND_KEYS.map((k) => <option key={k} value={k}>{metricLabel(k)}</option>)}
           </select>
-          <Trend points={trend.series.map((s) => ({ date: s.completedAt, value: s.value }))} label={trend.metricLabel} bands={expectationBands(trendKey)} />
+          <Trend points={trend.series.map((s) => ({ date: s.completedAt, value: s.value }))} label={trend.metricLabel} bands={expectationBands(trendKey, level)} />
           {trend.change != null ? (
             <p className="small">
               Previous {fmt(trend.previous)} → current {fmt(trend.current)} ({trend.changeLabel}) –{' '}

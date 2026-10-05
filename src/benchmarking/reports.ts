@@ -9,6 +9,7 @@
 import { assertCanViewDirectorComparisons } from './audit.js';
 import {
   computeBenchmark,
+  expectationLevelOf,
   getMetric,
   positionAgainst,
   type BenchmarkOptions,
@@ -70,7 +71,7 @@ export function generateReportBenchmark(
     const key = input.metricKeys[i]!;
     const value = assessment.scores[key];
     if (Number.isFinite(value)) {
-      results[key] = positionAgainst(b, getMetric(data, key), value!, input.employeeId, options.config, adjusted);
+      results[key] = positionAgainst(b, getMetric(data, key), value!, input.employeeId, options.config, adjusted, expectationLevelOf(data, input.employeeId));
     }
   });
 
@@ -119,7 +120,7 @@ export function compareReportWithCurrent(
     const b = computeBenchmark(data, definition, key, { ...options, now });
     b.values.forEach((v) => memberIds.add(v.employeeId));
     b.explanation.assessmentVersions.forEach((v) => versions.add(v));
-    const pos = positionAgainst(b, getMetric(data, key), frozen.value, report.employeeId, options.config);
+    const pos = positionAgainst(b, getMetric(data, key), frozen.value, report.employeeId, options.config, false, frozen.absolute.level);
     return {
       metricKey: key,
       atAssessmentDate: {

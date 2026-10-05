@@ -3,7 +3,7 @@
  * summary (§190).
  */
 import { assertCanViewDirectorComparisons } from './audit.js';
-import { absoluteBandFor, benchmarkFromPopulation, type BenchmarkOptions } from './benchmark.js';
+import { absoluteBandFor, benchmarkFromPopulation, expectationLevelOf, type BenchmarkOptions } from './benchmark.js';
 import { resolveConfig } from './config.js';
 import {
   exclusionReasonFor,
@@ -173,7 +173,7 @@ export function individualHeatmap(
         r.percentiles[m.key] = null;
         continue;
       }
-      r.bands[m.key] = absoluteBandFor(m, v).band;
+      r.bands[m.key] = absoluteBandFor(m, v, expectationLevelOf(data, r.employeeId)).band;
       const others = included
         .filter((x) => x.employeeId !== r.employeeId)
         .map((x) => x.values[m.key])

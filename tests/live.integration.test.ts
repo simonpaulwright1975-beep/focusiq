@@ -62,10 +62,13 @@ describe.skipIf(!URL)('live mode against a test database', () => {
     expect(source.live).toBe(true);
     let row = (await source.list()).find((r) => r.staffId === STAFF_ID)!;
     expect(row.hasLogin).toBe(true);
-    const employeeId = row.employeeId ?? (await source.add(STAFF_ID, 'Sales', null));
+    const employeeId = row.employeeId ?? (await source.add(STAFF_ID, 'Sales', null, 'leader'));
     expect(['invited', 'recently_invited']).toContain(await source.invite(employeeId));
     row = (await source.list()).find((r) => r.staffId === STAFF_ID)!;
     expect(row.department).toBe('Sales');
+    expect(row.expectations).toBe('leader');
+    await source.setExpectations(employeeId, 'standard');
+    expect((await source.list()).find((r) => r.staffId === STAFF_ID)!.expectations).toBe('standard');
     expect(row.invitationStatus).toBeTruthy();
 
     // ---- Employee: own record and the published notice only ---------------

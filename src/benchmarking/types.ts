@@ -78,7 +78,15 @@ export interface Employee {
   leftDate?: string;
   /** §198 Director-controlled cohort tags. */
   cohortTags: string[];
+  /**
+   * Which FocusiQ expectations this person is measured against. 'leader'
+   * (Directors, managers, team leaders) uses the stricter leader thresholds where
+   * a measure has them. Set by a Director; defaults to 'standard'.
+   */
+  expectations?: ExpectationLevel;
 }
+
+export type ExpectationLevel = 'standard' | 'leader';
 
 export interface Assessment {
   id: string;
@@ -133,6 +141,8 @@ export interface MetricDefinition {
   coreDimension?: boolean;
   /** Absolute expectation thresholds; null/undefined = not yet configured. */
   absoluteBands?: AbsoluteBandThresholds | null;
+  /** Stricter thresholds for people on leader expectations; absent = same as everyone. */
+  leaderBands?: AbsoluteBandThresholds | null;
 }
 
 /** An active exclusion from benchmarking (§151–§153). */

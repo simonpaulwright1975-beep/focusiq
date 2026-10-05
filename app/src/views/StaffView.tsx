@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
 import { useStore } from '../state.js';
-import { DEPARTMENTS, resetDemoStaff, staffSource, subscribeStaff, type Department, type InviteResult, type StaffRow } from './staffData.js';
+import { DEPARTMENTS, resetDemoStaff, staffSource, subscribeStaff, type Department, type ExpectationLevel, type InviteResult, type StaffRow } from './staffData.js';
 import { subscribeOutbox } from '../demo/outboxStore.js';
 
 type Filter = 'not_added' | 'in_focusiq' | 'all';
@@ -38,7 +38,7 @@ function AssessmentCell({ row }: { row: StaffRow }) {
 }
 
 export function StaffView() {
-  const { demo } = useStore();
+  const { demo, bump } = useStore();
   const source = useMemo(() => staffSource(demo), [demo]);
   const [rows, setRows] = useState<StaffRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +70,20 @@ export function StaffView() {
     try {
       const r = await source.invite(row.employeeId!);
       setMessage(`${row.fullName}: ${INVITE_MESSAGE[r]}`);
+      load();
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeExpectations = async (row: StaffRow, level: ExpectationLevel) => {
+    setBusy(true);
+    try {
+      await source.setExpectations(row.employeeId!, level);
+      setMessage(`${row.fullName} is now measured against ${level === 'leader' ? 'leader' : 'standard'} expectations.`);
+      bump();
       load();
     } catch (e) {
       setMessage((e as Error).message);
@@ -128,7 +142,7 @@ export function StaffView() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Name</th><th>Job title</th><th>WG login</th><th>FocusiQ</th><th>Invitation</th><th>Assessment</th><th /></tr>
+                  <tr><th>Name</th><th>Job title</th><th>WG login</th><th>FocusiQ</th><th>Expectations</th><th>Invitation</th><th>Assessment</th><th /></tr>
                 </thead>
                 <tbody>
                   {shown.map((r) => (
@@ -141,6 +155,21 @@ export function StaffView() {
                           <>{r.department}<div className="small muted">{r.status === 'active' ? `Since ${r.startDate ? shortDate(r.startDate) : '—'}` : r.status === 'former' ? 'Former employee' : r.status}</div></>
                         ) : (
                           <span className="muted">Not added</span>
+                        )}
+                      </td>
+                      <td>
+                        {r.employeeId ? (
+                          <select
+                            value={r.expectations ?? 'standard'}
+                            disabled={busy}
+                            aria-label={`Expectations for ${r.fullName}`}
+                            onChange={(e) => changeExpectations(r, e.target.value as ExpectationLevel)}
+                          >
+                            <option value="standard">Standard</option>
+                            <option value="leader">Leader</option>
+                          </select>
+                        ) : (
+                          <span className="muted small">—</span>
                         )}
                       </td>
                       <td><InvitationCell row={r} /></td>
@@ -161,6 +190,8 @@ export function StaffView() {
         <p className="small muted" style={{ marginTop: 12 }}>
           Names, job titles and logins come from the staff directory and are updated every night; people who leave are marked as former
           automatically. The FocusiQ department and start date are set here because they decide who people are compared with.
+          Expectations: <strong>Leader</strong> (Directors, managers, team leaders) is measured against higher thresholds – Strong 80+,
+          Expected 70–79, Development under 70 – instead of the standard Strong 75+, Expected 60–74, Development under 60.
         </p>
       </Card>
 
@@ -168,13 +199,14 @@ export function StaffView() {
         <AddModal
           row={adding}
           onClose={() => setAdding(null)}
-          onAdd={async (department, startDate, sendInvite) => {
-            const employeeId = await source.add(adding.staffId, department, startDate);
+          onAdd={async (department, startDate, leader, sendInvite) => {
+            const employeeId = await source.add(adding.staffId, department, startDate, leader ? 'leader' : 'standard');
             let note = `${adding.fullName} has been added to FocusiQ.`;
             if (sendInvite && adding.hasLogin) note += ` ${INVITE_MESSAGE[await source.invite(employeeId)]}`;
             else if (!adding.hasLogin) note += ' They need a Walter Geering login before they can be invited: set one up in the Hub.';
             setMessage(note);
             setAdding(null);
+            bump();
             load();
           }}
         />
@@ -183,9 +215,10 @@ export function StaffView() {
   );
 }
 
-function AddModal({ row, onClose, onAdd }: { row: StaffRow; onClose: () => void; onAdd: (d: Department, start: string | null, invite: boolean) => Promise<void> }) {
+function AddModal({ row, onClose, onAdd }: { row: StaffRow; onClose: () => void; onAdd: (d: Department, start: string | null, leader: boolean, invite: boolean) => Promise<void> }) {
   const [department, setDepartment] = useState<Department | ''>('');
   const [start, setStart] = useState(row.directoryStartDate ?? '');
+  const [leader, setLeader] = useState(false);
   const [sendInvite, setSendInvite] = useState(row.hasLogin);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -194,7 +227,7 @@ function AddModal({ row, onClose, onAdd }: { row: StaffRow; onClose: () => void;
     if (!start) return setError('Enter a start date: the staff directory does not have one.');
     setSaving(true);
     try {
-      await onAdd(department, start, sendInvite);
+      await onAdd(department, start, leader, sendInvite);
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -217,6 +250,13 @@ function AddModal({ row, onClose, onAdd }: { row: StaffRow; onClose: () => void;
           <input id="add-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
           <span className="small muted">{row.directoryStartDate ? 'From the staff directory. Change it if it is wrong.' : 'The staff directory has no start date for this person.'}</span>
         </div>
+        <label className="check-row">
+          <input type="checkbox" checked={leader} onChange={(e) => setLeader(e.target.checked)} />
+          <span>
+            <strong>Leader</strong> – a Director, manager or team leader. Measured against leader expectations (Strong 80+, Expected
+            70–79). You can change this later.
+          </span>
+        </label>
         {row.hasLogin ? (
           <label className="check-row">
             <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} />

@@ -1,5 +1,5 @@
 import { describe as suite, expect, it } from 'vitest';
-import { computeBenchmark } from '../src/benchmarking/index.js';
+import { absoluteBandFor, computeBenchmark } from '../src/benchmarking/index.js';
 import { organisationInsights } from '../src/insight/index.js';
 import { buildDemoData, DEMO_DIRECTOR, DEMO_NOW, METRICS } from '../app/src/demo/dataset.js';
 import { buildInsightReports } from '../app/src/insights.js';
@@ -29,12 +29,14 @@ suite('dashboard demo data', () => {
     expect(organisationInsights(DEMO_DIRECTOR, members).map((o) => o.patternKey)).toContain('high_escalation');
   });
 
-  it('includes Stan, a sample reference profile that never counts towards benchmarks', () => {
+  it('includes Stan, a sample Director on leader expectations who never counts towards benchmarks', () => {
     const stan = demo.employees.find((e) => e.id === 'stan')!;
-    expect(stan.status).toBe('test');
+    expect(stan).toMatchObject({ status: 'test', role: 'Director', expectations: 'leader' });
     const latest = demo.assessments.filter((a) => a.employeeId === 'stan').at(-1)!;
-    const core = ['think', 'absorb', 'remember', 'prioritise', 'decide', 'act', 'own', 'drive', 'complete', 'focus'];
-    expect(core.reduce((t, k) => t + latest.scores[k]!, 0) / core.length).toBe(85);
+    const core = METRICS.filter((m) => m.coreDimension);
+    const bands = core.map((m) => absoluteBandFor(m, latest.scores[m.key]!, 'leader').band);
+    expect(bands.filter((b) => b === 'Strong')).toHaveLength(8);
+    expect(bands.filter((b) => b === 'Expected / Typical')).toHaveLength(2);
   });
 
   it('live mode keeps only the sample profile: no fictional staff', () => {

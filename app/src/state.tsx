@@ -8,6 +8,7 @@ import {
 } from '../../src/benchmarking/index.js';
 import { buildDemoData, DEMO_DIRECTOR, DEMO_NOW, METRICS, type DemoData } from './demo/dataset.js';
 import type { ExpectationBands } from './bands.js';
+import type { ExpectationLevel } from '../../src/benchmarking/index.js';
 
 export type DateWindow = 'latest' | 'last_6' | 'last_12' | 'custom';
 
@@ -98,9 +99,9 @@ export const CORE_KEYS = ['think', 'absorb', 'remember', 'prioritise', 'decide',
 export const metricLabel = (key: string) => METRICS.find((m) => m.key === key)?.label ?? key;
 export const metricOf = (key: string) => METRICS.find((m) => m.key === key)!;
 /** FocusiQ expectation zones for charts: higher-is-better 0–100 scores with thresholds only. */
-export function expectationBands(key: string): ExpectationBands | undefined {
+export function expectationBands(key: string, level: ExpectationLevel = 'standard'): ExpectationBands | undefined {
   const m = METRICS.find((x) => x.key === key);
-  const t = m?.absoluteBands;
+  const t = level === 'leader' && m?.leaderBands ? m.leaderBands : m?.absoluteBands;
   if (!m || !t || !m.higherIsBetter || m.unit !== 'score') return undefined;
   return { development: t.development, strong: t.strong, note: t.validated ? undefined : 'provisional' };
 }

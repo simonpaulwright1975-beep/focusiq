@@ -43,6 +43,8 @@ interface Seed {
   tags?: string[];
   /** Only one assessment round. */
   single?: boolean;
+  /** Measured against leader expectations (Directors, managers, team leaders). */
+  leader?: boolean;
 }
 
 const SEEDS: Seed[] = [
@@ -86,28 +88,30 @@ const SEEDS: Seed[] = [
   { id: 'f4', name: 'Paul Reid', department: 'Finance', role: 'Finance Assistant', profile: 'over_processor', start: '2022-03-28', tags: ['Office based'] },
   { id: 'f5', name: 'Sophie Lane', department: 'Finance', role: 'Finance Manager', profile: 'balanced', start: '2013-09-02', tags: ['Office based', 'Manager'] },
   { id: 'f6', name: 'Adam Cole', department: 'Finance', role: 'Purchase Ledger Clerk', profile: 'over_processor', start: '2024-01-15', tags: ['Office based'], single: true },
-  // Sample reference profile for managers: a fictional strong result (core average 85).
-  // A test user, so it never counts towards anyone's benchmarks. Kept last so the
-  // seeded numbers for everyone above stay the same.
-  { id: 'stan', name: 'Stan', department: 'Sales', role: 'Sales Manager', profile: 'reference', start: '2015-05-11', status: 'test', tags: ['Manager', 'Sample reference profile'] },
+  // Sample reference profile: a fictional Director with a strong, realistic result
+  // against leader expectations. A test user in this full set, so it never counts
+  // towards anyone's benchmarks. Kept last so the seeded numbers above stay the same.
+  { id: 'stan', name: 'Stan', department: 'Sales', role: 'Director', profile: 'reference', start: '2012-05-14', status: 'test', tags: ['Sample reference profile'], leader: true },
 ];
 
 /**
  * Stan's fixed scores (no random noise), so the sample report always reads the
- * same. Latest round: the ten core dimensions average exactly 85.
+ * same. A realistic strong Director against leader expectations (Strong 80+):
+ * strongest at owning outcomes, deciding and driving; Complete and Focus are
+ * Expected, and competing priorities are the one thing to talk about.
  */
 const REFERENCE_SCORES: Record<1 | 2, Record<string, number>> = {
   1: {
-    think: 82, absorb: 80, remember: 79, prioritise: 84, decide: 83, act: 82, own: 85, drive: 81, complete: 78, focus: 76,
-    decision_efficiency: 82, decision_confidence: 83, information_retention: 79, accuracy: 91, avg_response_seconds: 29,
-    recheck_rate: 12, unnecessary_recheck_rate: 8, timed_performance: 86, untimed_performance: 85,
-    commercial_awareness: 83, target_ownership: 85, customer_judgement: 84,
+    think: 83, absorb: 81, remember: 80, prioritise: 79, decide: 84, act: 83, own: 86, drive: 84, complete: 76, focus: 74,
+    decision_efficiency: 84, decision_confidence: 85, information_retention: 80, accuracy: 90, avg_response_seconds: 28,
+    recheck_rate: 11, unnecessary_recheck_rate: 7, timed_performance: 86, untimed_performance: 84,
+    commercial_awareness: 84, target_ownership: 87, customer_judgement: 83,
   },
   2: {
-    think: 86, absorb: 84, remember: 83, prioritise: 88, decide: 87, act: 86, own: 89, drive: 85, complete: 82, focus: 80,
-    decision_efficiency: 86, decision_confidence: 87, information_retention: 83, accuracy: 94, avg_response_seconds: 27,
-    recheck_rate: 10, unnecessary_recheck_rate: 6, timed_performance: 89, untimed_performance: 88,
-    commercial_awareness: 86, target_ownership: 88, customer_judgement: 87,
+    think: 87, absorb: 85, remember: 84, prioritise: 82, decide: 88, act: 87, own: 90, drive: 88, complete: 79, focus: 77,
+    decision_efficiency: 88, decision_confidence: 89, information_retention: 84, accuracy: 92, avg_response_seconds: 26,
+    recheck_rate: 9, unnecessary_recheck_rate: 6, timed_performance: 89, untimed_performance: 86,
+    commercial_awareness: 87, target_ownership: 90, customer_judgement: 86,
   },
 };
 
@@ -298,6 +302,7 @@ export function buildDemoData({ sampleOnly = false }: { sampleOnly?: boolean } =
     startDate: s.start,
     ...(s.status === 'former' ? { leftDate: '2026-05-01' } : {}),
     cohortTags: s.tags ?? [],
+    ...(s.leader || s.tags?.includes('Manager') ? { expectations: 'leader' as const } : {}),
   }));
   const assessments: Assessment[] = [];
   const exercises = new Map<string, ExerciseEvidence[]>();

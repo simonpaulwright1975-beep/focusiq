@@ -9,14 +9,14 @@
  * Logins are never created here: new starters are set up in the Hub, which
  * adds them to the staff directory and sends their WG login invitation.
  */
-import { DEPARTMENTS, type Department } from '../../../src/benchmarking/index.js';
+import { DEPARTMENTS, type Department, type ExpectationLevel } from '../../../src/benchmarking/index.js';
 import { coalesceKeys } from '../../../src/participation/index.js';
 import { listOutbox, notifyEmployee } from '../demo/outboxStore.js';
 import type { DemoData } from '../demo/dataset.js';
 import { check, db, LIVE } from '../shared/supabase.js';
 
 export { DEPARTMENTS };
-export type { Department };
+export type { Department, ExpectationLevel };
 
 export interface StaffRow {
   staffId: string;
@@ -31,6 +31,8 @@ export interface StaffRow {
   department: string | null;
   startDate: string | null;
   status: string | null;
+  /** Expectations they are measured against, once added. */
+  expectations: ExpectationLevel | null;
   lastInvitedAt: string | null;
   invitationStatus: string | null;
   /** Latest assessment: not started, in progress, or completed (with when). */
@@ -42,7 +44,8 @@ export type InviteResult = 'invited' | 'recently_invited' | 'no_login' | 'not_ac
 export interface StaffSource {
   live: boolean;
   list(): Promise<StaffRow[]>;
-  add(staffId: string, department: Department, startDate: string | null): Promise<string>;
+  add(staffId: string, department: Department, startDate: string | null, expectations: ExpectationLevel): Promise<string>;
+  setExpectations(employeeId: string, expectations: ExpectationLevel): Promise<void>;
   invite(employeeId: string): Promise<InviteResult>;
   /** Live only: bring names, logins and leavers up to date now (it also runs nightly). */
   sync?(): Promise<Record<string, number>>;
@@ -65,6 +68,9 @@ const liveSource: StaffSource = {
     const assessments = check(
       await db().from('assessments').select('employee_id, complete, completed_at, started_at, created_at').order('created_at', { ascending: false }),
     ) as { employee_id: string; complete: boolean; completed_at: string | null; started_at: string | null }[];
+    const levels = new Map(
+      (check(await db().from('employees').select('id, expectations')) as { id: string; expectations: ExpectationLevel }[]).map((e) => [e.id, e.expectations]),
+    );
     const latest = new Map<string, (typeof assessments)[number]>();
     for (const a of assessments) if (!latest.has(a.employee_id)) latest.set(a.employee_id, a);
     return rows.map((r) => ({
@@ -78,6 +84,7 @@ const liveSource: StaffSource = {
       department: r.department,
       startDate: r.start_date,
       status: r.status,
+      expectations: r.employee_id ? levels.get(r.employee_id) ?? 'standard' : null,
       lastInvitedAt: r.employee_id ? byEmployee.get(r.employee_id)?.last_invited_at ?? null : null,
       invitationStatus: r.employee_id ? byEmployee.get(r.employee_id)?.invitation_status ?? null : null,
       assessment: (() => {
@@ -87,8 +94,13 @@ const liveSource: StaffSource = {
       })(),
     }));
   },
-  async add(staffId, department, startDate) {
-    return check(await db().rpc('link_staff', { p_staff_id: staffId, p_department: department, p_start_date: startDate })) as string;
+  async add(staffId, department, startDate, expectations) {
+    const employeeId = check(await db().rpc('link_staff', { p_staff_id: staffId, p_department: department, p_start_date: startDate })) as string;
+    if (expectations !== 'standard') await this.setExpectations(employeeId, expectations);
+    return employeeId;
+  },
+  async setExpectations(employeeId, expectations) {
+    check(await db().rpc('set_employee_expectations', { p_employee_id: employeeId, p_expectations: expectations }));
   },
   async invite(employeeId) {
     return check(await db().rpc('invite_staff', { p_employee_id: employeeId })) as InviteResult;
@@ -122,6 +134,7 @@ function readDemo(data: DemoData): StaffRow[] {
     department: e.department,
     startDate: e.startDate,
     status: e.status,
+    expectations: e.expectations ?? 'standard',
     lastInvitedAt: null,
     invitationStatus: null,
   }));
@@ -146,15 +159,16 @@ function demoSource(data: DemoData): StaffSource {
       const done = new Map<string, string>();
       for (const a of data.assessments) if (a.complete && (!done.has(a.employeeId) || done.get(a.employeeId)! < a.completedAt)) done.set(a.employeeId, a.completedAt);
       return rows.map((row) => {
+        const level = data.employees.find((e) => e.id === row.employeeId)?.expectations ?? row.expectations ?? 'standard';
         const r: StaffRow = row.employeeId
-          ? { ...row, assessment: done.has(row.employeeId) ? { status: 'completed', at: done.get(row.employeeId)! } : { status: 'not_started', at: null } }
+          ? { ...row, expectations: level, assessment: done.has(row.employeeId) ? { status: 'completed', at: done.get(row.employeeId)! } : { status: 'not_started', at: null } }
           : row;
         if (!r.employeeId) return r;
         const n = box.filter((x) => x.coalesceKey === coalesceKeys.invitation(r.employeeId!)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
         return n ? { ...r, lastInvitedAt: n.sentAt ?? n.createdAt, invitationStatus: n.status } : r;
       });
     },
-    async add(staffId, department, startDate) {
+    async add(staffId, department, startDate, expectations) {
       const rows = readDemo(data);
       const row = rows.find((r) => r.staffId === staffId);
       if (!row) throw new Error('That person is not in the staff directory.');
@@ -162,8 +176,14 @@ function demoSource(data: DemoData): StaffSource {
       const start = startDate ?? row.directoryStartDate;
       if (!start) throw new Error('Enter a start date: the staff directory does not have one.');
       const employeeId = `new-${staffId}`;
-      writeDemo(rows.map((r) => (r.staffId === staffId ? { ...r, employeeId, department, startDate: start, status: 'active' } : r)));
+      writeDemo(rows.map((r) => (r.staffId === staffId ? { ...r, employeeId, department, startDate: start, status: 'active', expectations } : r)));
       return employeeId;
+    },
+    async setExpectations(employeeId, expectations) {
+      // The demo's people live in memory (state.tsx); the Director app re-reads them after this.
+      const person = data.employees.find((e) => e.id === employeeId);
+      if (person) person.expectations = expectations;
+      writeDemo(readDemo(data).map((r) => (r.employeeId === employeeId ? { ...r, expectations } : r)));
     },
     async invite(employeeId) {
       const row = readDemo(data).find((r) => r.employeeId === employeeId);

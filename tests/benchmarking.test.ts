@@ -233,6 +233,7 @@ suite('absolute band vs relative percentile (§157–§160, §193)', () => {
     const derry = positionAgainst(b, m, 76, 'derry');
     expect(derry.absolute).toEqual({
       band: 'Strong',
+      level: 'standard',
       status: 'provisional',
       thresholdsVersion: PROVISIONAL_EXPECTATIONS_VERSION,
     });
@@ -268,6 +269,7 @@ suite('absolute band vs relative percentile (§157–§160, §193)', () => {
     expect(absoluteBandFor(m, 47).band).toBe('Development Opportunity');
     expect(absoluteBandFor(metric(buildDataset(), 'avg_response_seconds'), 30)).toEqual({
       band: null,
+      level: 'standard',
       status: 'not_configured',
       thresholdsVersion: null,
     });
@@ -291,6 +293,28 @@ suite('absolute band vs relative percentile (§157–§160, §193)', () => {
     // Only 4 colleagues – no percentile is given.
     expect(p.percentile).toBeNull();
     expect(p.absolute.band).toBe('Expected / Typical');
+  });
+
+  it('measures leaders against the stricter leader expectations', () => {
+    const data = buildDataset();
+    const m = metric(data, 'decision_efficiency'); // everyone: < 60 / ≥ 75; leaders: < 70 / ≥ 80
+    expect([59, 60, 75].map((v) => absoluteBandFor(m, v).band)).toEqual(['Development Opportunity', 'Expected / Typical', 'Strong']);
+    expect([69, 70, 79, 80].map((v) => absoluteBandFor(m, v, 'leader').band)).toEqual([
+      'Development Opportunity',
+      'Expected / Typical',
+      'Expected / Typical',
+      'Strong',
+    ]);
+    expect(absoluteBandFor(m, 80, 'leader').level).toBe('leader');
+    // Measures without leader thresholds use the everyone thresholds.
+    const recheck = absoluteBandFor(metric(data, 'recheck_rate'), 12, 'leader');
+    expect(recheck).toMatchObject({ band: 'Strong', level: 'standard' });
+    // A position for a leader says so.
+    const b = computeBenchmark(data, salesCurrent, 'decision_efficiency');
+    const p = positionAgainst(b, m, 76, 'derry', undefined, false, 'leader');
+    expect(p.absolute.band).toBe('Expected / Typical');
+    expect(p.summary).toMatch(/^Decision Efficiency: 76 – Expected \/ Typical against leader expectations \(provisional expectations\)\./);
+    expect(employeeFacingResult(m, 76, 'leader').band).toBe('Expected / Typical');
   });
 
   it('employee-facing results show the absolute band only', () => {

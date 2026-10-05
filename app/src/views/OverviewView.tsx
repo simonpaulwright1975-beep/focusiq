@@ -91,8 +91,12 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
   const person = people.find((e) => e.id === personId) ?? null;
   const personScores = person ? population.byEmployee.get(person.id)!.scores : null;
 
-  // FocusiQ expectations (the same thresholds for every core dimension).
+  // FocusiQ expectations (the same thresholds for every core dimension); leaders
+  // are measured against the leader thresholds.
   const bands = expectationBands(CORE_KEYS[0]!);
+  const levelOf = (id: string) => data.employees.find((e) => e.id === id)?.expectations ?? 'standard';
+  const personBands = person ? expectationBands(CORE_KEYS[0]!, levelOf(person.id)) : bands;
+  const leaderBands = expectationBands(CORE_KEYS[0]!, 'leader');
 
   const scopeMedian = (k: string) => {
     const st = benchmarks.get(k)!.scope.stats;
@@ -121,16 +125,17 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
     const total = emptyCounts();
     const rows = CORE_KEYS.map((k) => {
       const c: BandCounts = emptyCounts();
-      for (const a of population.byEmployee.values()) {
+      for (const [id, a] of population.byEmployee) {
         const v = a.scores[k];
         if (v == null) continue;
-        c[bandKey(bands, v)]++;
-        total[bandKey(bands, v)]++;
+        const b = (levelOf(id) === 'leader' && leaderBands) || bands;
+        c[bandKey(b, v)]++;
+        total[bandKey(b, v)]++;
       }
       return { label: metricLabel(k), counts: c };
     });
     return { rows, total };
-  }, [population, bands]);
+  }, [population, bands, leaderBands, data]);
   const allResults = split ? split.total.strong + split.total.expected + split.total.develop : 0;
   const share = (n: number) => (allResults ? Math.round((n / allResults) * 100) : 0);
   const mostToDevelop = split
@@ -206,10 +211,10 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
                 </table>
               </div>
             ) : (
-              bands && (
+              personBands && (
                 <ScoreBars
                   rows={barRows}
-                  bands={bands}
+                  bands={personBands}
                   valueLabel={person ? person.displayName : `${scopeLabel} median`}
                   markerLabel={person ? `${scopeLabel} median` : filters.department === 'all' ? undefined : 'Company median'}
                 />
