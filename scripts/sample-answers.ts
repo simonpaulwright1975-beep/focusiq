@@ -24,22 +24,22 @@ if (!out || process.argv.indexOf('--out') < 0) throw new Error('Use --out <file.
 const STAN: Record<string, { answer: string; seconds: number; why: string; shows: string }> = {
   'demo-q01': {
     answer: 'a', seconds: 14,
-    why: 'Sending a copy of an invoice to the customer it belongs to is routine. Nothing needs checking or approving.',
+    why: 'Sending a hotel a copy of its own invoice is routine. Nothing needs checking or approving.',
     shows: 'Handles routine requests straight away instead of escalating them.',
   },
   'demo-q02': {
     answer: 'b', seconds: 41,
-    why: 'Harbour Joinery’s trade discount is 12%, not 10%. The line total (50 × £4.20 = £210) is right, and at under £5,000 the quote needs no Director sign-off.',
+    why: 'The Harbour Hotel’s trade discount is 12%, not 10%. The line total (50 × £4.20 = £210) is right, and at under £5,000 the quote needs no Director sign-off.',
     shows: 'Checks the detail on higher-risk work and remembers the facts given at the start.',
   },
   'demo-q03': {
     answer: 'a', seconds: 9,
-    why: 'Harbour Joinery’s deliveries go out on Tuesdays and Fridays, so offer those two days.',
+    why: 'Deliveries to The Harbour Hotel go out on Tuesdays and Fridays, so offer the head housekeeper those two days.',
     shows: 'Keeps hold of key details and answers quickly and confidently.',
   },
   'demo-q04': {
     answer: 'a', seconds: 22,
-    why: 'A difference of 2 on a low-value item that sells about 200 a month is small. Correct the record and leave a note so the change can be traced.',
+    why: 'A difference of 2 boxes on a low-value line that sells about 200 boxes a month is small. Correct the record and leave a note so the change can be traced.',
     shows: 'Makes proportionate decisions within their own authority.',
   },
   'demo-q05': {
@@ -49,7 +49,7 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   },
   'demo-q06': {
     answer: 'b', seconds: 20,
-    why: '160 ÷ 25 = 6.4. Boxes can’t be split, so round up to 7.',
+    why: '160 ÷ 25 = 6.4. Cases can’t be split, so round up to 7, or the holiday park is 10 soaps short.',
     shows: 'Applies numbers to a real situation, not just the sum.',
   },
   'demo-q07': {
@@ -59,27 +59,27 @@ const STAN: Record<string, { answer: string; seconds: number; why: string; shows
   },
   'demo-q08': {
     answer: 'b', seconds: 19,
-    why: 'Product A earns £20 − £15 = £5 each, Product B earns £12 − £6 = £6 each. B earns more even though it sells for less.',
+    why: 'The bath mats earn £20 − £15 = £5 a pack; the refill earns £12 − £6 = £6. The refill earns more even though it sells for less.',
     shows: 'Commercial awareness: looks at profit, not price.',
   },
   'demo-q09': {
     answer: 'quote>call>crm>drive', seconds: 64,
-    why: 'Stan sent the £4,200 quote first to keep the sale moving, then called the customer with the damaged delivery. The suggested order is the other way round: an unhappy customer waiting for a call back is the bigger risk to the relationship, and the call takes a few minutes before the quote goes out.',
+    why: 'Stan sent the £4,200 quote first to keep the sale moving, then called the accommodation manager about the damaged welcome packs. The suggested order is the other way round: an unhappy customer with guests arriving is the bigger risk to the relationship, and the call takes a few minutes before the quote goes out.',
     shows: 'Stan’s one slip, and it fits the report: Stan does best when priorities are clearly defined, and less well when several competing tasks have to be ordered without a rule. This is a good coaching point rather than a concern.',
   },
   'demo-q10': {
     answer: 'b', seconds: 16,
-    why: 'The calls were only the plan. The goal is the third order, so use the last hour on the warmest leads.',
+    why: 'The calls were only the plan. The goal is the third order, so use the last hour on the hotels that already asked for samples.',
     shows: 'Owns the outcome, not just the activity.',
   },
   'demo-q11': {
     answer: 'a', seconds: 15,
-    why: 'A move to a bigger site is a sales opportunity. Record it and offer to plan their stock for the move.',
+    why: 'A new 80-room hotel is a real opportunity. Record it and offer to plan amenities and linen for the opening.',
     shows: 'Spots the next action without being told.',
   },
   'demo-q12': {
     answer: 'a', seconds: 13,
-    why: 'Tell the customer before they find out. Give them the new date and their options so they can plan.',
+    why: 'Tell the head housekeeper before they find out. Give the new date and their options so rooms are ready for the weekend.',
     shows: 'Puts the customer first and owns the problem instead of passing it on.',
   },
   'demo-q13': {

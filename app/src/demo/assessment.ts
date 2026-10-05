@@ -23,8 +23,8 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         'You can move back and forth between questions in this section before you submit it.',
       ],
       rememberThis: [
-        'Account WG-2041 is Harbour Joinery. They receive a 12% trade discount.',
-        'Harbour Joinery deliveries go out on Tuesdays and Fridays.',
+        'Account WG-2041 is The Harbour Hotel. They receive a 12% trade discount.',
+        'Deliveries to The Harbour Hotel go out on Tuesdays and Fridays.',
         'Any quote over £5,000 needs Director sign-off.',
       ],
       shuffleQuestions: true,
@@ -33,12 +33,12 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q01',
           kind: 'single_choice',
-          stem: 'A customer emails asking for a copy of last month’s invoice. What do you do?',
+          stem: 'A hotel’s purchasing manager emails asking for a copy of last month’s invoice. What do you do?',
           options: [
             { id: 'a', text: 'Send the copy from the system now' },
             { id: 'b', text: 'Ask your manager before sending it' },
             { id: 'c', text: 'Check with accounts whether it has been paid first' },
-            { id: 'd', text: 'Ask the customer why they need it' },
+            { id: 'd', text: 'Ask the purchasing manager why they need it' },
           ],
         },
         {
@@ -46,8 +46,8 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
           kind: 'single_choice',
           stem: 'Is this quote ready to send?',
           detail: [
-            'Quote for Harbour Joinery (WG-2041)',
-            '50 × hinge HG-200 @ £4.20 = £210.00',
+            'Quote for The Harbour Hotel (WG-2041)',
+            '50 × 300ml shampoo refill @ £4.20 = £210.00',
             'Trade discount applied: 10%',
             'Total after discount: £189.00',
           ],
@@ -61,7 +61,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q03',
           kind: 'single_choice',
-          stem: 'Harbour Joinery asks for a Wednesday delivery. Which days can you offer them?',
+          stem: 'The head housekeeper at The Harbour Hotel asks for a Wednesday delivery of welcome packs. Which days can you offer?',
           options: [
             { id: 'a', text: 'Tuesday or Friday' },
             { id: 'b', text: 'Monday or Thursday' },
@@ -72,7 +72,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q04',
           kind: 'single_choice',
-          stem: 'The system shows 40 units of a low-value fixing, but the shelf count is 38. It sells about 200 a month. What is the best next step?',
+          stem: 'The system shows 40 boxes of barista sugar sticks, but the shelf count is 38. They sell about 200 boxes a month. What is the best next step?',
           options: [
             { id: 'a', text: 'Adjust the stock record and add a short note' },
             { id: 'b', text: 'Recount the whole aisle before doing anything' },
@@ -109,7 +109,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q06',
           kind: 'single_choice',
-          stem: 'Screws come in boxes of 25. A customer needs 160 screws. How many boxes do they need?',
+          stem: 'Guest soaps come in cases of 25. A holiday park needs 160 soaps for its lodges. How many cases does it need?',
           options: [
             { id: 'a', text: '6' },
             { id: 'b', text: '7' },
@@ -121,7 +121,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
           questionVersionId: 'demo-q07',
           kind: 'single_choice',
           stem: 'Rule: ship the order with the earliest promised date first. Which order ships first?',
-          detail: ['Order 118 – promised Thursday', 'Order 121 – promised Tuesday', 'Order 124 – promised Wednesday', 'Order 125 – promised Friday'],
+          detail: ['Order 118 – Bayview Hotel, promised Thursday', 'Order 121 – Oakfield Lodges, promised Tuesday', 'Order 124 – The Grange Hotel, promised Wednesday', 'Order 125 – Seaview Holiday Park, promised Friday'],
           shuffleOptions: false,
           options: [
             { id: 'a', text: 'Order 118' },
@@ -133,10 +133,10 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q08',
           kind: 'single_choice',
-          stem: 'Product A sells for £20 and costs £15. Product B sells for £12 and costs £6. Which earns more profit for each one sold?',
+          stem: 'A pack of bath mats sells for £20 and costs £15. A dispenser refill sells for £12 and costs £6. Which earns more profit for each one sold?',
           options: [
-            { id: 'a', text: 'Product A' },
-            { id: 'b', text: 'Product B' },
+            { id: 'a', text: 'The pack of bath mats' },
+            { id: 'b', text: 'The dispenser refill' },
             { id: 'c', text: 'They earn the same' },
           ],
         },
@@ -157,19 +157,19 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
           kind: 'ranking',
           stem: 'It is Monday morning. Put these tasks in the order you would do them.',
           options: [
-            { id: 'call', text: 'Call back a customer whose delivery arrived damaged' },
-            { id: 'quote', text: 'Send a £4,200 quote a customer asked for yesterday' },
-            { id: 'crm', text: 'Update CRM notes from last week' },
+            { id: 'call', text: 'Call back an accommodation manager whose welcome packs arrived damaged' },
+            { id: 'quote', text: 'Send a £4,200 quote a hotel group’s purchasing manager asked for yesterday' },
+            { id: 'crm', text: 'Update CRM notes from last week’s site visits' },
             { id: 'drive', text: 'Tidy the shared drive' },
           ],
         },
         {
           questionVersionId: 'demo-q10',
           kind: 'single_choice',
-          stem: 'It is 4pm. You have made all 20 planned follow-up calls, but you have 2 of this week’s target of 3 new orders. What do you do?',
+          stem: 'It is 4pm. You have made all 20 planned follow-up calls to hotels, but you have 2 of this week’s target of 3 new orders. What do you do?',
           options: [
             { id: 'a', text: 'Log the calls and finish – the plan for today is done' },
-            { id: 'b', text: 'Call two warm leads from earlier in the week' },
+            { id: 'b', text: 'Call two hotels that asked for samples earlier in the week' },
             { id: 'c', text: 'Email your manager an update' },
             { id: 'd', text: 'Plan tomorrow’s calls' },
           ],
@@ -177,9 +177,9 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q11',
           kind: 'single_choice',
-          stem: 'A regular customer mentions they are moving to a bigger site next month. What would you do?',
+          stem: 'The operations manager of a hotel group you supply mentions they are opening a new 80-room hotel next month. What would you do?',
           options: [
-            { id: 'a', text: 'Note it on their account and offer to plan stock for the move' },
+            { id: 'a', text: 'Note it on their account and offer to plan amenities and linen for the opening' },
             { id: 'b', text: 'Congratulate them' },
             { id: 'c', text: 'Tell your manager and let them decide' },
             { id: 'd', text: 'Wait until they place an order' },
@@ -188,9 +188,9 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
         {
           questionVersionId: 'demo-q12',
           kind: 'single_choice',
-          stem: 'A delivery to a customer is going to arrive a day late. They have not noticed yet. What do you do?',
+          stem: 'A delivery of guest toiletries is going to arrive a day late, just before the hotel’s busy weekend. The head housekeeper has not noticed yet. What do you do?',
           options: [
-            { id: 'a', text: 'Phone them now with the new date and their options' },
+            { id: 'a', text: 'Phone the head housekeeper now with the new date and their options' },
             { id: 'b', text: 'Wait and see whether they notice' },
             { id: 'c', text: 'Email the warehouse to ask why' },
             { id: 'd', text: 'Ask your manager what to do' },
@@ -220,7 +220,7 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
             { id: 'security', text: 'Stability and security' },
             { id: 'mastery', text: 'Becoming expert at what I do' },
             { id: 'team', text: 'Being part of a strong team' },
-            { id: 'customer_impact', text: 'Making a difference for customers' },
+            { id: 'customer_impact', text: 'Making a difference for customers and their guests' },
           ],
         },
       ],

@@ -47,16 +47,20 @@ function completeForm(notice: PrivacyNotice): AcknowledgementForm {
 }
 
 suite('privacy notice', () => {
-  it('lists the placeholders HR must complete and refuses to publish until they are filled', () => {
-    expect(placeholdersIn(NOTICE_V1)).toEqual(
-      expect.arrayContaining([
-        'Legal entity name, e.g. Walter Geering Ltd',
-        'HR / data protection contact name and email',
-        'retention period, in line with Walter Geering’s retention policy',
-      ]),
-    );
-    expect(() => publishNotice(NOTICE_V1, NOW)).toThrow(NoticeNotReadyError);
+  it('has every placeholder completed, and refuses to publish a notice that still has one', () => {
+    expect(placeholdersIn(NOTICE_V1)).toEqual([]);
+    const draft = { ...NOTICE_V1, summary: [...NOTICE_V1.summary, 'Contact: [[HR contact]].'] };
+    expect(placeholdersIn(draft)).toEqual(['HR contact']);
+    expect(() => publishNotice(draft, NOW)).toThrow(NoticeNotReadyError);
     expect(completedNotice().publishedAt).toBe(NOW.toISOString());
+  });
+
+  it('states the agreed controller, hosting location and 24-month retention', () => {
+    const text = JSON.stringify(NOTICE_V1);
+    expect(text).toContain('Walter Geering Ltd is the data controller');
+    expect(text).toContain('in the EU (Ireland)');
+    expect(text).toContain('kept for 24 months');
+    expect(text).toContain('expected as part of development reviews');
   });
 
   it('frames the tick boxes as acknowledgement, not consent, and asks for no protected characteristics', () => {

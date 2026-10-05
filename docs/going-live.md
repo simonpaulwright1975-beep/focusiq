@@ -12,6 +12,13 @@ FocusiQ runs in two modes:
 - Invitations, completion emails and the completion count in the Director daily summary
   (`20261005090000_focusiq_invitations_and_completion.sql`).
 - No FocusiQ function can be called without signing in (`20261005090100_focusiq_no_anonymous_functions.sql`).
+- Leader expectations (`20261005090200_focusiq_leader_expectations.sql`).
+- The Director role for the Managing Director (the only Director).
+- The retention guards from `20261005090300_focusiq_retention.sql`. **Still to do:** the clean-up function itself
+  and its nightly schedule. The Supabase connector cannot run statements containing deletes, so paste
+  the `apply_retention` part of that migration plus
+  `select cron.schedule('focusiq-retention', '5 3 * * *', 'select focusiq.apply_retention()');` into the SQL editor.
+  Until then nothing is deleted and the evidence tables stay locked as before.
 
 ## Steps, in order
 
@@ -24,12 +31,14 @@ FocusiQ runs in two modes:
    "Forgotten your password?" bring people back to FocusiQ. **Do not change the Site URL**: it belongs to
    the Hub.
 
-3. **Finish the privacy notice.** Six highlighted gaps in `src/participation/notice.ts` need Walter Geering's
-   wording: legal entity name, HR / data protection contact (twice), whether taking part is voluntary,
-   hosting location and retention period. Send the wording to Claude, or edit the file.
+3. **Privacy notice – done.** Walter Geering Ltd as controller; the Managing Director or a private comment in
+   the Voice as the contact; expected as part of development reviews; hosted in the EU (Ireland); kept for
+   24 months from the assessment date, then deleted automatically by `focusiq.apply_retention()`.
 
-4. **Decide the questions.** The live assessment uses the same questions as the demo (13 questions in four
-   sections) unless new ones are written. Then load the content and the finished notice:
+4. **Decide the questions.** The live assessment uses the demo's 13 questions in four sections, written
+   around Walter Geering's customers (hotels, holiday parks and accommodation: housekeepers, purchasing,
+   operations and accommodation managers). Directors review them in the question book
+   (`scripts/question-book.ts`). Then load the content and the finished notice:
 
    ```
    npx vite-node scripts/content-sql.ts -- --out supabase/content/focusiq-2026.1.sql

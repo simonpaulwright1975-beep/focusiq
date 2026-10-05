@@ -47,8 +47,8 @@ export const NOTICE_V1: PrivacyNotice = {
       id: 'who',
       heading: 'Who is responsible for your information',
       paragraphs: [
-        '[[Legal entity name, e.g. Walter Geering Ltd]] is the data controller for FocusiQ.',
-        'Questions about FocusiQ or your information: [[HR / data protection contact name and email]].',
+        'Walter Geering Ltd is the data controller for FocusiQ.',
+        'Questions about FocusiQ or your information: use "Questions or concerns" in FocusiQ, contact the Managing Director (simon.wright@waltergeering.co.uk), or leave a private comment in the Voice.',
       ],
     },
     {
@@ -57,7 +57,7 @@ export const NOTICE_V1: PrivacyNotice = {
       paragraphs: [
         'To understand working styles, strengths and development opportunities, and to identify where the business – its processes, priorities and management – could support people better.',
         'FocusiQ also looks at patterns across teams so we can improve processes rather than treat shared issues as individual problems.',
-        'Taking part: [[State whether taking part is voluntary or expected as part of development reviews, and what happens if someone does not take part]].',
+        'Taking part: FocusiQ is expected as part of development reviews, and everyone invited is asked to complete it. If you have a concern about taking part, raise it through "Questions or concerns" before your session. Raising a concern or objecting will never be held against you.',
       ],
     },
     {
@@ -84,7 +84,8 @@ export const NOTICE_V1: PrivacyNotice = {
       paragraphs: [
         'Your full report can be seen only by Walter Geering Directors and authorised senior administrators. You will receive your own summary.',
         'Results may be combined with colleagues’ results to produce department or company averages. Group results are never shown for fewer than five people.',
-        'Your results are never published, shared outside Walter Geering, or sold. Our hosting provider stores the information on our behalf in [[hosting location, e.g. the UK (London)]] and cannot use it for its own purposes.',
+        'Your results are never published, shared outside Walter Geering, or sold. Our hosting provider stores the information on behalf of Walter Geering for FocusiQ, in the EU (Ireland), and cannot use it for its own purposes.',
+        'Invitation and reminder emails are sent through an email provider that sees only your name and email address, never your answers or results.',
       ],
     },
     {
@@ -99,14 +100,14 @@ export const NOTICE_V1: PrivacyNotice = {
       id: 'retention',
       heading: 'How long we keep it',
       paragraphs: [
-        'Assessment information is kept for [[retention period, in line with Walter Geering’s retention policy]] and is then deleted. If you leave Walter Geering it is kept only as our retention policy allows.',
+        'Assessment information is kept for 24 months from the date of the assessment and is then deleted automatically. This applies whether or not you still work at Walter Geering.',
       ],
     },
     {
       id: 'rights',
       heading: 'Your rights',
       paragraphs: [
-        'You can ask for a copy of your information, ask us to correct anything wrong, and object to how we use it. Use the "Questions or concerns" option in FocusiQ or contact [[HR / data protection contact]].',
+        'You can ask for a copy of your information, ask us to correct anything wrong, and object to how we use it. Use the "Questions or concerns" option in FocusiQ, contact the Managing Director (simon.wright@waltergeering.co.uk), or leave a private comment in the Voice.',
         'You can also complain to the Information Commissioner’s Office (ico.org.uk), though we would like the chance to resolve any concern first.',
       ],
     },
