@@ -31,6 +31,8 @@ interface Cell {
 }
 interface Item {
   id: string;
+  /** The rules, in words – shown to Directors in the question book only. */
+  rule: string;
   stem: string;
   grid: Cell[]; // 8 cells, row by row; the 9th is missing
   answer: Cell;
@@ -157,57 +159,57 @@ const STEM = 'Which tile completes the grid?';
 
 const ITEMS: Item[] = [
   {
-    // Shape: each once per row and column. Count: 1, 2, 3 across each row.
     id: 'ar-01', stem: STEM,
+    rule: 'Shape: each once per row and column. Count: 1, 2, 3 across each row.',
     grid: [S('circle', 1), S('square', 2), S('triangle', 3), S('square', 1), S('triangle', 2), S('circle', 3), S('triangle', 1), S('circle', 2)],
     answer: S('square', 3),
     distractors: [S('square', 2), S('triangle', 3), S('circle', 3), S('square', 3, 'outline'), S('square', 3, 'solid', 'small'), S('square', 1), S('pentagon', 3)],
   },
   {
-    // Shape and fill: each once per row and column. Count: same across a row, 1 / 2 / 3 by row.
     id: 'ar-02', stem: STEM,
+    rule: 'Shape and fill: each once per row and column. Count: same across a row, 1 / 2 / 3 by row.',
     grid: [S('circle', 1, 'solid'), S('square', 1, 'outline'), S('triangle', 1, 'striped'), S('triangle', 2, 'outline'), S('circle', 2, 'striped'), S('square', 2, 'solid'), S('square', 3, 'striped'), S('triangle', 3, 'solid')],
     answer: S('circle', 3, 'outline'),
     distractors: [S('circle', 3, 'solid'), S('circle', 3, 'striped'), S('circle', 2, 'outline'), S('square', 3, 'outline'), S('triangle', 3, 'outline'), S('circle', 1, 'outline'), S('pentagon', 3, 'outline')],
   },
   {
-    // Count: third = first + second. Shape: same across a row. Fill: each once per row and column.
     id: 'ar-03', stem: STEM,
+    rule: 'Count: third = first + second. Shape: same across a row. Fill: each once per row and column.',
     grid: [S('triangle', 1, 'solid'), S('triangle', 1, 'outline'), S('triangle', 2, 'striped'), S('hexagon', 1, 'striped'), S('hexagon', 2, 'solid'), S('hexagon', 3, 'outline'), S('square', 2, 'outline'), S('square', 2, 'striped')],
     answer: S('square', 4, 'solid'),
     distractors: [S('square', 3, 'solid'), S('square', 4, 'outline'), S('square', 4, 'striped'), S('square', 2, 'solid'), S('hexagon', 4, 'solid'), S('triangle', 4, 'solid'), S('square', 5, 'solid')],
   },
   {
-    // Shape, count and size: each value once per row and column (three independent rules).
     id: 'ar-04', stem: STEM,
+    rule: 'Shape, count and size: each value once per row and column (three independent rules).',
     grid: [S('triangle', 2, 'solid', 'large'), S('circle', 3, 'solid', 'medium'), S('hexagon', 1, 'solid', 'small'), S('circle', 1, 'solid', 'medium'), S('hexagon', 2, 'solid', 'small'), S('triangle', 3, 'solid', 'large'), S('hexagon', 3, 'solid', 'small'), S('triangle', 1, 'solid', 'large')],
     answer: S('circle', 2, 'solid', 'medium'),
     distractors: [S('circle', 2, 'solid', 'large'), S('circle', 2, 'solid', 'small'), S('circle', 3, 'solid', 'medium'), S('circle', 1, 'solid', 'medium'), S('triangle', 2, 'solid', 'medium'), S('hexagon', 2, 'solid', 'medium'), S('circle', 2, 'outline', 'medium')],
   },
   {
-    // Arrow: turns a quarter clockwise each step. Dot: moves one corner clockwise each step.
     id: 'ar-05', stem: STEM,
+    rule: 'Arrow: turns a quarter clockwise each step. Dot: moves one corner clockwise each step.',
     grid: [A(0, 'solid', 'TL'), A(90, 'solid', 'TR'), A(180, 'solid', 'BR'), A(90, 'solid', 'TR'), A(180, 'solid', 'BR'), A(270, 'solid', 'BL'), A(180, 'solid', 'BR'), A(270, 'solid', 'BL')],
     answer: A(0, 'solid', 'TL'),
     distractors: [A(0, 'solid', 'BL'), A(0, 'solid', 'TR'), A(0, 'solid', 'BR'), A(180, 'solid', 'TL'), A(270, 'solid', 'TL'), A(90, 'solid', 'TL'), A(0, 'outline', 'TL')],
   },
   {
-    // Lines: the third tile keeps the lines that appear in only one of the first two; shared lines disappear.
     id: 'ar-06', stem: STEM,
+    rule: 'Lines: the third tile keeps the lines that appear in only one of the first two; shared lines disappear.',
     grid: [L('V'), L('H'), L('V', 'H'), L('V', 'D1'), L('D1', 'H'), L('V', 'H'), L('D1', 'D2'), L('D2', 'H', 'V')],
     answer: L('D1', 'H', 'V'),
     distractors: [L('V', 'H', 'D1', 'D2'), L('D2'), L('V', 'H'), L('D1', 'D2', 'H'), L('D1'), L('V', 'H', 'D2'), L('H', 'D1')],
   },
   {
-    // Count: third = first − second. Shape and fill: each once per row and column.
     id: 'ar-07', stem: STEM,
+    rule: 'Count: third = first − second. Shape and fill: each once per row and column.',
     grid: [S('circle', 4, 'solid'), S('square', 1, 'outline'), S('triangle', 3, 'striped'), S('square', 3, 'striped'), S('triangle', 2, 'solid'), S('circle', 1, 'outline'), S('triangle', 4, 'outline'), S('circle', 2, 'striped')],
     answer: S('square', 2, 'solid'),
     distractors: [S('square', 2, 'outline'), S('square', 2, 'striped'), S('square', 6, 'solid'), S('square', 3, 'solid'), S('square', 1, 'solid'), S('circle', 2, 'solid'), S('triangle', 2, 'solid')],
   },
   {
-    // Arrow: in row n it turns n × 45° clockwise each step. Fill: each once per row and column.
     id: 'ar-08', stem: STEM,
+    rule: 'Arrow: in row n it turns n × 45° clockwise each step. Fill: each once per row and column.',
     grid: [A(0, 'solid'), A(45, 'outline'), A(90, 'striped'), A(0, 'outline'), A(90, 'striped'), A(180, 'solid'), A(0, 'striped'), A(135, 'solid')],
     answer: A(270, 'outline'),
     distractors: [A(270, 'solid'), A(270, 'striped'), A(180, 'outline'), A(225, 'outline'), A(90, 'outline'), A(0, 'outline'), A(315, 'outline')],
@@ -224,6 +226,7 @@ const LETTERS = 'abcdefgh';
 
 const display: string[] = [];
 const keys: string[] = [];
+const rules: string[] = [];
 ITEMS.forEach((item, n) => {
   const seen = new Set<string>();
   for (const c of [item.answer, ...item.distractors]) {
@@ -256,6 +259,7 @@ ITEMS.forEach((item, n) => {
 ${opts.join('\n')}
           ],
         },`);
+  rules.push(`  '${item.id}': ${JSON.stringify(item.rule)},`);
   keys.push(`  '${item.id}': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: '${LETTERS[pos]}' },`);
 });
 
@@ -284,6 +288,11 @@ import type { ExerciseMeta } from '../../../src/insight/index.js';
 
 export const ABSTRACT_SCORING: Record<string, ExerciseMeta> = {
 ${keys.join('\n')}
+};
+
+/** The rules behind each puzzle, for the Directors' question book. */
+export const ABSTRACT_RULES: Record<string, string> = {
+${rules.join('\n')}
 };
 `,
 );

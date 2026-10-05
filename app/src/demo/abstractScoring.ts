@@ -14,3 +14,15 @@ export const ABSTRACT_SCORING: Record<string, ExerciseMeta> = {
   'ar-07': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'e' },
   'ar-08': { family: 'abstract-matrix', dimension: 'think', modality: 'visual', risk: 'low', correctAnswer: 'h' },
 };
+
+/** The rules behind each puzzle, for the Directors' question book. */
+export const ABSTRACT_RULES: Record<string, string> = {
+  'ar-01': "Shape: each once per row and column. Count: 1, 2, 3 across each row.",
+  'ar-02': "Shape and fill: each once per row and column. Count: same across a row, 1 / 2 / 3 by row.",
+  'ar-03': "Count: third = first + second. Shape: same across a row. Fill: each once per row and column.",
+  'ar-04': "Shape, count and size: each value once per row and column (three independent rules).",
+  'ar-05': "Arrow: turns a quarter clockwise each step. Dot: moves one corner clockwise each step.",
+  'ar-06': "Lines: the third tile keeps the lines that appear in only one of the first two; shared lines disappear.",
+  'ar-07': "Count: third = first − second. Shape and fill: each once per row and column.",
+  'ar-08': "Arrow: in row n it turns n × 45° clockwise each step. Fill: each once per row and column.",
+};

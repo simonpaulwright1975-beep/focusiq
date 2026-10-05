@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEMO_ASSESSMENT } from '../app/src/demo/assessment.js';
 import { DEMO_SCORING } from '../app/src/demo/scoring.js';
+import { ABSTRACT_RULES } from '../app/src/demo/abstractScoring.js';
 import type { MediaRef } from '../src/runner/index.js';
 
 const out = process.argv[process.argv.indexOf('--out') + 1];
@@ -59,8 +60,8 @@ const sections = DEMO_ASSESSMENT.sections.map((s, si) => {
     return `<article class="q"><div class="qnum">${n}</div><div>
       <h3>${esc(q.stem)}</h3>
       ${q.detail ? `<div class="detail">${q.detail.map((d) => `<div>${esc(d)}</div>`).join('')}</div>` : ''}
-      ${q.image ? img(q.image, 'stem-img') : ''}
-      ${about}${options}${key}</div></article>`;
+      ${q.image ? img(q.image, q.questionVersionId.startsWith('ar-') ? 'grid-img' : 'stem-img') : ''}
+      ${about}${options}${key}${ABSTRACT_RULES[q.questionVersionId] ? `<p class="key"><strong>Rule:</strong> ${esc(ABSTRACT_RULES[q.questionVersionId]!)}</p>` : ''}</div></article>`;
   });
   return `<section class="sec sec-${si}"><div class="sec-head"><span class="sec-num">${si + 1}</span><div><div class="lbl">Section ${si + 1} · ${fmtTime(s.timeLimitSeconds)}${s.shuffleQuestions ? ' · questions shuffled per person' : ''}</div><h2>${esc(s.title)}</h2></div></div>
     <ul class="instr">${s.instructions.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -98,7 +99,7 @@ ol.opts{list-style:decimal;padding-left:22px}ol.opts li{display:list-item}
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--track);color:var(--ink-soft)}
 .tag-right{background:var(--green);color:#fff}
 .key{background:var(--green-bg);border-radius:10px;padding:8px 12px;margin-top:8px}
-.stem-img{height:60px;margin:6px 0}.opt-img{height:34px}
+.stem-img{height:60px;margin:6px 0}.grid-img{width:220px;height:220px;margin:6px 0}.opt-img{height:34px}
 table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--track);padding:6px 8px;text-align:left}
 </style></head><body><main>
 <div class="lbl">Walter Geering · FocusiQ</div>
