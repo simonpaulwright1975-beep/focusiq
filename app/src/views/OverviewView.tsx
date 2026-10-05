@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   computeBenchmark,
   confidenceFor,
@@ -13,8 +13,7 @@ import { BandDonut, BandSplit, Headline, ScoreBars, ScoreDonut } from '../compon
 import { BarList, Scatter } from '../components/charts.js';
 import { Card, ConfidenceBadge, Explanation, Stat, fmt } from '../components/ui.js';
 import { buildInsightReports } from '../insights.js';
-import { subscribeSittings } from '../wgway/store.js';
-import { demoWgWayResults, type WgWayResult } from './wgWayResults.js';
+import { latestPerPerson, useWgWayResults } from './WgWayView.js';
 import { baseDefinition, CORE_KEYS, definitionFor, expectationBands, metricLabel, useStore } from '../state.js';
 
 const SEQ = ['--seq-100', '--seq-200', '--seq-300', '--seq-400', '--seq-500', '--seq-600'];
@@ -146,10 +145,7 @@ export function OverviewView({ onOpenEmployee }: { onOpenEmployee: (id: string) 
   const scopeName = filters.department === 'all' ? 'the company' : filters.department;
 
   // Live the Walter Geering Way: latest sitting per person in scope, kept apart from the bands above.
-  const names = useMemo(() => new Map(data.employees.map((e) => [e.id, e.displayName])), [data]);
-  const [wgResults, setWgResults] = useState<WgWayResult[]>(() => demoWgWayResults(names));
-  useEffect(() => subscribeSittings(() => setWgResults(demoWgWayResults(names))), [names]);
-  const wgLatest = [...new Map(wgResults.map((r) => [r.employeeId, r])).values()].filter((r) => {
+  const wgLatest = latestPerPerson(useWgWayResults()).filter((r) => {
     const e = data.employees.find((x) => x.id === r.employeeId);
     return e && !filters.hidden.includes(e.id) && (filters.department === 'all' || e.department === filters.department);
   });

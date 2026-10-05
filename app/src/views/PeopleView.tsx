@@ -3,6 +3,7 @@ import { compareEmployees, individualHeatmap, revealNames, type EmployeeComparis
 import { BandLegend } from '../components/bandCharts.js';
 import { Card, bandStyle, fmt } from '../components/ui.js';
 import { CORE_KEYS, expectationBands, metricLabel, useStore } from '../state.js';
+import { latestPerPerson, useWgWayResults, WgWayDonuts } from './WgWayView.js';
 
 const COMPARE_KEYS = ['accuracy', 'avg_response_seconds', 'recheck_rate', ...CORE_KEYS];
 
@@ -33,6 +34,10 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
   const leaderBands = expectationBands(CORE_KEYS[0]!, 'leader');
   const isLeader = (id: string) => data.employees.find((e) => e.id === id)?.expectations === 'leader';
   const anyLeader = heat.rows.some((r) => isLeader(r.employeeId));
+
+  // Live the Walter Geering Way: latest sitting for each person in the heatmap, in a separate card.
+  const shown = new Set(heat.rows.filter((r) => !r.excluded).map((r) => r.employeeId));
+  const wgLatest = latestPerPerson(useWgWayResults()).filter((r) => shown.has(r.employeeId));
 
   const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const runCompare = () => setComparison(compareEmployees(actor, data, selected, COMPARE_KEYS, { blind, blindSeed: selected.join('|') }));
@@ -105,6 +110,15 @@ export function PeopleView({ onOpenEmployee }: { onOpenEmployee: (id: string) =>
           </div>
         )}
       </Card>
+
+      {wgLatest.length > 0 && (
+        <Card
+          title="Live the Walter Geering Way"
+          sub="Knowledge check (right or wrong) – each person’s latest sitting, kept separate from the working-style heatmap above"
+        >
+          <WgWayDonuts latest={wgLatest} />
+        </Card>
+      )}
 
       <Card
         title="Compare selected employees"

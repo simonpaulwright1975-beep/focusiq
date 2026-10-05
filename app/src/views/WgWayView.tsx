@@ -23,11 +23,40 @@ function TopicCell({ c, t }: { c: number; t: number }) {
   );
 }
 
-export function WgWayView() {
+/** Every WG Way sitting, oldest first, kept up to date as sittings are saved. */
+export function useWgWayResults(): WgWayResult[] {
   const { data } = useStore();
   const names = useMemo(() => new Map(data.employees.map((e) => [e.id, e.displayName])), [data]);
   const [results, setResults] = useState<WgWayResult[]>(() => demoWgWayResults(names));
-  useEffect(() => subscribeSittings(() => setResults(demoWgWayResults(names))), [names]);
+  useEffect(() => {
+    setResults(demoWgWayResults(names));
+    return subscribeSittings(() => setResults(demoWgWayResults(names)));
+  }, [names]);
+  return results;
+}
+
+/** Latest sitting per person, in first-sitting order. */
+export const latestPerPerson = (results: WgWayResult[]) => [...new Map(results.map((r) => [r.employeeId, r])).values()];
+
+/** One right/wrong donut per person (their latest sitting). */
+export function WgWayDonuts({ latest }: { latest: WgWayResult[] }) {
+  return (
+    <div className="wg-donuts">
+      {latest.map((r) => (
+        <figure key={r.id} className="wg-donut">
+          <ScoreDonut correct={r.correct} total={r.total} />
+          <figcaption>
+            <strong>{r.name}</strong>
+            <span className="small muted">{date(r.completedAt)}{r.sample ? ' · sample' : ''}</span>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+export function WgWayView() {
+  const results = useWgWayResults();
 
   // Latest sitting per person for the team view; the one before it for "change".
   const byPerson = new Map<string, WgWayResult[]>();
@@ -58,17 +87,7 @@ export function WgWayView() {
 
       {latest.length > 0 && (
         <Card title="Latest scores" sub="Each person’s most recent sitting – share of questions answered correctly">
-          <div className="wg-donuts">
-            {latest.map((r) => (
-              <figure key={r.id} className="wg-donut">
-                <ScoreDonut correct={r.correct} total={r.total} />
-                <figcaption>
-                  <strong>{r.name}</strong>
-                  <span className="small muted">{date(r.completedAt)}{r.sample ? ' · sample' : ''}</span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+          <WgWayDonuts latest={latest} />
         </Card>
       )}
 
