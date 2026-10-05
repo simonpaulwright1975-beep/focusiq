@@ -81,6 +81,52 @@ export const DEMO_ASSESSMENT: AssessmentDefinition = {
             { id: 'd', text: 'Correct the stock record yourself' },
           ],
         },
+        {
+          questionVersionId: 'demo-q18',
+          kind: 'single_choice',
+          stem: 'Is this quote ready to send?',
+          detail: [
+            'Quote for The Harbour Hotel (WG-2041)',
+            '200 × bespoke welcome pack @ £3.50 = £700.00',
+            '150 × 300ml shampoo refill @ £4.20 = £603.00',
+            'Subtotal: £1,303.00',
+            'Trade discount 12%: −£156.36',
+            'Total: £1,146.64',
+          ],
+          options: [
+            { id: 'a', text: 'Yes, it is ready to send' },
+            { id: 'b', text: 'No – the refill line should be £630.00' },
+            { id: 'c', text: 'No – the discount should be 10%' },
+            { id: 'd', text: 'No – it needs Director sign-off' },
+          ],
+        },
+        {
+          questionVersionId: 'demo-q19',
+          kind: 'single_choice',
+          stem: 'A new hotel group asks you to quote for 1,800 bespoke welcome packs at £3.10 each. They have no trade discount. What do you do before sending it?',
+          options: [
+            { id: 'a', text: 'Send it – the price is from the price list' },
+            { id: 'b', text: 'Get Director sign-off first, because the quote is over £5,000' },
+            { id: 'c', text: 'Add a 12% trade discount to help win the business' },
+            { id: 'd', text: 'Split it into two quotes so each is under £5,000' },
+          ],
+        },
+        {
+          questionVersionId: 'demo-q20',
+          kind: 'single_choice',
+          stem: 'Read this email from a customer. How many welcome packs a month will they need from March, and what else could you offer?',
+          detail: [
+            'From: Operations Manager, Seaview Holiday Park',
+            '“We have 120 lodges and order one welcome pack per lodge each month. We are adding 40 new lodges in March and want the same packs for them.',
+            'Do you also do dog packs? About a third of the new lodges will be pet-friendly.”',
+          ],
+          options: [
+            { id: 'a', text: '160 packs a month, and dog packs for about 13 lodges' },
+            { id: 'b', text: '160 packs a month, and dog packs for about 40 lodges' },
+            { id: 'c', text: '40 packs a month, and dog packs for about 13 lodges' },
+            { id: 'd', text: '120 packs a month – they asked for the same packs' },
+          ],
+        },
       ],
     },
     {

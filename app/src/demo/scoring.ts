@@ -41,4 +41,8 @@ export const DEMO_SCORING: Record<string, ExerciseMeta> = {
   'demo-q15': { family: 'next-action', dimension: 'act', modality: 'scenario', risk: 'high', correctAnswer: 'a', nextActionOptions: ['a'], unnecessaryEscalationOptions: ['d'] },
   'demo-q16': { family: 'customer-impact', dimension: 'own', modality: 'scenario', risk: 'high', customerImpactScenario: true, correctAnswer: 'a', outcomeActionOptions: ['a'], unnecessaryEscalationOptions: ['d'] },
   'demo-q17': { family: 'sales-priority', dimension: 'prioritise', modality: 'scenario', risk: 'high', priorityContext: 'competing', correctAnswer: 'a', routineOverOpportunityOptions: ['b'] },
+  // Reading and deciding – sales
+  'demo-q18': { family: 'quote-check', dimension: 'absorb', modality: 'text', risk: 'high', multiStage: true, commercial: true, correctAnswer: 'b' },
+  'demo-q19': { family: 'quote-authority', dimension: 'remember', modality: 'text', risk: 'high', multiStage: true, correctAnswer: 'b' },
+  'demo-q20': { family: 'email-reading', dimension: 'absorb', modality: 'text', risk: 'high', correctAnswer: 'a' },
 };
