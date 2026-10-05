@@ -72,6 +72,17 @@ suite('privacy notice', () => {
     expect(a).toMatch(/^[0-9a-f]{64}$/);
     expect(a).not.toBe(b);
   });
+
+  it('gives the same fingerprint whatever order the stored JSON keys come back in', async () => {
+    const n = completedNotice();
+    // jsonb returns object keys in its own order; the wording is unchanged.
+    const reordered = {
+      ...n,
+      sections: n.sections.map((sec) => Object.fromEntries(Object.entries(sec).reverse())) as typeof n.sections,
+      acknowledgements: n.acknowledgements.map((x) => Object.fromEntries(Object.entries(x).reverse())) as typeof n.acknowledgements,
+    };
+    expect(await noticeFingerprint(reordered)).toBe(await noticeFingerprint(n));
+  });
 });
 
 suite('acknowledgement form', () => {

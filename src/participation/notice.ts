@@ -147,8 +147,21 @@ export function publishNotice(notice: PrivacyNotice, at: Date): PrivacyNotice {
 }
 
 /** Canonical text used for the content fingerprint stored with each acknowledgement. */
+/** JSON with object keys sorted at every level, so the text does not depend on key order (jsonb reorders keys). */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value as object)
+      .filter((k) => (value as Record<string, unknown>)[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function canonicalNoticeText(notice: PrivacyNotice): string {
-  return JSON.stringify({
+  return stableStringify({
     version: notice.version,
     title: notice.title,
     summary: notice.summary,

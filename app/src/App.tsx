@@ -8,9 +8,12 @@ import { AdjustmentsView, useAdjustmentRequests } from './views/AdjustmentsView.
 import { QuestionsView, useRightsRequests } from './views/QuestionsView.js';
 import { AssessmentDayView } from './views/AssessmentDayView.js';
 import { NotificationsView } from './views/NotificationsView.js';
+import { StaffView } from './views/StaffView.js';
 import { LOGO_SRC } from './shared/Landing.js';
+import { useSignedIn } from './shared/auth.js';
+import { LIVE } from './shared/supabase.js';
 
-const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
+const TABS = ['Overview', 'People', 'Employee report', 'Eligibility & audit', 'Staff', 'Adjustments', 'Questions & concerns', 'Assessment day', 'Notifications'] as const;
 type Tab = (typeof TABS)[number];
 /** Tabs that use the analytics filter row. */
 const FILTERED: Tab[] = ['Overview', 'People', 'Employee report', 'Eligibility & audit'];
@@ -27,6 +30,7 @@ export function App() {
             ? 'Notifications'
             : 'Overview',
   );
+  const who = useSignedIn();
   const pendingAdjustments = useAdjustmentRequests().filter((r) => r.status === 'pending').length;
   const openQuestions = useRightsRequests().filter((r) => r.status !== 'closed').length;
   const [employeeId, setEmployeeId] = useState<string>('s1');
@@ -40,6 +44,11 @@ export function App() {
         <div className="brand">
           <h1 style={{ margin: 0, lineHeight: 0 }}><img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" /></h1>
           <span className="lbl">Director dashboard · Walter Geering</span>
+          {who && (
+            <span className="small secondary topbar-who">
+              {who.email} · <button className="btn link" onClick={() => who.signOut()}>Sign out</button>
+            </span>
+          )}
         </div>
         <nav className="tabs" role="tablist" aria-label="Dashboard sections">
           {TABS.map((t) => (
@@ -55,16 +64,25 @@ export function App() {
           ))}
         </nav>
       </header>
-      <div className="banner" role="note">
-        <strong>Demo data.</strong> All names and results are fictional and generated for demonstration. Connect a
-        FocusiQ Supabase project to use real assessments. Expectation bands marked * are provisional.
-      </div>
+      {LIVE ? (
+        <div className="banner" role="note">
+          <strong>Live.</strong> Staff, Adjustments and Questions &amp; concerns use real FocusiQ data. Overview, People, Employee
+          report, Eligibility &amp; audit, Assessment day and Notifications still show <strong>example data</strong> until results
+          are connected. Expectation bands marked * are provisional.
+        </div>
+      ) : (
+        <div className="banner" role="note">
+          <strong>Demo data.</strong> All names and results are fictional and generated for demonstration. Connect a
+          FocusiQ Supabase project to use real assessments. Expectation bands marked * are provisional.
+        </div>
+      )}
       {FILTERED.includes(tab) && <FiltersBar />}
       <main role="tabpanel" aria-label={tab}>
         {tab === 'Overview' && <OverviewView onOpenEmployee={openEmployee} />}
         {tab === 'People' && <PeopleView onOpenEmployee={openEmployee} />}
         {tab === 'Employee report' && <EmployeeView employeeId={employeeId} onSelect={setEmployeeId} />}
         {tab === 'Eligibility & audit' && <EligibilityView />}
+        {tab === 'Staff' && <StaffView />}
         {tab === 'Adjustments' && <AdjustmentsView />}
         {tab === 'Questions & concerns' && <QuestionsView />}
         {tab === 'Assessment day' && <AssessmentDayView onOpen={setTab} />}

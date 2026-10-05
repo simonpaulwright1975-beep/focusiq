@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
 import {
   RIGHTS_REQUEST_LABELS,
-  employeeFollowUp,
   employeeRequestView,
+  type EmployeeRecordDetails,
   type RightsRequest,
 } from '../../../src/participation/index.js';
-import { requestsForEmployee, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
+import { backend } from './backend.js';
 
 const dateOnly = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 const dateTime = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-export function useMyRequests(employeeId: string): RightsRequest[] {
-  const [mine, setMine] = useState(() => requestsForEmployee(employeeId));
-  useEffect(() => subscribeRightsRequests(() => setMine(requestsForEmployee(employeeId))), [employeeId]);
-  return mine;
+export function useMyRequests(me: EmployeeRecordDetails): [RightsRequest[], () => void] {
+  const [mine, setMine] = useState<RightsRequest[]>([]);
+  const [rev, setRev] = useState(0);
+  useEffect(() => backend.watchRequests(me, setMine), [me, rev]);
+  return [mine, () => setRev((r) => r + 1)];
 }
 
 /** The employee's own questions and requests – never internal notes. */
-export function MyRequests({ employeeId }: { employeeId: string }) {
-  const mine = useMyRequests(employeeId);
+export function MyRequests({ me }: { me: EmployeeRecordDetails }) {
+  const [mine, refresh] = useMyRequests(me);
   const [openId, setOpenId] = useState<string | null>(null);
   if (mine.length === 0) return null;
   return (
@@ -43,7 +44,7 @@ export function MyRequests({ employeeId }: { employeeId: string }) {
                 )}
                 {replies > 0 && <span className="small muted">{replies} update{replies > 1 ? 's' : ''}</span>}
               </button>
-              {expanded && <Thread request={r} employeeId={employeeId} />}
+              {expanded && <Thread request={r} me={me} onSent={refresh} />}
             </li>
           );
         })}
@@ -52,7 +53,7 @@ export function MyRequests({ employeeId }: { employeeId: string }) {
   );
 }
 
-function Thread({ request, employeeId }: { request: RightsRequest; employeeId: string }) {
+function Thread({ request, me, onSent }: { request: RightsRequest; me: EmployeeRecordDetails; onSent: () => void }) {
   const v = employeeRequestView(request);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -73,11 +74,12 @@ function Thread({ request, employeeId }: { request: RightsRequest; employeeId: s
           {error && <p className="field-error" role="alert">{error}</p>}
           <button
             className="btn secondary"
-            onClick={() => {
+            onClick={async () => {
               try {
-                upsertRightsRequest(employeeFollowUp(request, employeeId, body, new Date()));
+                await backend.followUp(me, request, body);
                 setBody('');
                 setError(null);
+                onSent();
               } catch (e) {
                 setError((e as Error).message);
               }

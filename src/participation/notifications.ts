@@ -23,7 +23,9 @@ export type EmployeeNotificationKind =
   | 'summary_released'
   | 'day_invitation'
   | 'day_updated'
-  | 'acknowledgement_reminder';
+  | 'acknowledgement_reminder'
+  | 'focusiq_invitation'
+  | 'assessment_completed';
 export type NotificationKind = EmployeeNotificationKind | 'director_digest';
 
 export const NOTIFICATION_KIND_LABELS: Record<NotificationKind, string> = {
@@ -35,6 +37,8 @@ export const NOTIFICATION_KIND_LABELS: Record<NotificationKind, string> = {
   day_invitation: 'Assessment day invitation',
   day_updated: 'Assessment day change',
   acknowledgement_reminder: 'Acknowledgement reminder',
+  focusiq_invitation: 'Invitation to FocusiQ',
+  assessment_completed: 'Assessment completed',
   director_digest: 'Director daily summary',
 };
 
@@ -102,6 +106,14 @@ export const EMPLOYEE_TEMPLATES: Record<Exclude<EmployeeNotificationKind, 'day_i
     subject: 'Please complete your FocusiQ acknowledgement',
     line: 'Before your FocusiQ assessment, please read the privacy notice and complete the short acknowledgement form. It takes about 5 minutes:',
   },
+  focusiq_invitation: {
+    subject: 'You are invited to take part in FocusiQ',
+    line: 'Walter Geering has invited you to take part in FocusiQ, which helps us understand how people approach their work so we can support you better. It is not a pass/fail test. Sign in with your usual Walter Geering account to find out more:',
+  },
+  assessment_completed: {
+    subject: 'Thank you – your FocusiQ assessment is complete',
+    line: 'Thank you for completing your FocusiQ assessment. Your answers have been saved. Walter Geering will review them and you will receive your own summary afterwards. You can sign in to FocusiQ at any time:',
+  },
 };
 
 export const DAY_ACKNOWLEDGE_LINE = 'Before the day, please read the privacy notice and complete the acknowledgement in FocusiQ:';
@@ -168,6 +180,8 @@ export interface DigestCounts {
   upcomingDay: { date: string; notReady: number } | null;
   /** Emails that failed after retries or bounced in the last 7 days. */
   undeliveredEmails: number;
+  /** Assessments completed since the previous working day (for information, not action). */
+  completedSinceLast?: number;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -185,13 +199,27 @@ export function digestLines(c: DigestCounts): string[] {
   return lines;
 }
 
+/** Information lines (no action needed): counts only, never names. */
+export function digestInfoLines(c: DigestCounts): string[] {
+  const n = c.completedSinceLast ?? 0;
+  return n ? [`${plural(n, 'assessment', 'assessments')} completed since the last summary`] : [];
+}
+
 /** Directors are greeted with a plain "Hello," (no names are held for them). */
 export function directorDigest(c: DigestCounts): { subject: string; text: string } | null {
   const lines = digestLines(c);
-  if (!lines.length) return null;
+  const info = digestInfoLines(c);
+  if (!lines.length && !info.length) return null;
   return {
-    subject: `FocusiQ: ${plural(lines.length, 'thing needs', 'things need')} your attention`,
-    text: body('', ['Today in FocusiQ:', '', ...lines.map((l) => `- ${l}`), '', 'Sign in to the FocusiQ dashboard to deal with them:', LINK_TOKEN]),
+    subject: lines.length ? `FocusiQ: ${plural(lines.length, 'thing needs', 'things need')} your attention` : 'FocusiQ: daily summary',
+    text: body('', [
+      'Today in FocusiQ:',
+      '',
+      ...[...lines, ...info].map((l) => `- ${l}`),
+      '',
+      lines.length ? 'Sign in to the FocusiQ dashboard to deal with them:' : 'Sign in to the FocusiQ dashboard to see more:',
+      LINK_TOKEN,
+    ]),
   };
 }
 
@@ -280,6 +308,8 @@ export const coalesceKeys = {
   day: (dayId: string, employeeId: string) => `day:${dayId}:${employeeId}`,
   reminder: (employeeId: string) => `ack-reminder:${employeeId}`,
   digest: (userId: string, date: string) => `digest:${userId}:${date}`,
+  invitation: (employeeId: string) => `invite:${employeeId}`,
+  completed: (assessmentId: string) => `completed:${assessmentId}`,
 };
 
 // ---------------------------------------------------------------------------

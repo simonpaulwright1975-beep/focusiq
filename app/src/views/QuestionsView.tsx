@@ -15,10 +15,8 @@ import {
 } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
-import { demoRightsRequests } from '../demo/requestSeed.js';
-import { listRightsRequests, seedRequestsOnce, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
-import { notifyEmployee } from '../demo/outboxStore.js';
-import { coalesceKeys } from '../../../src/participation/index.js';
+import { LIVE } from '../shared/supabase.js';
+import { rightsActions, useRightsRequests } from './requestsData.js';
 import { useStore } from '../state.js';
 import { buildDataExport, downloadJson } from './dataExport.js';
 
@@ -32,14 +30,7 @@ const TYPE_SHORT: Record<RightsRequest['type'], string> = {
   objection: 'Objection',
 };
 
-export function useRightsRequests(): RightsRequest[] {
-  const [requests, setRequests] = useState(() => {
-    seedRequestsOnce(demoRightsRequests());
-    return listRightsRequests();
-  });
-  useEffect(() => subscribeRightsRequests(() => setRequests(listRightsRequests())), []);
-  return requests;
-}
+export { useRightsRequests };
 
 function DueTag({ request, now }: { request: RightsRequest; now: Date }) {
   const { state, daysLeft } = dueState(request, now);
@@ -118,9 +109,9 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
   const [modal, setModal] = useState<'extend' | 'close' | null>(null);
   const open = request.status !== 'closed';
 
-  const apply = (fn: () => RightsRequest) => {
+  const apply = async (fn: () => Promise<void>) => {
     try {
-      upsertRightsRequest(fn());
+      await fn();
       setError(null);
       return true;
     } catch (e) {
@@ -164,16 +155,14 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
           <div className="row">
             <label className="row small"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} />Internal note</label>
             <span className="spacer" />
-            <button className="btn" onClick={() => {
-              if (!apply(() => directorMessage(request, actor, body, internal, new Date()))) return;
-              if (!internal) notifyEmployee('request_reply', request.employeeId, request.employeeName, coalesceKeys.request(request.id));
-              setBody('');
+            <button className="btn" onClick={async () => {
+              if (await apply(() => rightsActions.message(request, actor, body, internal))) setBody('');
             }}>
               {internal ? 'Add note' : 'Send reply'}
             </button>
           </div>
           <div className="row request-actions">
-            {request.status === 'open' && <button className="btn secondary" onClick={() => apply(() => markInProgress(request, actor, new Date()))}>Mark in progress</button>}
+            {request.status === 'open' && <button className="btn secondary" onClick={() => apply(() => rightsActions.markInProgress(request, actor))}>Mark in progress</button>}
             {isStatutory(request.type) && !request.extended && <button className="btn secondary" onClick={() => setModal('extend')}>Extend deadline…</button>}
             {request.type === 'copy_of_data' && (
               <button
@@ -190,15 +179,14 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
         <p className="small muted">Closed {dateTime(request.closedAt!)}. The conversation is kept as a record and cannot be changed.</p>
       )}
 
-      {modal === 'extend' && <ExtendModal request={request} onClose={() => setModal(null)} onDone={(r) => { upsertRightsRequest(r); notifyEmployee('request_extended', request.employeeId, request.employeeName, coalesceKeys.request(request.id)); setModal(null); }} />}
+      {modal === 'extend' && <ExtendModal request={request} onClose={() => setModal(null)} onDone={async (months, reason) => { await rightsActions.extend(request, actor, months, reason); setModal(null); }} />}
       {modal === 'close' && (
         <CloseModal
           request={request}
           onClose={() => setModal(null)}
-          onDone={(r, alsoExclude) => {
-            upsertRightsRequest(r);
-            notifyEmployee('request_closed', request.employeeId, request.employeeName, coalesceKeys.request(request.id));
-            if (alsoExclude && !demo.ledger.isEmployeeExcluded(request.employeeId) && demo.employees.some((e) => e.id === request.employeeId)) {
+          onDone={async (outcome, summary, alsoExclude) => {
+            await rightsActions.close(request, actor, outcome, summary);
+            if (!LIVE && alsoExclude && !demo.ledger.isEmployeeExcluded(request.employeeId) && demo.employees.some((e) => e.id === request.employeeId)) {
               demo.ledger.excludeEmployee(actor, request.employeeId, 'other', `Objection upheld (request ${request.id.slice(0, 8)}) – FocusiQ processing stopped`);
               bump();
             }
@@ -210,7 +198,7 @@ function RequestDetail({ request, now }: { request: RightsRequest; now: Date }) 
   );
 }
 
-function ExtendModal({ request, onClose, onDone }: { request: RightsRequest; onClose: () => void; onDone: (r: RightsRequest) => void }) {
+function ExtendModal({ request, onClose, onDone }: { request: RightsRequest; onClose: () => void; onDone: (months: number, reason: string) => Promise<void> }) {
   const { actor } = useStore();
   const [months, setMonths] = useState(1);
   const [reason, setReason] = useState('');
@@ -239,9 +227,10 @@ function ExtendModal({ request, onClose, onDone }: { request: RightsRequest; onC
         <button className="btn secondary" onClick={onClose}>Cancel</button>
         <button
           className="btn"
-          onClick={() => {
+          onClick={async () => {
             try {
-              onDone(extendDeadline(request, actor, months, reason, new Date()));
+              extendDeadline(request, actor, months, reason, new Date()); // same rules as the database, checked first
+              await onDone(months, reason);
             } catch (e) {
               setError((e as Error).message);
             }
@@ -254,7 +243,7 @@ function ExtendModal({ request, onClose, onDone }: { request: RightsRequest; onC
   );
 }
 
-function CloseModal({ request, onClose, onDone }: { request: RightsRequest; onClose: () => void; onDone: (r: RightsRequest, alsoExclude: boolean) => void }) {
+function CloseModal({ request, onClose, onDone }: { request: RightsRequest; onClose: () => void; onDone: (outcome: Outcome, summary: string, alsoExclude: boolean) => Promise<void> }) {
   const { actor } = useStore();
   const options = OUTCOMES_BY_TYPE[request.type];
   const [outcome, setOutcome] = useState<Outcome>(options[0]!);
@@ -279,7 +268,10 @@ function CloseModal({ request, onClose, onDone }: { request: RightsRequest; onCl
         {(outcome === 'not_upheld' || outcome === 'partly_provided') && (
           <p className="small secondary">The employee will also be told they can ask for a review or complain to the ICO.</p>
         )}
-        {outcome === 'upheld' && (
+        {outcome === 'upheld' && LIVE && (
+          <p className="small secondary">Upholding an objection stops FocusiQ processing. Also exclude this person from benchmarking on the Eligibility &amp; audit tab.</p>
+        )}
+        {outcome === 'upheld' && !LIVE && (
           <label className="row small">
             <input type="checkbox" checked={exclude} onChange={(e) => setExclude(e.target.checked)} />
             Also exclude {request.employeeName} from benchmarking now (recorded in Eligibility &amp; audit). Their existing data is kept.
@@ -291,9 +283,10 @@ function CloseModal({ request, onClose, onDone }: { request: RightsRequest; onCl
         <button className="btn secondary" onClick={onClose}>Cancel</button>
         <button
           className="btn"
-          onClick={() => {
+          onClick={async () => {
             try {
-              onDone(closeRequest(request, actor, outcome, summary, new Date()), outcome === 'upheld' && exclude);
+              closeRequest(request, actor, outcome, summary, new Date()); // same rules as the database, checked first
+              await onDone(outcome, summary, outcome === 'upheld' && exclude);
             } catch (e) {
               setError((e as Error).message);
             }

@@ -25,7 +25,7 @@ import {
   type Notification,
 } from '../src/participation/index.js';
 
-const SQL = ['20261002090900_focusiq_notifications.sql', '20261002091000_focusiq_resend_delivery.sql']
+const SQL = ['20261002090900_focusiq_notifications.sql', '20261002091000_focusiq_resend_delivery.sql', '20261005090000_focusiq_invitations_and_completion.sql']
   .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   .join('\n');
 const NOW = new Date('2026-10-03T09:00:00Z');
@@ -89,6 +89,21 @@ suite('notification emails', () => {
     expect(SQL).toContain("'request:' || new.request_id");
     expect(SQL).toContain("'summary:' || new.employee_id");
     expect(SQL).toContain("'ack-reminder:' || e.id");
+    expect(coalesceKeys.invitation('e1')).toBe('invite:e1');
+    expect(SQL).toContain("'invite:' || e.id");
+    expect(coalesceKeys.completed('a1')).toBe('completed:a1');
+    expect(SQL).toContain("'completed:' || new.id");
+    for (const line of [' completed since the last summary', 'FocusiQ: daily summary', 'Sign in to the FocusiQ dashboard to see more:']) expect(SQL).toContain(line);
+  });
+
+  it('adds completions to the daily summary as information, not action', () => {
+    const none = { pendingAdjustments: 0, overdueRequests: 0, dueSoonRequests: 0, upcomingDay: null, undeliveredEmails: 0 };
+    const only = directorDigest({ ...none, completedSinceLast: 4 })!;
+    expect(only.subject).toBe('FocusiQ: daily summary');
+    expect(only.text).toContain('- 4 assessments completed since the last summary\n\nSign in to the FocusiQ dashboard to see more:');
+    const both = directorDigest({ ...none, pendingAdjustments: 1, completedSinceLast: 1 })!;
+    expect(both.subject).toBe('FocusiQ: 1 thing needs your attention');
+    expect(both.text).toContain('- 1 adjustment request awaiting a decision\n- 1 assessment completed since the last summary\n\nSign in to the FocusiQ dashboard to deal with them:');
   });
 
   it('refuses pronouns and content in emails', () => {

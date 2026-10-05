@@ -12,11 +12,12 @@ import {
   type DayEmployee,
   type DaySettings,
   type Notification,
+  coalesceKeys,
 } from '../../../src/participation/index.js';
-import { listOutbox, subscribeOutbox } from '../demo/outboxStore.js';
+import { listOutbox, notifyEmployee, subscribeOutbox } from '../demo/outboxStore.js';
 import { DEMO_ASSESSMENT } from '../demo/assessment.js';
 import { demoAcknowledgements } from '../demo/daySeed.js';
-import { demoAcknowledgement, demoProgress, readJson, subscribeParticipation, writeJson } from '../shared/participationStore.js';
+import { RUN_KEY, demoAcknowledgement, demoProgress, readJson, subscribeParticipation, writeJson } from '../shared/participationStore.js';
 import { useStore } from '../state.js';
 import { useAdjustmentRequests } from './AdjustmentsView.js';
 import { useRightsRequests } from './QuestionsView.js';
@@ -32,6 +33,13 @@ export const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() 
 export function nextWorkingDay(from = new Date()): string {
   const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
   while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return localDate(d);
+}
+
+/** The working day before today (Monday's is Friday), as YYYY-MM-DD: when the last daily summary went out. */
+export function previousWorkingDay(from = new Date()): string {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
   return localDate(d);
 }
 
@@ -92,6 +100,16 @@ export function useReadiness(settings: DaySettings, now: Date) {
     const p = demoProgress(LIVE_EMPLOYEE, TOTAL_QUESTIONS);
     return p ? { [LIVE_EMPLOYEE]: p } : ({} as Record<string, AssessmentProgress>);
   }, [live, now]);
+  // Mirrors the database trigger: a content-free thank-you email when an assessment is completed.
+  const completedAt = progress[LIVE_EMPLOYEE]?.completedAt ?? null;
+  useEffect(() => {
+    const run = readJson<{ assessmentId: string }>(RUN_KEY);
+    if (!completedAt || !run) return;
+    const key = coalesceKeys.completed(run.assessmentId);
+    if (listOutbox().some((n) => n.coalesceKey === key)) return;
+    const me = employees.find((e) => e.employeeId === LIVE_EMPLOYEE);
+    if (me) notifyEmployee('assessment_completed', me.employeeId, me.name, key);
+  }, [completedAt, employees]);
   const readiness = useMemo(
     () => assessReadiness({ employees, currentNoticeVersion: NOTICE_V1.version, acknowledgements, adjustments, rightsRequests }, settings),
     [employees, acknowledgements, adjustments, rightsRequests, settings],

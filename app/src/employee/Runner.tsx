@@ -16,8 +16,9 @@ import {
   type SessionOptions,
   type SessionState,
   type SyncStatus,
+  type Transport,
 } from '../../../src/runner/index.js';
-import { demoTransport, serverSnapshot } from './demoTransport.js';
+import type { ServerSnapshot } from './backend.js';
 
 const SESSION_KEY = 'focusiq-demo-session';
 
@@ -103,7 +104,19 @@ export function hasSavedSession(): boolean {
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const fmtDuration = (s: number) => (s % 60 === 0 ? `${s / 60} minutes` : `${Math.floor(s / 60)} min ${s % 60} s`);
 
-export function Runner({ definition, options }: { definition: AssessmentDefinition; options: Omit<SessionOptions, 'definition'> }) {
+export function Runner({
+  definition,
+  options,
+  transport,
+  snapshot,
+}: {
+  definition: AssessmentDefinition;
+  options: Omit<SessionOptions, 'definition'>;
+  /** Saves answers (demo: this browser; live: WG Main). */
+  transport: Transport;
+  /** What the server already holds, so a reload resumes without re-sending. */
+  snapshot: ServerSnapshot;
+}) {
   const savedRef = useRef<Saved>(
     (() => {
       const existing = load();
@@ -119,10 +132,9 @@ export function Runner({ definition, options }: { definition: AssessmentDefiniti
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const outbox = useMemo(() => {
-    const o = new Outbox({ transport: demoTransport, onStatus: setSync });
-    // Resume: the demo server already holds events saved before the reload.
-    const server = serverSnapshot(options.assessmentId);
-    o.markSaved(Math.min(server.events, state.events.length), server.presentationIds, server.completed);
+    const o = new Outbox({ transport, onStatus: setSync });
+    // Resume: the server already holds events saved before the reload.
+    o.markSaved(Math.min(snapshot.events, state.events.length), snapshot.presentationIds, snapshot.completed);
     return o;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.assessmentId]);
@@ -489,9 +501,3 @@ function SaveStatus({ sync, online }: { sync: SyncStatus; online: boolean }) {
   }
   return <p className="save-status" role="status">{content}</p>;
 }
-
-export function newDemoAssessment(timeMultiplier: number): Omit<SessionOptions, 'definition'> {
-  const id = globalThis.crypto.randomUUID();
-  return { assessmentId: id, seed: id, timeMultiplier };
-}
-

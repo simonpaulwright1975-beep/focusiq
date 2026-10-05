@@ -288,3 +288,22 @@ details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700
 .landing-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: .2em; color: var(--accent-lt); }
 @media (max-width: 480px) { .landing-body { padding: 24px 20px 28px; } .landing-logo img { height: 48px; } }
 .brand-logo { height: 40px; width: auto; display: block; }
+
+/* Staff tab */
+.staff-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .staff-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.staff-num { font-size: 2rem; font-weight: 800; color: var(--ink); }
+.staff-message { border-radius: 12px; padding: 10px 14px; margin: 8px 0; }
+@media (max-width: 600px) { .staff-stats { grid-template-columns: minmax(0, 1fr); } }
+/* Sign-in (live mode) */
+.auth-form { display: grid; gap: 14px; text-align: left; }
+.auth-form .btn { justify-self: center; }
+.auth-form input { width: 100%; box-sizing: border-box; }
+.auth-hint { text-align: center; margin: 0; }
+.auth-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+.auth-links .btn.link { font-size: 13px; }
+.auth-sent { border-radius: 12px; padding: 10px 14px; margin: 0; }
+.auth-message { display: grid; gap: 10px; justify-items: center; }
+.topbar-who { margin-left: 8px; }
+.check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.check-row input { margin-top: 2px; flex: none; }

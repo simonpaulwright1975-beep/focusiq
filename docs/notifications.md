@@ -26,7 +26,9 @@ Employee emails come from **Walter Geering** and greet the person by their first
 | Assessment day invitation | A Director clicks **Email invitations…** on *Assessment day* | Date, time, room and expected minutes. Adds a request to acknowledge if that's still outstanding. People with an open objection aren't invited. Sending fixes everyone's session |
 | Assessment day change | Invitations are emailed again after a booking that was already sent has changed | Unchanged bookings are not re-sent |
 | Acknowledgement reminder | A Director clicks **Email reminders** on *Assessment day* | At most once every 3 days per person |
-| Director daily summary | Weekdays at 08:00 UK time | Only when something needs attention: pending adjustments, overdue requests, requests due within 7 days, and people not ready for an assessment day in the next 3 days. Each Director can turn it off |
+| Invitation to FocusiQ | A Director adds someone on the **Staff** tab (with "Email an invitation now"), or clicks **Resend invitation** | Only for people with a WG login. At most once every 3 days per person |
+| Assessment completed | An employee submits their assessment | A thank-you with no results |
+| Director daily summary | Weekdays at 08:00 UK time | Counts only: pending adjustments, overdue requests, requests due within 7 days, people not ready for an assessment day in the next 3 days, emails not delivered, and assessments completed since the last summary (for information; if that is all, the subject is "FocusiQ: daily summary"). Not sent when there is nothing to report. Each Director can turn it off |
 
 **Merging:** several updates about the same thing before an email goes out (for example three quick replies, or a reply and then closing the request) are merged into one email. Each email records a *coalesce key*.
 

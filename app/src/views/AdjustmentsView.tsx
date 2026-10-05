@@ -14,23 +14,13 @@ import {
 } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
 import { Card } from '../components/ui.js';
-import { DEMO_ADJUSTMENT_REQUESTS } from '../demo/adjustmentSeed.js';
-import { listRequests, seedOnce, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
-import { notifyEmployee } from '../demo/outboxStore.js';
-import { coalesceKeys } from '../../../src/participation/index.js';
+import { saveDecision, useAdjustmentRequests } from './requestsData.js';
 import { useStore } from '../state.js';
 
 const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-export function useAdjustmentRequests(): AdjustmentRequest[] {
-  const [requests, setRequests] = useState(() => {
-    seedOnce(DEMO_ADJUSTMENT_REQUESTS);
-    return listRequests();
-  });
-  useEffect(() => subscribe(() => setRequests(listRequests())), []);
-  return requests;
-}
+export { useAdjustmentRequests };
 
 function StatusTag({ status }: { status: AdjustmentRequest['status'] }) {
   if (status === 'pending') return <span className="tag tag-amber">● Awaiting decision</span>;
@@ -153,6 +143,7 @@ function DecisionModal({ request, onClose }: { request: AdjustmentRequest; onClo
   const [internalNote, setInternalNote] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
   const [errors, setErrors] = useState<DecisionErrors>({});
+  const [saving, setSaving] = useState(false);
 
   const wantsTime = status === 'agreed' && arrangements.includes('extra_time');
   const pct = extraPct ?? (customPct.trim() ? Number(customPct) : NaN);
@@ -184,9 +175,11 @@ function DecisionModal({ request, onClose }: { request: AdjustmentRequest; onClo
     if (message.includes('[reason]') || message.includes('[alternative]')) errs.employeeMessage = 'Replace the [bracketed] parts of the message before sending.';
     setErrors(errs);
     if (Object.keys(errs).length) return;
-    upsertRequest(decideAdjustment(request, input, actor, now));
-    notifyEmployee('adjustment_decided', request.employeeId, request.employeeName, coalesceKeys.adjustment(request.id));
-    onClose();
+    setSaving(true);
+    saveDecision(request, input, actor, now).then(onClose, (e: Error) => {
+      setErrors({ employeeMessage: `Not saved: ${e.message}` });
+      setSaving(false);
+    });
   };
   const err = (k: keyof DecisionErrors) => (errors[k] ? <p className="field-error" role="alert">{errors[k]}</p> : null);
 
@@ -272,7 +265,7 @@ function DecisionModal({ request, onClose }: { request: AdjustmentRequest; onClo
       </div>
       <div className="actions">
         <button className="btn secondary" onClick={onClose}>Cancel</button>
-        <button className="btn" onClick={submit}>{status === 'agreed' ? 'Agree adjustment' : 'Decline request'}</button>
+        <button className="btn" disabled={saving} onClick={submit}>{saving ? 'Saving…' : status === 'agreed' ? 'Agree adjustment' : 'Decline request'}</button>
       </div>
     </Modal>
   );

@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  NOTICE_V1,
   RIGHTS_REQUEST_LABELS,
   agreedTimeMultiplier,
   canStartAssessment,
-  createRequest,
   employeeAdjustmentView,
   type AdjustmentRequest,
   createAcknowledgement,
@@ -19,32 +17,18 @@ import {
   type RightsRequestType,
 } from '../../../src/participation/index.js';
 import { Modal } from '../components/Modal.js';
-import { DEMO_ASSESSMENT } from '../demo/assessment.js';
 import { clearDemoServer } from './demoTransport.js';
-import { latestRequestFor, resetRequests, subscribe, upsertRequest } from '../shared/adjustmentStore.js';
-import { resetRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
+import { resetRequests } from '../shared/adjustmentStore.js';
+import { resetRightsRequests } from '../shared/requestStore.js';
 import { MyRequests } from './MyRequests.js';
 import { MySummary } from './MySummary.js';
 import { resetReleases } from '../shared/summaryStore.js';
-import { ACK_KEY, RUN_KEY, readJson, writeJson } from '../shared/participationStore.js';
-import { Runner, clearSavedSession, newDemoAssessment } from './Runner.js';
+import { ACK_KEY, RUN_KEY } from '../shared/participationStore.js';
+import { Runner, clearSavedSession } from './Runner.js';
 import { LOGO_SRC } from '../shared/Landing.js';
-
-type RunOptions = ReturnType<typeof newDemoAssessment>;
-
-/**
- * DEMO: the notice is shown as published so the flow can be tried, with its
- * unfilled placeholders highlighted. A real deployment publishes only a
- * completed notice (publishNotice refuses placeholders).
- */
-const NOTICE: PrivacyNotice = { ...NOTICE_V1, publishedAt: '2026-10-01T00:00:00Z' };
-const ME: EmployeeRecordDetails = {
-  employeeId: 's4',
-  fullName: 'Grace Okafor',
-  department: 'Sales',
-  jobRole: 'Salesperson',
-  startDate: '2025-11-03',
-};
+import { useSignedIn } from '../shared/auth.js';
+import { backend, type Loaded, type RunOptions, type ServerSnapshot } from './backend.js';
+import type { AssessmentDefinition } from '../../../src/runner/index.js';
 
 const STEPS = ['About FocusiQ', 'Privacy notice', 'Your details', 'Statements', 'Adjustments', 'Review and sign', 'Done'] as const;
 const STEP_ERRORS: Partial<Record<number, (keyof FormErrors)[]>> = { 2: ['details'], 3: ['ticked'], 4: ['adjustment'], 5: ['typedName', 'notice'] };
@@ -68,12 +52,106 @@ function Text({ children }: { children: string }) {
 const dateLong = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export function EmployeeApp() {
-  const [record, setRecord] = useState<AcknowledgementRecord | null>(() => readJson<AcknowledgementRecord>(ACK_KEY));
+  const [loaded, setLoaded] = useState<Loaded | null | undefined>(undefined);
+  const [failure, setFailure] = useState<string | null>(null);
+  useEffect(() => {
+    backend.load().then(setLoaded, (e: Error) => setFailure(e.message));
+  }, []);
+  if (failure) return <Shell me={null}><main className="card panel"><h2>FocusiQ could not load</h2><p>{failure}</p><p className="small muted">Please refresh the page. If it keeps happening, tell a Director.</p></main></Shell>;
+  if (loaded === undefined) return <Shell me={null}><main className="card panel"><p aria-busy="true">Loading your FocusiQ page…</p></main></Shell>;
+  if (loaded === null) {
+    return (
+      <Shell me={null}>
+        <main className="card panel">
+          <h2>No FocusiQ record yet</h2>
+          <p>Your Walter Geering account is not linked to a FocusiQ employee record. If you were expecting to take part, please speak to a Director.</p>
+        </main>
+      </Shell>
+    );
+  }
+  if (!loaded.notice) {
+    return (
+      <Shell me={loaded.me}>
+        <main className="card panel">
+          <h2>FocusiQ is not open yet</h2>
+          <p>Walter Geering has not published the FocusiQ privacy notice yet, so there is nothing to do for now. You will get an email when it is ready.</p>
+        </main>
+      </Shell>
+    );
+  }
+  return <Participation loaded={loaded} notice={loaded.notice} />;
+}
+
+/** Header and layout around every employee page. */
+function Shell({ me, children, placeholders = 0 }: { me: EmployeeRecordDetails | null; children: ReactNode; placeholders?: number }) {
+  const who = useSignedIn();
+  return (
+    <div className="emp-shell">
+      <header className="emp-top">
+        <img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" />
+        <span className="lbl">Walter Geering</span>
+        <span className="who">
+          {backend.live ? (
+            <>
+              {me ? <>Signed in as {me.fullName} · </> : null}
+              {who && <button className="btn link" onClick={() => who.signOut()}>Sign out</button>}
+            </>
+          ) : (
+            <>
+              Signed in as {me?.fullName ?? 'Grace Okafor'} (demo) ·{' '}
+              <button
+                className="btn link"
+                onClick={() => {
+                  for (const k of [ACK_KEY, RUN_KEY]) localStorage.removeItem(k);
+                  clearSavedSession();
+                  clearDemoServer();
+                  resetRequests();
+                  resetRightsRequests();
+                  resetReleases();
+                  window.location.reload();
+                }}
+              >
+                Reset demo
+              </button>
+            </>
+          )}
+        </span>
+      </header>
+      {!backend.live && (
+        <div className="banner" role="note">
+          <strong>Demo.</strong> Nothing you enter is sent anywhere.{' '}
+          {placeholders > 0 && <>Highlighted text ({placeholders} items) must be completed by Walter Geering before go-live.</>}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** Loads the question content for an assessment in progress, then runs it. */
+function RunnerHost({ run }: { run: RunOptions }) {
+  const [opened, setOpened] = useState<{ definition: AssessmentDefinition; snapshot: ServerSnapshot } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    backend.open(run).then(setOpened, (e: Error) => setError(e.message));
+  }, [run]);
+  if (error) return <main className="card panel"><h2>The assessment could not open</h2><p>{error}</p><p className="small muted">Your answers so far are saved. Please refresh the page to try again.</p></main>;
+  if (!opened) return <main className="card panel"><p aria-busy="true">Opening your assessment…</p></main>;
+  return <Runner definition={opened.definition} options={run} transport={backend.transport} snapshot={opened.snapshot} />;
+}
+
+function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNotice }) {
+  const NOTICE = notice;
+  const ME = loaded.me;
+  const [record, setRecord] = useState<AcknowledgementRecord | null>(loaded.acknowledgement);
   const [step, setStep] = useState(() => (record ? STEPS.length - 1 : 0));
-  const [run, setRun] = useState<RunOptions | null>(() => readJson<RunOptions>(RUN_KEY));
-  const [adjustment, setAdjustment] = useState<AdjustmentRequest | null>(() => latestRequestFor(ME.employeeId));
-  // Live: a Director's decision (even in another tab) updates this page.
-  useEffect(() => subscribe(() => setAdjustment(latestRequestFor(ME.employeeId))), []);
+  const [run, setRun] = useState<RunOptions | null>(loaded.run);
+  const [completed] = useState(loaded.completed);
+  const [adjustment, setAdjustment] = useState<AdjustmentRequest | null>(loaded.adjustment);
+  // A Director's decision (another tab in the demo; the database when live) updates this page.
+  useEffect(() => backend.watchAdjustment(ME, setAdjustment), [ME]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [form, setForm] = useState<AcknowledgementForm>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [asking, setAsking] = useState(false);
@@ -98,21 +176,19 @@ export function EmployeeApp() {
       return;
     }
     if (step === 5) {
-      const created = await createAcknowledgement(form, NOTICE, ME);
-      writeJson(ACK_KEY, created);
-      if (created.adjustmentRequested) {
-        upsertRequest({
-          id: created.id,
-          employeeId: ME.employeeId,
-          employeeName: ME.fullName,
-          department: ME.department,
-          description: created.adjustmentDescription!,
-          createdAt: created.acknowledgedAt,
-          status: 'pending',
-          history: [],
-        });
+      setSaveError(null);
+      try {
+        const created = await createAcknowledgement(form, NOTICE, ME);
+        const saved = await backend.saveAcknowledgement(created, ME);
+        setRecord(saved);
+        // Shown as being reviewed straight away; the Director's decision arrives through watchAdjustment.
+        if (saved.adjustmentRequested) {
+          setAdjustment({ id: saved.id, employeeId: ME.employeeId, employeeName: ME.fullName, department: ME.department, description: saved.adjustmentDescription ?? '', createdAt: saved.acknowledgedAt, status: 'pending', history: [] });
+        }
+      } catch (e) {
+        setSaveError(`Your acknowledgement could not be saved: ${(e as Error).message} Please try again.`);
+        return;
       }
-      setRecord(created);
     }
     setStep(step + 1);
   };
@@ -287,10 +363,12 @@ export function EmployeeApp() {
               {adjustmentView.message && <p>{adjustmentView.message}</p>}
               {adjustmentView.status === 'pending' && (
                 <p className="small">
-                  You will be able to start once a Director has reviewed it.{' '}
-                  <span className="muted">
-                    Demo: open the <a href="./index.html#adjustments" target="_blank" rel="noreferrer">Director dashboard → Adjustments</a> in another tab to decide it – this page updates automatically.
-                  </span>
+                  You will be able to start once a Director has reviewed it. This page updates automatically, and you will also get an email.{' '}
+                  {!backend.live && (
+                    <span className="muted">
+                      Demo: open the <a href="./index.html#adjustments" target="_blank" rel="noreferrer">Director dashboard → Adjustments</a> in another tab to decide it.
+                    </span>
+                  )}
                 </p>
               )}
               {adjustmentView.status === 'declined' && <p className="small">You can still take the assessment under the standard conditions.</p>}
@@ -300,15 +378,21 @@ export function EmployeeApp() {
             <button className="btn secondary" onClick={() => window.print()}>Print or save a copy</button>
             <button
               className="btn"
-              disabled={!check?.allowed || (adjustmentView !== null && !adjustmentView.canStart)}
+              disabled={starting || !check?.allowed || (adjustmentView !== null && !adjustmentView.canStart)}
               title={adjustmentView && !adjustmentView.canStart ? 'Your adjustment request will be reviewed first' : undefined}
-              onClick={() => {
-                const options = newDemoAssessment(agreedTimeMultiplier(adjustment));
-                writeJson(RUN_KEY, options);
-                setRun(options);
+              onClick={async () => {
+                setStarting(true);
+                setSaveError(null);
+                try {
+                  setRun(await backend.start(agreedTimeMultiplier(adjustment)));
+                } catch (e) {
+                  setSaveError((e as Error).message);
+                } finally {
+                  setStarting(false);
+                }
               }}
             >
-              {adjustmentView && !adjustmentView.canStart ? 'Assessment opens once your adjustment is reviewed' : 'Start my assessment'}
+              {adjustmentView && !adjustmentView.canStart ? 'Assessment opens once your adjustment is reviewed' : starting ? 'Opening…' : 'Start my assessment'}
             </button>
           </div>
         </div>
@@ -318,35 +402,16 @@ export function EmployeeApp() {
 
   const visibleErrors = Object.entries(errors).filter(([, v]) => v);
   return (
-    <div className="emp-shell">
-      <header className="emp-top">
-        <img className="brand-logo" src={LOGO_SRC} alt="FocusiQ" />
-        <span className="lbl">Walter Geering</span>
-        <span className="who">
-          Signed in as {ME.fullName} (demo) ·{' '}
-          <button
-            className="btn link"
-            onClick={() => {
-              for (const k of [ACK_KEY, RUN_KEY]) localStorage.removeItem(k);
-              clearSavedSession();
-              clearDemoServer();
-              resetRequests();
-              resetRightsRequests();
-              resetReleases();
-              window.location.reload();
-            }}
-          >
-            Reset demo
-          </button>
-        </span>
-      </header>
-      <div className="banner" role="note">
-        <strong>Demo.</strong> Nothing you enter is sent anywhere.{' '}
-        {placeholders.length > 0 && <>Highlighted text ({placeholders.length} items) must be completed by Walter Geering before go-live.</>}
-      </div>
-      <MySummary employeeId={ME.employeeId} firstName={ME.fullName.split(' ')[0] ?? ME.fullName} onAsk={() => setAsking(true)} />
-      {run && record ? (
-        <Runner definition={DEMO_ASSESSMENT} options={run} />
+    <Shell me={ME} placeholders={placeholders.length}>
+      <MySummary me={ME} onAsk={() => setAsking(true)} />
+      {saveError && <p className="error-summary" role="alert">{saveError}</p>}
+      {completed && run ? (
+        <main className="card panel">
+          <div className="row"><div className="done-mark" aria-hidden="true">✓</div><h2>You have completed your FocusiQ assessment</h2></div>
+          <p>Thank you. Your answers are saved. A Director will review the results, and you will receive your own summary here afterwards.</p>
+        </main>
+      ) : run && record ? (
+        <RunnerHost run={run} />
       ) : (<>
       {step < STEPS.length - 1 && (
         <>
@@ -375,25 +440,26 @@ export function EmployeeApp() {
         <span className="muted">Ask a question, request a copy of your information, or raise an objection.</span>
       </p>
       {lastSent && <p className="small secondary no-print" role="status">{lastSent}</p>}
-      <MyRequests employeeId={ME.employeeId} />
+      <MyRequests me={ME} />
       {asking && (
         <AskModal
           onClose={() => setAsking(false)}
-          onSend={({ type, message }) => {
-            const created = createRequest({ employeeId: ME.employeeId, employeeName: ME.fullName, department: ME.department, type, message, now: new Date() });
-            upsertRightsRequest(created);
-            setLastSent(`Sent. Walter Geering will reply by ${new Date(`${created.dueAt}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`);
+          onSend={async ({ type, message }) => {
+            const { dueAt } = await backend.sendRequest(ME, type, message);
+            setLastSent(`Sent. Walter Geering will reply by ${new Date(`${dueAt}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`);
             setAsking(false);
           }}
         />
       )}
-    </div>
+    </Shell>
   );
 }
 
-function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type: RightsRequestType; message: string }) => void }) {
+function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type: RightsRequestType; message: string }) => Promise<void> }) {
   const [type, setType] = useState<RightsRequestType>('question');
   const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   return (
     <Modal title="Questions or concerns" onClose={onClose}>
       <div className="stack">
@@ -407,6 +473,7 @@ function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type
           <label htmlFor="ask-msg">Your message</label>
           <textarea id="ask-msg" value={message} onChange={(e) => setMessage(e.target.value)} />
         </div>
+        {error && <p className="field-error" role="alert">{error}</p>}
         <p className="small muted">
           This goes to the Directors responsible for FocusiQ. Questions are usually answered within 5 working days. Requests for a copy of your
           information, a correction or an objection are answered within one month. You can follow progress below, and you can still carry on with the form.
@@ -414,7 +481,22 @@ function AskModal({ onClose, onSend }: { onClose: () => void; onSend: (r: { type
       </div>
       <div className="actions">
         <button className="btn secondary" onClick={onClose}>Cancel</button>
-        <button className="btn" disabled={!message.trim()} onClick={() => onSend({ type, message })}>Send</button>
+        <button
+          className="btn"
+          disabled={!message.trim() || sending}
+          onClick={async () => {
+            setSending(true);
+            setError(null);
+            try {
+              await onSend({ type, message });
+            } catch (e) {
+              setError(`Not sent: ${(e as Error).message}`);
+              setSending(false);
+            }
+          }}
+        >
+          {sending ? 'Sending…' : 'Send'}
+        </button>
       </div>
     </Modal>
   );

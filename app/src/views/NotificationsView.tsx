@@ -21,7 +21,7 @@ import { Card } from '../components/ui.js';
 import { markAllSent, queue, setDelivery } from '../demo/outboxStore.js';
 import { readJson, writeJson } from '../shared/participationStore.js';
 import { useStore } from '../state.js';
-import { currentDaySettings, localDate, useNow, useOutbox, useReadiness } from './dayData.js';
+import { currentDaySettings, localDate, previousWorkingDay, useNow, useOutbox, useReadiness } from './dayData.js';
 import { EmailPreview } from './EmailPreview.js';
 
 const DIGEST_PREF_KEY = 'focusiq-demo-digest';
@@ -52,6 +52,8 @@ const WHEN: { kind: EmployeeNotificationKind; when: string }[] = [
   { kind: 'day_invitation', when: 'A Director emails invitations from Assessment day' },
   { kind: 'day_updated', when: 'A sent booking changes and invitations are emailed again' },
   { kind: 'acknowledgement_reminder', when: 'A Director emails reminders from Assessment day (at most every 3 days)' },
+  { kind: 'focusiq_invitation', when: 'A Director adds someone to FocusiQ on the Staff tab, or resends their invitation' },
+  { kind: 'assessment_completed', when: 'An employee submits their assessment' },
 ];
 
 const SAMPLE_BOOKING = { date: '2026-10-05', start: '09:30', end: '10:15', room: 'Main assessment room', minutes: 25, acknowledged: false };
@@ -63,7 +65,7 @@ export function NotificationsView() {
   const now = useNow();
   const outbox = useOutbox();
   const settings = useMemo(currentDaySettings, []);
-  const { people, adjustments, rightsRequests } = useReadiness(settings, now);
+  const { people, adjustments, rightsRequests, progress } = useReadiness(settings, now);
   const [filter, setFilter] = useState<Filter>('all');
   const [preview, setPreview] = useState<{ subject: string; text: string; to?: string; id?: string } | null>(null);
   const previewed = preview?.id ? outbox.find((n) => n.id === preview.id) : undefined;
@@ -77,6 +79,7 @@ export function NotificationsView() {
     dueSoonRequests: rightsRequests.filter((r) => dueState(r, now).state === 'due_soon').length,
     upcomingDay: daysToDay >= 0 && daysToDay <= 3 ? { date: settings.date, notReady: people.filter((p) => !p.ready).length } : null,
     undeliveredEmails: outbox.filter((n) => undelivered(n) && now.getTime() - Date.parse(n.sentAt ?? n.createdAt) < 7 * 86_400_000).length,
+    completedSinceLast: Object.values(progress).filter((p) => p.completedAt && Date.parse(p.completedAt) >= Date.parse(`${previousWorkingDay(now)}T08:00:00`)).length,
   };
   const digest = directorDigest(counts);
   const digestKey = coalesceKeys.digest(actor.id, today);
