@@ -8,9 +8,11 @@ import { ScoreDonut } from '../components/bandCharts.js';
 import { Card } from '../components/ui.js';
 import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
 import { useStore } from '../state.js';
+import { LIVE } from '../shared/supabase.js';
 import { subscribeSittings } from '../wgway/store.js';
-import { listWgWayReleases, releaseWgWay, subscribeWgWayReleases, withdrawWgWay, type WgWayRelease } from '../shared/wgWayReleaseStore.js';
-import { demoWgWayResults, pct, releaseOf, QUESTIONS_PER_SITTING, TOPICS, type WgWayResult } from './wgWayResults.js';
+import { listWgWayReleases, subscribeWgWayReleases, type WgWayRelease } from '../shared/wgWayReleaseStore.js';
+import { liveWgWayResults, setShared, subscribeLiveWgWay } from './wgWayData.js';
+import { demoWgWayResults, pct, QUESTIONS_PER_SITTING, TOPICS, type WgWayResult } from './wgWayResults.js';
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -24,16 +26,27 @@ function TopicCell({ c, t }: { c: number; t: number }) {
   );
 }
 
-/** Every WG Way sitting, oldest first, kept up to date as sittings are saved. */
+/** Every WG Way sitting, oldest first, kept up to date as sittings are saved or shared. */
 export function useWgWayResults(): WgWayResult[] {
   const { data } = useStore();
   const names = useMemo(() => new Map(data.employees.map((e) => [e.id, e.displayName])), [data]);
-  const [results, setResults] = useState<WgWayResult[]>(() => demoWgWayResults(names));
+  const [demo, setDemo] = useState<WgWayResult[]>(() => demoWgWayResults(names));
+  const [live, setLive] = useState<WgWayResult[]>([]);
   useEffect(() => {
-    setResults(demoWgWayResults(names));
-    return subscribeSittings(() => setResults(demoWgWayResults(names)));
+    setDemo(demoWgWayResults(names));
+    return subscribeSittings(() => setDemo(demoWgWayResults(names)));
   }, [names]);
-  return results;
+  useEffect(() => {
+    let alive = true;
+    const load = () => liveWgWayResults().then((r) => alive && setLive(r), () => undefined);
+    load();
+    const stop = subscribeLiveWgWay(load);
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, []);
+  return useMemo(() => [...demo, ...live].sort((a, b) => a.name.localeCompare(b.name) || a.completedAt.localeCompare(b.completedAt)), [demo, live]);
 }
 
 /** Latest sitting per person, in first-sitting order. */
@@ -56,8 +69,8 @@ export function WgWayDonuts({ latest }: { latest: WgWayResult[] }) {
   );
 }
 
-/** Results shared with the people who sat the check (demo: this browser). */
-export function useWgWayReleases(): WgWayRelease[] {
+/** Demo results shared with the person (this browser). Live results carry their own sharedAt. */
+function useDemoReleases(): WgWayRelease[] {
   const [releases, setReleases] = useState(listWgWayReleases);
   useEffect(() => subscribeWgWayReleases(() => setReleases(listWgWayReleases())), []);
   return releases;
@@ -65,15 +78,24 @@ export function useWgWayReleases(): WgWayRelease[] {
 
 export function WgWayView() {
   const results = useWgWayResults();
-  const released = new Map(useWgWayReleases().map((r) => [r.sittingId, r]));
+  const demoShared = new Map(useDemoReleases().map((r) => [r.sittingId, r.releasedAt]));
+  const sharedAt = (r: WgWayResult) => (r.live ? r.sharedAt ?? null : demoShared.get(r.id) ?? null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const share = (r: WgWayResult, on: boolean) => {
+    setShareError(null);
+    setShared(r, on).catch((e: Error) => setShareError(e.message));
+  };
 
   // Latest sitting per person for the team view; the one before it for "change".
   const byPerson = new Map<string, WgWayResult[]>();
   for (const r of results) byPerson.set(r.employeeId, [...(byPerson.get(r.employeeId) ?? []), r]);
   const latest = [...byPerson.values()].map((rs) => rs.at(-1)!);
+  // The team view leaves out Stan's sample once real results exist.
+  const real = latest.filter((r) => !r.sample);
+  const teamOf = real.length ? real : latest;
   const team = TOPICS.map((t) => {
-    const c = latest.reduce((n, r) => n + r.byTopic[t].correct, 0);
-    const n = latest.reduce((m, r) => m + r.byTopic[t].total, 0);
+    const c = teamOf.reduce((n, r) => n + r.byTopic[t].correct, 0);
+    const n = teamOf.reduce((m, r) => m + r.byTopic[t].total, 0);
     return { topic: t, c, n };
   }).sort((a, b) => pct(a.c, a.n) - pct(b.c, b.n));
 
@@ -91,7 +113,10 @@ export function WgWayView() {
           <li>Choose <strong>Share with staff member</strong> to let the person see their own score and topic counts on their FocusiQ page – never the answers or anyone else’s score.</li>
         </ul>
         <p className="small muted">
-          Demo: sittings are kept in this browser. Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
+          {LIVE
+            ? 'Sittings are stored in WG Main, which draws and scores each one – the answers never reach staff browsers. Staff open the check at wg-way.html (sales team only). '
+            : 'Demo: sittings are kept in this browser. '}
+          Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
         </p>
       </Card>
 
@@ -114,6 +139,7 @@ export function WgWayView() {
         </Card>
       )}
 
+      {shareError && <p className="error-summary" role="alert">{shareError}</p>}
       <Card title="Sittings" sub="Score (25 questions a sitting), each topic, and the change since the person’s previous sitting">
         <div className="table-wrap">
           <table className="small">
@@ -135,13 +161,13 @@ export function WgWayView() {
                     <td className="num"><strong>{r.correct}/{r.total}</strong> <span className="muted">({pct(r.correct, r.total)}%)</span></td>
                     <td className="num">{change === null ? <span className="muted">First</span> : `${change > 0 ? '+' : change < 0 ? '−' : '±'}${Math.abs(change)} pts`}</td>
                     <td>
-                      {released.has(r.id) ? (
+                      {sharedAt(r) ? (
                         <>
-                          <span className="tag">✓ Shared {date(released.get(r.id)!.releasedAt)}</span>{' '}
-                          <button className="btn link" onClick={() => withdrawWgWay(r.id)}>Stop sharing</button>
+                          <span className="tag">✓ Shared {date(sharedAt(r)!)}</span>{' '}
+                          <button className="btn link" onClick={() => share(r, false)}>Stop sharing</button>
                         </>
                       ) : (
-                        <button className="btn secondary small-btn" onClick={() => releaseWgWay(releaseOf(r))}>Share with staff member</button>
+                        <button className="btn secondary small-btn" onClick={() => share(r, true)}>Share with staff member</button>
                       )}
                     </td>
                     {TOPICS.map((t) => <td key={t}><TopicCell c={r.byTopic[t].correct} t={r.byTopic[t].total} /></td>)}

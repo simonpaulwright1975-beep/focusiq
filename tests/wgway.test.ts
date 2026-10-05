@@ -1,4 +1,6 @@
 import { describe as suite, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createSession, reduce, type Action, type SessionState } from '../src/runner/index.js';
 import { WG_WAY_TEST } from '../app/src/demo/wgWayBank.js';
 import { WG_WAY_ANSWERS } from '../app/src/demo/wgWayScoring.js';
@@ -48,5 +50,36 @@ suite('sharing a WG Way result with the person', () => {
     expect(text).not.toMatch(/"wg-\d+"|answer|option/i);
     expect(STAN_SAMPLE_RELEASE.correct).toBe(67);
     expect(STAN_SAMPLE_RELEASE.byTopic.reduce((n, t) => n + t.total, 0)).toBe(70);
+  });
+});
+
+suite('live WG Way check (WG Main)', () => {
+  const sql = readFileSync(resolve(__dirname, '../supabase/migrations/20261006090000_focusiq_wg_way.sql'), 'utf8');
+  const valuesOf = (fn: string) => {
+    const body = sql.slice(sql.indexOf(`function focusiq.${fn}()`));
+    const values = body.slice(body.indexOf('values'), body.indexOf('$$', body.indexOf('values')));
+    return [...values.matchAll(/\('([^']+)', (?:'([^']+)'|(\d+))\)/g)].map((m) => [m[1], m[2] ?? Number(m[3])]);
+  };
+
+  it('draws the same number from each topic as the app', async () => {
+    const { WG_WAY_DRAW } = await import('../app/src/demo/wgWayBank.js');
+    expect(Object.fromEntries(valuesOf('wg_way_draw_counts'))).toEqual(WG_WAY_DRAW);
+  });
+
+  it('keeps the same near-duplicate pairs apart as the app', async () => {
+    const { WG_WAY_NOT_TOGETHER } = await import('../app/src/demo/wgWayBank.js');
+    expect(valuesOf('wg_way_not_together')).toEqual(WG_WAY_NOT_TOGETHER);
+  });
+
+  it('the live page builds the check from exactly the questions the server drew, in its order', async () => {
+    const { definitionFor } = await import('../app/src/wgway/live.js');
+    const d = definitionFor(['wg-05', 'wg-01', 'wg-40']);
+    const section = d.sections[0]!;
+    expect(section.questions.map((q) => q.questionVersionId)).toEqual(['wg-05', 'wg-01', 'wg-40']);
+    expect(section.draw).toBeUndefined();
+    expect(section.shuffleQuestions).toBe(false);
+    const s = createSession({ definition: d, assessmentId: 'x', seed: 'y' });
+    expect(s.order[0]!.questionIds).toEqual(['wg-05', 'wg-01', 'wg-40']);
+    expect(() => definitionFor(['wg-99'])).toThrow();
   });
 });

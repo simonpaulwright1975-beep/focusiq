@@ -4,7 +4,8 @@ import type { ExerciseEvidence, Finding, InsightReport } from '../../../src/insi
 import { BAND_LABEL, bandKey, emptyCounts, personHeadline } from '../bands.js';
 import { SAMPLE_EMPLOYEE_ID } from '../demo/dataset.js';
 import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
-import { demoWgWayResults, pct, TOPICS as WG_TOPICS } from './wgWayResults.js';
+import { pct, TOPICS as WG_TOPICS } from './wgWayResults.js';
+import { useWgWayResults } from './WgWayView.js';
 import { BandDonut, Headline, ScoreBars, ScoreDonut } from '../components/bandCharts.js';
 import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
@@ -59,7 +60,8 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
   const scored = dimensionRows.flatMap((r) => (r.value == null ? [] : [r.value]));
   const average = employee.id === SAMPLE_EMPLOYEE_ID && scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
   // Live the Walter Geering Way: the separate knowledge check, shown on its own card.
-  const wgWay = useMemo(() => demoWgWayResults(new Map([[employee.id, employee.displayName]])).filter((r) => r.employeeId === employee.id), [employee]);
+  const wgAll = useWgWayResults();
+  const wgWay = useMemo(() => wgAll.filter((r) => r.employeeId === employee.id), [wgAll, employee]);
   const wgLatest = wgWay.at(-1);
 
   return (

@@ -27,6 +27,7 @@ import {
 } from '../../../src/participation/index.js';
 import type { AssessmentDefinition, Presentation, QuestionDef, RunnerEvent, SectionDef, SessionOptions, Transport } from '../../../src/runner/index.js';
 import { DEMO_ASSESSMENT } from '../demo/assessment.js';
+import { WG_WAY_TOPICS, type WgWayTopic } from '../demo/wgWayBank.js';
 import { latestRequestFor, subscribe as subscribeAdjustments, upsertRequest } from '../shared/adjustmentStore.js';
 import { ACK_KEY, RUN_KEY, readJson, writeJson } from '../shared/participationStore.js';
 import { requestsForEmployee, subscribeRightsRequests, upsertRightsRequest } from '../shared/requestStore.js';
@@ -468,11 +469,26 @@ const liveBackend: EmployeeBackend = {
     const rows = check(await db().rpc('my_summary')) as { release_id: string }[];
     if (rows[0]) check(await db().rpc('mark_summary_read', { p_release_id: rows[0].release_id }));
   },
-  watchWgWay(_me, onChange) {
-    // The WG Way check is demo only until its live storage is built (sittings,
-    // server-side scoring and releases in WG Main); until then nothing is shared.
-    onChange([]);
-    return () => undefined;
+  watchWgWay(me, onChange) {
+    // Score and topic counts only, once a Director has shared them (never the questions or answers).
+    return poll(async () => {
+      const rows = (check(await db().rpc('my_wg_way_results')) ?? []) as {
+        sitting_id: string; completed_at: string; correct: number; total: number;
+        by_topic: Record<string, { correct: number; total: number }> | null; shared_at: string;
+      }[];
+      return rows.map((r): WgWayRelease => ({
+        sittingId: r.sitting_id,
+        employeeId: me.employeeId,
+        completedAt: r.completed_at,
+        correct: r.correct,
+        total: r.total,
+        byTopic: (Object.keys(WG_WAY_TOPICS) as WgWayTopic[]).flatMap((t) => {
+          const c = r.by_topic?.[t];
+          return c && c.total > 0 ? [{ topic: t, label: WG_WAY_TOPICS[t], correct: c.correct, total: c.total }] : [];
+        }),
+        releasedAt: r.shared_at,
+      }));
+    }, onChange);
   },
 };
 

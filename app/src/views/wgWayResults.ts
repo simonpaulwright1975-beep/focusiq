@@ -22,6 +22,10 @@ export interface WgWayResult {
   total: number;
   byTopic: Record<WgWayTopic, { correct: number; total: number }>;
   sample?: boolean;
+  /** From WG Main (scored by the database). */
+  live?: boolean;
+  /** Live only: when a Director shared it with the person (null: not shared). */
+  sharedAt?: string | null;
 }
 
 const topicOf = new Map(WG_WAY_TEST.sections[0]!.questions.map((q) => [q.questionVersionId, q.topic as WgWayTopic]));
