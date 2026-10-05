@@ -13,6 +13,7 @@ import { demoWgWayResults, pct, QUESTIONS_PER_SITTING, TOPICS, type WgWayResult 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function TopicCell({ c, t }: { c: number; t: number }) {
+  if (t === 0) return <span className="muted">—</span>;
   return (
     <span className="wg-topic" title={`${c} of ${t} correct`}>
       <span className="wg-bar" aria-hidden="true"><span style={{ width: `${pct(c, t)}%` }} /></span>
@@ -50,7 +51,7 @@ export function WgWayView() {
           <li>Staff never see the answers. Results here are right or wrong only and are kept apart from the FocusiQ assessment.</li>
         </ul>
         <p className="small muted">
-          Demo: sittings are kept in this browser. Stan’s baseline is a sample. Bank: 63 questions; Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
+          Demo: sittings are kept in this browser. Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
         </p>
       </Card>
 
@@ -67,7 +68,7 @@ export function WgWayView() {
         </Card>
       )}
 
-      <Card title="Sittings" sub="Score out of 25, with each topic, and the change since the person’s previous sitting">
+      <Card title="Sittings" sub="Score (25 questions a sitting), each topic, and the change since the person’s previous sitting">
         <div className="table-wrap">
           <table className="small">
             <thead>

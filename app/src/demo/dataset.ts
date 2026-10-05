@@ -98,7 +98,8 @@ const SEEDS: Seed[] = [
  * Stan's fixed scores (no random noise), so the sample report always reads the
  * same. A realistic strong Director against leader expectations (Strong 80+):
  * strongest at owning outcomes, deciding and driving; Complete and Focus are
- * Expected, and competing priorities are the one thing to talk about.
+ * Expected, and competing priorities are the one thing to talk about. The ten
+ * core dimensions average exactly 85 (not shown anywhere: there is no overall score).
  */
 /** Stan's assessment dates: the latest completed on 4 October 2026. */
 const REFERENCE_DATES: Record<string, Record<1 | 2, string>> = {
@@ -113,7 +114,7 @@ const REFERENCE_SCORES: Record<1 | 2, Record<string, number>> = {
     commercial_awareness: 84, target_ownership: 87, customer_judgement: 83,
   },
   2: {
-    think: 87, absorb: 85, remember: 84, prioritise: 82, decide: 88, act: 87, own: 90, drive: 88, complete: 79, focus: 77,
+    think: 88, absorb: 86, remember: 85, prioritise: 82, decide: 88, act: 87, own: 90, drive: 88, complete: 79, focus: 77,
     decision_efficiency: 88, decision_confidence: 89, information_retention: 84, accuracy: 92, avg_response_seconds: 26,
     recheck_rate: 9, unnecessary_recheck_rate: 6, timed_performance: 89, untimed_performance: 86,
     commercial_awareness: 87, target_ownership: 90, customer_judgement: 86,

@@ -49,20 +49,22 @@ export function scoreSitting(presentations: Presentation[], events: RunnerEvent[
   return { correct, total: presentations.length, byTopic };
 }
 
+/** Stan's sample: the whole 70-question bank as a reference (a real sitting draws 25). */
 const SAMPLE: WgWayResult = {
   id: 'sample-stan',
   employeeId: 'stan',
   name: 'Stan',
   completedAt: '2026-10-04T11:00:00.000Z',
-  correct: 18,
-  total: 25,
+  correct: 67,
+  total: 70,
   byTopic: {
-    history: { correct: 3, total: 4 },
-    way: { correct: 3, total: 3 },
-    products: { correct: 2, total: 3 },
-    supply: { correct: 1, total: 2 },
-    playbook: { correct: 5, total: 7 },
-    newbiz: { correct: 4, total: 6 },
+    history: { correct: 8, total: 8 },
+    way: { correct: 6, total: 6 },
+    products: { correct: 6, total: 6 },
+    supply: { correct: 3, total: 4 },
+    business: { correct: 6, total: 6 },
+    playbook: { correct: 19, total: 20 },
+    newbiz: { correct: 19, total: 20 },
   },
   sample: true,
 };

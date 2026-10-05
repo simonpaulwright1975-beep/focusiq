@@ -37,6 +37,7 @@ suite('dashboard demo data', () => {
     const bands = core.map((m) => absoluteBandFor(m, latest.scores[m.key]!, 'leader').band);
     expect(bands.filter((b) => b === 'Strong')).toHaveLength(8);
     expect(bands.filter((b) => b === 'Expected / Typical')).toHaveLength(2);
+    expect(core.reduce((t, m) => t + latest.scores[m.key]!, 0) / core.length).toBe(85);
   });
 
   it('live mode keeps only the sample profile: no fictional staff', () => {

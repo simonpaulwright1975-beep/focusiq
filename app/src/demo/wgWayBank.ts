@@ -14,6 +14,8 @@ export const WG_WAY_TOPICS = {
   supply: 'Supply, bespoke & lead times',
   playbook: 'Playbook',
   newbiz: 'New business: Four Calls to a Meeting',
+  /** Q25–30: waiting for current figures, so never drawn yet. */
+  business: 'Know your business',
 } as const;
 export type WgWayTopic = keyof typeof WG_WAY_TOPICS;
 
@@ -27,7 +29,7 @@ export const WG_WAY_NOT_TOGETHER: [string, string][] = [
 ];
 
 /** Questions per sitting from each topic: 25 in all. */
-export const WG_WAY_DRAW: Record<WgWayTopic, number> = { history: 4, way: 3, products: 3, supply: 2, playbook: 7, newbiz: 6 };
+export const WG_WAY_DRAW: Record<WgWayTopic, number> = { history: 4, way: 3, products: 3, supply: 2, playbook: 7, newbiz: 6, business: 0 };
 
 const BANK: QuestionDef[] = [
     {
