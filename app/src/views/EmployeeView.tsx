@@ -5,7 +5,7 @@ import { BAND_LABEL, bandKey, emptyCounts, personHeadline } from '../bands.js';
 import { SAMPLE_EMPLOYEE_ID } from '../demo/dataset.js';
 import { WG_WAY_TOPICS } from '../demo/wgWayBank.js';
 import { demoWgWayResults, pct, TOPICS as WG_TOPICS } from './wgWayResults.js';
-import { BandDonut, Headline, ScoreBars } from '../components/bandCharts.js';
+import { BandDonut, Headline, ScoreBars, ScoreDonut } from '../components/bandCharts.js';
 import { Trend } from '../components/charts.js';
 import { ReleasePanel } from './ReleasePanel.js';
 import { BandChip, Card, ConfidenceBadge, Explanation, fmt, ordinal } from '../components/ui.js';
@@ -124,6 +124,7 @@ export function EmployeeView({ employeeId, onSelect }: { employeeId: string; onS
               </p>
               {wgWay.length > 1 && <p className="small secondary">{wgWay.length} sittings – see the WG Way check tab for each one.</p>}
             </div>
+            <ScoreDonut correct={wgLatest.correct} total={wgLatest.total} />
             <ul className="wg-topics">
               {WG_TOPICS.filter((t) => wgLatest.byTopic[t].total > 0).map((t) => (
                 <li key={t}>
