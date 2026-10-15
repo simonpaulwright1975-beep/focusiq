@@ -43,14 +43,15 @@ export interface StaffRow {
   assessment?: { status: 'not_started' | 'in_progress' | 'completed'; at: string | null };
 }
 
-export type InviteResult = 'invited' | 'recently_invited' | 'no_login' | 'not_active';
+export type InviteResult = 'invited' | 'recently_invited' | 'no_login' | 'not_active' | 'not_sent_again';
 
 export interface StaffSource {
   live: boolean;
   list(): Promise<StaffRow[]>;
   add(staffId: string, department: Department, startDate: string | null, expectations: ExpectationLevel): Promise<string>;
   setExpectations(employeeId: string, expectations: ExpectationLevel): Promise<void>;
-  invite(employeeId: string): Promise<InviteResult>;
+  /** again: send even if one was sent in the last 3 days (never while one is still waiting). */
+  invite(employeeId: string, again?: boolean): Promise<InviteResult>;
   /** A one-time sign-in code for the person (12 hours; a new one cancels the old). Shown once. */
   createSignInCode(employeeId: string): Promise<{ code: string; expiresAt: string }>;
   /** Live only: bring names, logins and leavers up to date now (it also runs nightly). */
@@ -118,8 +119,8 @@ const liveSource: StaffSource = {
   async setExpectations(employeeId, expectations) {
     check(await db().rpc('set_employee_expectations', { p_employee_id: employeeId, p_expectations: expectations }));
   },
-  async invite(employeeId) {
-    return check(await db().rpc('invite_staff', { p_employee_id: employeeId })) as InviteResult;
+  async invite(employeeId, again = false) {
+    return check(await db().rpc(again ? 'invite_staff_again' : 'invite_staff', { p_employee_id: employeeId })) as InviteResult;
   },
   async createSignInCode(employeeId) {
     const rows = check(await db().rpc('create_sign_in_code', { p_employee_id: employeeId })) as { code: string; expires_at: string }[];
@@ -241,14 +242,14 @@ function demoSource(data: DemoData): StaffSource {
       window.dispatchEvent(new Event(CHANGED));
       return { code: `${raw.slice(0, 5)}-${raw.slice(5)}`, expiresAt };
     },
-    async invite(employeeId) {
+    async invite(employeeId, again = false) {
       const row = readDemo(data).find((r) => r.employeeId === employeeId);
       if (!row) throw new Error('That person is not in FocusiQ.');
       if (row.status !== 'active') return 'not_active';
       if (!row.hasLogin) return 'no_login';
       const key = coalesceKeys.invitation(employeeId);
       const recent = listOutbox().some(
-        (n) => n.coalesceKey === key && (n.status === 'pending' || (n.status === 'sent' && Date.now() - Date.parse(n.sentAt ?? n.createdAt) < 3 * 86_400_000)),
+        (n) => n.coalesceKey === key && (n.status === 'pending' || (!again && n.status === 'sent' && Date.now() - Date.parse(n.sentAt ?? n.createdAt) < 3 * 86_400_000)),
       );
       if (recent) return 'recently_invited';
       notifyEmployee('focusiq_invitation', employeeId, row.fullName, key);

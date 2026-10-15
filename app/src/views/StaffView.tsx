@@ -19,6 +19,7 @@ const INVITE_MESSAGE: Record<InviteResult, string> = {
   recently_invited: 'An invitation was sent in the last 3 days (or is waiting to send), so another was not sent.',
   no_login: 'No Walter Geering login yet. Set one up in the Hub, then send the invitation.',
   not_active: 'This person is no longer active, so no invitation was sent.',
+  not_sent_again: 'No new invitation was sent.',
 };
 
 function InvitationCell({ row }: { row: StaffRow }) {
@@ -112,6 +113,11 @@ export function StaffView() {
   const [selected, setSelected] = useState<string[]>([]);
   const [issued, setIssued] = useState<{ codes: IssuedCode[]; failures: string[] } | null>(null);
 
+  // The message shows above the table; bring it into view wherever the button was.
+  useEffect(() => {
+    if (message) document.querySelector('.staff-message')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [message]);
+
   const load = useCallback(() => {
     source.list().then(
       (r) => { setRows(r); setError(null); },
@@ -136,7 +142,13 @@ export function StaffView() {
   const invite = async (row: StaffRow) => {
     setBusy(true);
     try {
-      const r = await source.invite(row.employeeId!);
+      let r = await source.invite(row.employeeId!);
+      // Sent in the last 3 days: ask before sending another (nothing is sent while one is still waiting).
+      if (r === 'recently_invited' && row.invitationStatus === 'sent') {
+        const when = row.lastInvitedAt ? ` on ${shortDate(row.lastInvitedAt)}` : ' recently';
+        if (window.confirm(`${row.fullName} was already sent an invitation${when}. Send another now?`)) r = await source.invite(row.employeeId!, true);
+        else r = 'not_sent_again';
+      }
       setMessage(`${row.fullName}: ${INVITE_MESSAGE[r]}`);
       load();
     } catch (e) {
