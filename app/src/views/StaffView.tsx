@@ -43,7 +43,7 @@ function CodeCell({ row }: { row: StaffRow }) {
   return <span className="tag tag-amber">● Unused, until {time(c.expiresAt)}</span>;
 }
 
-interface IssuedCode { name: string; code: string; expiresAt: string }
+interface IssuedCode { name: string; email: string | null; code: string; expiresAt: string }
 
 const EMPLOYEE_URL = new URL('./employee.html', window.location.href).href;
 const WG_WAY_URL = new URL('./wg-way.html', window.location.href).href;
@@ -76,7 +76,7 @@ function CodesModal({ codes, failures, onClose }: { codes: IssuedCode[]; failure
         <tbody>
           {codes.map((c) => (
             <tr key={c.name}>
-              <td><strong>{c.name}</strong></td>
+              <td><strong>{c.name}</strong>{c.email && <div className="small muted staff-email">{c.email}</div>}</td>
               <td className="code-cell">{c.code}</td>
               <td className="small">{time(c.expiresAt)}</td>
               <td className="no-print"><button className="btn link" onClick={() => copy(messageFor(c), c.name)}>{copied === c.name ? 'Copied ✓' : 'Copy message'}</button></td>
@@ -154,7 +154,7 @@ export function StaffView() {
     for (const r of people) {
       try {
         const c = await source.createSignInCode(r.employeeId!);
-        codes.push({ name: r.fullName, ...c });
+        codes.push({ name: r.fullName, email: r.email ?? null, ...c });
       } catch (e) {
         failures.push(`${r.fullName}: ${(e as Error).message}`);
       }
@@ -251,7 +251,7 @@ export function StaffView() {
                   {shown.map((r) => (
                     <tr key={r.staffId}>
                       <td>{codeable(r) && <input type="checkbox" aria-label={`Select ${r.fullName} for a sign-in code`} checked={selected.includes(r.staffId)} onChange={() => toggle(r.staffId)} />}</td>
-                      <td><strong>{r.fullName}</strong>{!r.isActive && <div className="small muted">Left (inactive in the directory)</div>}</td>
+                      <td><strong>{r.fullName}</strong>{r.email && <div className="small muted staff-email">{r.email}</div>}{!r.isActive && <div className="small muted">Left (inactive in the directory)</div>}</td>
                       <td>{r.jobTitle ?? '—'}</td>
                       <td>{r.hasLogin ? <span className="tag tag-green">✓ Yes</span> : <span className="tag tag-amber">⚠ Not yet</span>}</td>
                       <td>

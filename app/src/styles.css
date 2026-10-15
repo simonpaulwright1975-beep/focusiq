@@ -342,3 +342,5 @@ details.more > summary { cursor: pointer; color: var(--accent); font-weight: 700
   body:has(.codes-table) .modal:has(.codes-table), body:has(.codes-table) .modal:has(.codes-table) * { visibility: visible; }
   body:has(.codes-table) .modal:has(.codes-table) { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; border: 0; }
 }
+
+.staff-email { word-break: break-all; }

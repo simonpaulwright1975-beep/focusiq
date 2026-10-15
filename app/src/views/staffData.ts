@@ -22,6 +22,8 @@ export interface StaffRow {
   staffId: string;
   fullName: string;
   jobTitle: string | null;
+  /** The Walter Geering sign-in email (live only; Directors only). */
+  email?: string | null;
   isActive: boolean;
   /** Has a WG login (set up in the Hub). */
   hasLogin: boolean;
@@ -72,8 +74,12 @@ const liveSource: StaffSource = {
     const assessments = check(
       await db().from('assessments').select('employee_id, complete, completed_at, started_at, created_at').order('created_at', { ascending: false }),
     ) as { employee_id: string; complete: boolean; completed_at: string | null; started_at: string | null }[];
-    const levels = new Map(
-      (check(await db().from('employees').select('id, expectations')) as { id: string; expectations: ExpectationLevel }[]).map((e) => [e.id, e.expectations]),
+    const people = check(await db().from('employees').select('id, expectations, job_role')) as { id: string; expectations: ExpectationLevel; job_role: string | null }[];
+    const levels = new Map(people.map((e) => [e.id, e.expectations]));
+    // FocusiQ's job title (set by a Director) wins over the directory's, which is often empty.
+    const titles = new Map(people.map((e) => [e.id, e.job_role]));
+    const emails = new Map(
+      ((check(await db().rpc('staff_login_emails')) ?? []) as { staff_id: string; email: string | null }[]).map((r) => [r.staff_id, r.email]),
     );
     const codes = new Map(
       ((check(await db().rpc('sign_in_code_status')) ?? []) as { employee_id: string; created_at: string; expires_at: string; used_at: string | null }[])
@@ -84,7 +90,8 @@ const liveSource: StaffSource = {
     return rows.map((r) => ({
       staffId: r.staff_id,
       fullName: r.full_name,
-      jobTitle: r.job_title,
+      jobTitle: (r.employee_id ? titles.get(r.employee_id) : null) || r.job_title,
+      email: emails.get(r.staff_id) ?? null,
       isActive: r.is_active,
       hasLogin: r.has_login,
       directoryStartDate: r.directory_start_date,
