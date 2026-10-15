@@ -71,6 +71,12 @@ suite('sending through Resend', () => {
     expect((resendPayload(email('n2', { audience: 'director' }), cfg(fn)).text as string)).toContain('https://focusiq.example/\n');
   });
 
+  it('can send plain text only', () => {
+    const p = resendPayload(email('n1'), cfg(fetch, { textOnly: true }));
+    expect(p.html).toBeUndefined();
+    expect(p.text).toContain('https://focusiq.example/employee.html');
+  });
+
   it('test mode sends everything to one address', () => {
     const p = resendPayload(email('n1'), cfg(fetch, { redirectTo: 'simon@example.test' }));
     expect(p.to).toEqual(['simon@example.test']);

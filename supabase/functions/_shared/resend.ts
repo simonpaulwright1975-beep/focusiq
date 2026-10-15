@@ -22,6 +22,8 @@ export interface ResendConfig {
   directorUrl: string;
   /** Test mode: send every email to this address instead of the real recipient. */
   redirectTo?: string;
+  /** Plain text only (no HTML version), e.g. while a mail filter holds the styled emails. */
+  textOnly?: boolean;
   fetch?: typeof fetch;
 }
 
@@ -47,7 +49,7 @@ export function resendPayload(n: OutgoingEmail, cfg: ResendConfig): Record<strin
     to: [cfg.redirectTo || n.email],
     subject: cfg.redirectTo ? `[Test for ${n.email}] ${n.subject}` : n.subject,
     text: n.body.replaceAll(LINK_TOKEN, link),
-    html: emailHtml(n.body, link, n.audience === 'director' ? 'Open the FocusiQ dashboard' : 'Open FocusiQ', iconUrl(cfg.employeeUrl)),
+    ...(cfg.textOnly ? {} : { html: emailHtml(n.body, link, n.audience === 'director' ? 'Open the FocusiQ dashboard' : 'Open FocusiQ', iconUrl(cfg.employeeUrl)) }),
     // Kind only: no personal data in tags.
     tags: [{ name: 'focusiq_kind', value: n.kind }],
   };
