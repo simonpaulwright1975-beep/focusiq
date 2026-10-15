@@ -111,6 +111,7 @@ export function Runner({
   snapshot,
   storageKey = SESSION_KEY,
   finishMessage = 'Your responses have been recorded. A Director will review the results, and you will receive your own summary afterwards.',
+  next,
 }: {
   definition: AssessmentDefinition;
   options: Omit<SessionOptions, 'definition'>;
@@ -122,6 +123,8 @@ export function Runner({
   storageKey?: string;
   /** What the thank-you screen says happens next. */
   finishMessage?: string;
+  /** A link on the thank-you screen to what comes next; usable once every answer is saved. */
+  next?: { href: string; label: string };
 }) {
   const savedRef = useRef<Saved>(
     (() => {
@@ -339,7 +342,17 @@ export function Runner({
             <li key={sec.id} style={sectionVars(i)}><span aria-hidden="true">✓</span>{sec.title}</li>
           ))}
         </ul>
-        <p className="small muted">You can close this page once your answers show as saved below.</p>
+        {next && (
+          <div className="nav finish-next">
+            <span />
+            {online && sync.kind === 'saved' && sync.savedEvents >= state.events.length ? (
+              <a className="btn" href={next.href}>{next.label}</a>
+            ) : (
+              <button className="btn" disabled>Saving your answers…</button>
+            )}
+          </div>
+        )}
+        <p className="small muted">{next ? 'The button opens once your answers show as saved below.' : 'You can close this page once your answers show as saved below.'}</p>
       </div>
     );
   }

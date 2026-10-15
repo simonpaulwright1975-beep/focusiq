@@ -35,6 +35,9 @@ import type { AssessmentDefinition } from '../../../src/runner/index.js';
 const STEPS = ['About FocusiQ', 'Privacy notice', 'Your details', 'Statements', 'Adjustments', 'Review and sign', 'Done'] as const;
 const STEP_ERRORS: Partial<Record<number, (keyof FormErrors)[]>> = { 2: ['details'], 3: ['ticked'], 4: ['adjustment'], 5: ['typedName', 'notice'] };
 
+/** After FocusiQ: the 10-minute Walter Geering Way check (same sign-in, same browser). */
+const WG_WAY_NEXT = { href: './wg-way.html', label: 'Next: the Walter Geering Way check →' };
+
 /** Renders text with [[placeholders]] highlighted. */
 function Text({ children }: { children: string }) {
   const parts = children.split(/(\[\[[^\]]+\]\])/g);
@@ -159,7 +162,17 @@ function RunnerHost({ run }: { run: RunOptions }) {
   }, [run, backend]);
   if (error) return <main className="card panel"><h2>The assessment could not open</h2><p>{error}</p><p className="small muted">Your answers so far are saved. Please refresh the page to try again.</p></main>;
   if (!opened) return <main className="card panel"><p aria-busy="true">Opening your assessment…</p></main>;
-  return <Runner definition={opened.definition} options={run} transport={backend.transport} snapshot={opened.snapshot} storageKey={backend.runnerStorageKey} />;
+  return (
+    <Runner
+      definition={opened.definition}
+      options={run}
+      transport={backend.transport}
+      snapshot={opened.snapshot}
+      storageKey={backend.runnerStorageKey}
+      // The Staff view preview stays a practice copy: no link out to a real check.
+      next={backend.preview ? undefined : WG_WAY_NEXT}
+    />
+  );
 }
 
 function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNotice }) {
@@ -450,6 +463,12 @@ function Participation({ loaded, notice }: { loaded: Loaded; notice: PrivacyNoti
         <main className="card panel">
           <div className="row"><div className="done-mark" aria-hidden="true">✓</div><h2>You have completed your FocusiQ assessment</h2></div>
           <p>Thank you. Your answers are saved. A Director will review the results, and you will receive your own summary here afterwards.</p>
+          {!backend.preview && (
+            <div className="nav">
+              <span />
+              <a className="btn" href={WG_WAY_NEXT.href}>{WG_WAY_NEXT.label}</a>
+            </div>
+          )}
         </main>
       ) : run && record ? (
         <RunnerHost run={run} />
