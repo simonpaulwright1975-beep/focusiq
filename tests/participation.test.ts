@@ -93,7 +93,7 @@ suite('acknowledgement form', () => {
   it('requires every statement, a details decision, an adjustment answer and the typed name', () => {
     const errors = validateAcknowledgement(emptyForm(), completedNotice(), details);
     expect(Object.keys(errors).sort()).toEqual(['adjustment', 'details', 'ticked', 'typedName']);
-    expect(errors.ticked).toBe('Please tick all 8 statements (8 remaining).');
+    expect(errors.ticked).toBe('Please tick all 7 statements (7 remaining).');
   });
 
   it('requires a description when details are wrong or an adjustment is requested', () => {
@@ -143,7 +143,7 @@ suite('acknowledgement form', () => {
       acknowledgedAt: NOW.toISOString(),
     });
     expect(record.noticeSha256).toBe(await noticeFingerprint(notice));
-    expect(record.acknowledgedItems).toHaveLength(8);
+    expect(record.acknowledgedItems).toHaveLength(7);
     expect(Object.isFrozen(record)).toBe(true);
     await expect(createAcknowledgement(emptyForm(), notice, details)).rejects.toThrow(AcknowledgementInvalidError);
   });
@@ -157,7 +157,7 @@ suite('starting an assessment', () => {
     expect(canStartAssessment([record], notice, 'e1')).toEqual({ allowed: true });
     expect(canStartAssessment([record], notice, 'someone-else').allowed).toBe(false);
 
-    const v2 = { ...notice, version: 'privacy-notice/1.1.0' };
+    const v2 = { ...notice, version: 'privacy-notice/1.2.0' };
     expect(canStartAssessment([record], v2, 'e1')).toMatchObject({ allowed: false, reason: 'notice_updated' });
   });
 });
