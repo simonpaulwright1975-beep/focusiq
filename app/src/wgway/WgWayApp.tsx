@@ -1,6 +1,6 @@
 /**
  * "Live the Walter Geering Way – Put the Playbook into Practice": a separate,
- * 10-minute knowledge check for sales staff. 25 questions are drawn per sitting
+ * 10-minute knowledge check, open to everyone in FocusiQ. 25 questions are drawn per sitting
  * (balanced by topic) from the Walter Geering bank. Staff never see the answers,
  * so later retests stay meaningful; Directors see scores by topic.
  *
@@ -31,7 +31,7 @@ function current(): WgWaySitting | null {
 function Intro({ note, startLabel, starting, error, onStart }: { note?: string | null; startLabel: string; starting?: boolean; error?: string | null; onStart: () => void }) {
   return (
     <main className="card panel">
-      <div className="lbl">Walter Geering · sales team</div>
+      <div className="lbl">Walter Geering</div>
       <h2>Live the Walter Geering Way</h2>
       <p className="lead">Put the Playbook into Practice: a quick check of what you know about Walter Geering.</p>
       <ul>

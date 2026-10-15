@@ -103,7 +103,7 @@ export function WgWayView() {
     <div className="stack">
       <Card
         title="Live the Walter Geering Way"
-        sub="Put the Playbook into Practice – a separate 10-minute knowledge check for the sales team"
+        sub="Put the Playbook into Practice – a separate 10-minute knowledge check for the team"
         actions={<a className="btn secondary" href="./wg-way.html" target="_blank" rel="noopener">Try it</a>}
       >
         <ul className="evidence-list">
@@ -114,7 +114,7 @@ export function WgWayView() {
         </ul>
         <p className="small muted">
           {LIVE
-            ? 'Sittings are stored in WG Main, which draws and scores each one – the answers never reach staff browsers. Staff open the check at wg-way.html (sales team only). '
+            ? 'Sittings are stored in WG Main, which draws and scores each one – the answers never reach staff browsers. Staff open the check at wg-way.html: anyone in FocusiQ can take it, so send the link to the people you want to take part. '
             : 'Demo: sittings are kept in this browser. '}
           Stan’s result is a sample covering the whole 70-question bank (67/70); a real sitting draws 25. Bank in use: 63 questions – Q25–30 wait for current figures (active lines, customers, targets) and Q31 repeats Q12.
         </p>

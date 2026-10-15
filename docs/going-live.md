@@ -22,7 +22,7 @@ FocusiQ runs in two modes:
 
 - "Live the Walter Geering Way" (`20261006090000_focusiq_wg_way.sql`): the database draws and scores each
   sitting; the answer key (`scripts/wg-way-sql.ts`, Directors only, never committed) is in
-  `focusiq.wg_way_questions`, which only Directors can read. Sales staff (and Directors) open it at
+  `focusiq.wg_way_questions`, which only Directors can read. Anyone active in FocusiQ can open it (`20261015090100_focusiq_wg_way_open_to_all.sql`) at
   `https://focus-iq.netlify.app/wg-way.html`. **Still to do:** paste
   `20261006090100_focusiq_wg_way_retention.sql` (the full `apply_retention`, now including WG Way sittings)
   instead of the `apply_retention` part of the earlier retention migration, plus the schedule above.
