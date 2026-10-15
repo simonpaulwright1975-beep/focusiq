@@ -55,7 +55,8 @@ SQL editor; email (Resend) when wanted.
    24 months from the assessment date, then deleted automatically by `focusiq.apply_retention()`.
 
 4. **Questions – done (5 October 2026).** Assessment `focusiq-2026.1` (59 questions, 8 sections, about 40 minutes)
-   and privacy notice `privacy-notice/1.0.0` are published in WG Main. They were checked row by row against
+   and privacy notice `privacy-notice/1.0.0` are published in WG Main (the notice was replaced by `privacy-notice/1.1.0` on
+   15 October 2026, without the "not the sole basis" tick box, before anyone had confirmed 1.0.0). They were checked row by row against
    the same file loaded into a test database before publishing. Published content can never be edited: to
    change a question, publish a new assessment version.
 

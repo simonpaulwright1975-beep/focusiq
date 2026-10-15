@@ -7,13 +7,12 @@ Before their first assessment, and again whenever the notice changes, each emplo
 1. **About FocusiQ** – a plain-language summary.
 2. **Privacy notice** – the full, versioned notice.
 3. **Your details** – the name, department, role and start date from their record. The employee confirms them, or says what is wrong, which automatically opens a correction request for HR.
-4. **Statements** – eight statements, each ticked individually:
+4. **Statements** – seven statements, each ticked individually:
    - read the notice;
    - a development tool, not pass/fail;
    - confidential and internal only, never public;
    - interactions (time, changed answers, revisits) are recorded;
    - Directors see the full report and the employee gets a summary;
-   - not the sole basis for employment decisions;
    - knows their rights;
    - will do the assessment personally and not share the questions.
 5. **Adjustments** – "Is there anything that would help?", without asking for medical details. A request automatically creates an adjustment request for a Director.

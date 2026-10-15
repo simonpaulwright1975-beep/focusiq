@@ -34,7 +34,9 @@ export interface PrivacyNotice {
 export const PLACEHOLDER = /\[\[([^\]]+)\]\]/g;
 
 export const NOTICE_V1: PrivacyNotice = {
-  version: 'privacy-notice/1.0.0',
+  // 1.1.0: the "not the sole basis" tick box was removed at the Director's request
+  // (the notice still says so under "How results are used in decisions").
+  version: 'privacy-notice/1.1.0',
   title: 'FocusiQ – how your assessment information is used',
   summary: [
     'FocusiQ helps Walter Geering understand how people approach their work, so we can support you better. It is not a pass/fail test.',
@@ -118,7 +120,6 @@ export const NOTICE_V1: PrivacyNotice = {
     { id: 'internal_only', text: 'I understand my results are confidential, are used only within Walter Geering and will not be made public.' },
     { id: 'interactions_recorded', text: 'I understand that how I complete the assessment – time taken, changed answers and revisited questions – is recorded.' },
     { id: 'who_sees', text: 'I understand that Directors can see my full report and that I will receive my own summary.' },
-    { id: 'not_sole_basis', text: 'I understand results will not be used as the sole basis for decisions about my employment.' },
     { id: 'rights', text: 'I know how to ask questions, request a copy of my information or raise an objection.' },
     { id: 'own_work', text: 'I will complete the assessment myself and will not share the questions with others.' },
   ],

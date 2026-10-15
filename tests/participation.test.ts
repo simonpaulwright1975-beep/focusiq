@@ -134,7 +134,7 @@ suite('acknowledgement form', () => {
     expect(record).toMatchObject({
       id: 'ack-1',
       employeeId: 'e1',
-      noticeVersion: 'privacy-notice/1.0.0',
+      noticeVersion: 'privacy-notice/1.1.0',
       detailsCorrect: false,
       detailsCorrection: 'My role is now Senior Salesperson',
       adjustmentRequested: true,
