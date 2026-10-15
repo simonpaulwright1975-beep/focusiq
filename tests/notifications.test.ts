@@ -25,7 +25,7 @@ import {
   type Notification,
 } from '../src/participation/index.js';
 
-const SQL = ['20261002090900_focusiq_notifications.sql', '20261002091000_focusiq_resend_delivery.sql', '20261005090000_focusiq_invitations_and_completion.sql']
+const SQL = ['20261002090900_focusiq_notifications.sql', '20261002091000_focusiq_resend_delivery.sql', '20261005090000_focusiq_invitations_and_completion.sql', '20261015090300_focusiq_invitation_email.sql']
   .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'))
   .join('\n');
 const NOW = new Date('2026-10-03T09:00:00Z');
@@ -75,6 +75,7 @@ suite('notification emails', () => {
     for (const t of Object.values(EMPLOYEE_TEMPLATES)) {
       expect(SQL).toContain(`'${t.subject}'`);
       expect(SQL).toContain(`'${t.line}'`);
+      for (const extra of [...(t.before ?? []), ...(t.after ?? [])]) expect(SQL).toContain(`'${extra}'`);
     }
     for (const line of [EMAIL_FOOTER, DAY_ACKNOWLEDGE_LINE, DAY_CHANGES_LINE, 'Your FocusiQ assessment is booked:', 'Your FocusiQ assessment time has changed. Your new booking is:',
       'A computer will be ready for you. There is nothing to prepare.', 'Today in FocusiQ:', 'Sign in to the FocusiQ dashboard to deal with them:',

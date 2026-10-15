@@ -1,6 +1,7 @@
 import { describe as suite, expect, it } from 'vitest';
 import {
   classifyResponse,
+  emailHtml,
   deliveryUpdate,
   idempotencyKey,
   redact,
@@ -53,13 +54,20 @@ suite('sending through Resend', () => {
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer re_test');
     expect(headers['Idempotency-Key']).toMatch(/^focusiq-n1-[0-9a-f]+$/);
-    expect(JSON.parse(init.body as string)).toEqual({
+    const { html, ...rest } = JSON.parse(init.body as string);
+    expect(rest).toEqual({
       from: 'Walter Geering <focusiq@waltergeering.co.uk>',
       to: ['grace@example.test'],
       subject: 'New reply to your FocusiQ question or request',
       text: 'Hello Grace,\n\nWalter Geering has replied. Sign in:\nhttps://focusiq.example/employee.html\n',
       tags: [{ name: 'focusiq_kind', value: 'request_reply' }],
     });
+    // The HTML version says the same, with the link as a button and no tracking.
+    expect(html).toContain('Hello Grace,');
+    expect(html).toContain('href="https://focusiq.example/employee.html"');
+    expect(html).toContain('Open FocusiQ');
+    expect(html).toContain('https://focusiq.example/brand/focusiq-icon.png');
+    expect(html).not.toContain('{{link}}');
     expect((resendPayload(email('n2', { audience: 'director' }), cfg(fn)).text as string)).toContain('https://focusiq.example/\n');
   });
 
@@ -127,5 +135,22 @@ suite('Resend delivery webhooks', () => {
     expect(deliveryUpdate({ type: 'email.opened', data: { email_id: 'm' } })).toBeNull();
     expect(deliveryUpdate({ type: 'email.clicked', data: { email_id: 'm' } })).toBeNull();
     expect(deliveryUpdate(null)).toBeNull();
+  });
+});
+
+suite('HTML emails', () => {
+  it('turn the invitation into headings, lists and a button, escaping the text', async () => {
+    const { employeeEmail } = await import('../src/participation/index.js');
+    const { text } = employeeEmail('focusiq_invitation', 'Grace Okafor');
+    const html = emailHtml(text, 'https://focusiq.example/employee.html', 'Open FocusiQ');
+    expect(html).toContain('>Why we are asking</h2>');
+    expect(html).toContain('>How to start</h2>');
+    expect(html).toContain('>What happens next</h2>');
+    expect((html.match(/<li /g) ?? []).length).toBe(6);
+    expect(html).toContain('Open FocusiQ &rarr;</a>');
+    expect(html).toContain('&quot;Questions or concerns&quot;');
+    expect(html).not.toContain('{{link}}');
+    expect(html).not.toMatch(/<h2[^>]*>Hello/);
+    expect(emailHtml('Hello,\n\n<b>x</b>\n{{link}}', 'https://x.example/', 'Go')).toContain('&lt;b&gt;x&lt;/b&gt;');
   });
 });

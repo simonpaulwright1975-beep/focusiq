@@ -81,7 +81,20 @@ export const EMAIL_FOOTER =
   'This is an automatic message from FocusiQ at Walter Geering. Replies to this email are not monitored: please use "Questions or concerns" in FocusiQ instead.';
 
 /** Fixed wording per employee email (the day emails add the booking details). */
-export const EMPLOYEE_TEMPLATES: Record<Exclude<EmployeeNotificationKind, 'day_invitation' | 'day_updated'>, { subject: string; line: string }> = {
+/**
+ * An employee email: an opening line, then optional paragraphs before and after
+ * the sign-in link. An empty string is a blank line; a line starting "- " is a
+ * list item; a short line with no full stop that follows a blank line is a heading
+ * (the HTML email shows these properly; the text version reads the same).
+ */
+export interface EmployeeTemplate {
+  subject: string;
+  line: string;
+  before?: string[];
+  after?: string[];
+}
+
+export const EMPLOYEE_TEMPLATES: Record<Exclude<EmployeeNotificationKind, 'day_invitation' | 'day_updated'>, EmployeeTemplate> = {
   adjustment_decided: {
     subject: 'Your FocusiQ adjustment request has been reviewed',
     line: 'Walter Geering has reviewed your adjustment request for the FocusiQ assessment. Sign in to FocusiQ to see the outcome:',
@@ -107,8 +120,34 @@ export const EMPLOYEE_TEMPLATES: Record<Exclude<EmployeeNotificationKind, 'day_i
     line: 'Before your FocusiQ assessment, please read the privacy notice and complete the short acknowledgement form. It takes about 5 minutes:',
   },
   focusiq_invitation: {
-    subject: 'You are invited to take part in FocusiQ',
-    line: 'Walter Geering has invited you to take part in FocusiQ, which helps us understand how people approach their work so we can support you better. It is not a pass/fail test. Sign in with your usual Walter Geering account to find out more:',
+    subject: 'Your invitation to take part in FocusiQ',
+    line: 'Walter Geering would like you to take part in FocusiQ, our working-style assessment. This email explains why we are asking, what is involved and how to start.',
+    before: [
+      '',
+      'Why we are asking',
+      'FocusiQ shows how each of us takes in information, prioritises, decides and follows things through. It helps us give everyone the right support, tools and training, and it forms part of your development review. It is not a pass/fail test, and there is no single right way to work.',
+      '',
+      'What it involves',
+      '- About 5 minutes to read the privacy notice and confirm your details.',
+      '- The assessment itself: about 40 minutes, in eight short sections based on our customers and products. Five sections are timed, and a calculator is allowed.',
+      '- You may then be asked to take the 10-minute Live the Walter Geering Way check, using the button at the end.',
+      '',
+      'Before you start',
+      '- Find a quiet place where you will not be interrupted for about an hour.',
+      '- Use a computer or laptop if you can, and stay in the same browser throughout.',
+      '- Work on your own and go with your first answer. Please do not discuss the questions with colleagues.',
+      '',
+      'How to start',
+      'Open FocusiQ with the link below and choose Get started. Sign in with your usual Walter Geering email and password (the same as for the Hub), or with the one-time sign-in code you have been given.',
+    ],
+    after: [
+      '',
+      'What happens next',
+      'A Director reviews the results and you receive your own summary. Your results are confidential and are never used on their own to make decisions about your employment. If you have a question, or need an adjustment such as extra time, use "Questions or concerns" in FocusiQ before you begin.',
+      '',
+      'Thank you,',
+      'Walter Geering',
+    ],
   },
   assessment_completed: {
     subject: 'Thank you – your FocusiQ assessment is complete',
@@ -165,7 +204,7 @@ export function employeeEmail(
     return { subject: `${kind === 'day_updated' ? 'Updated: your' : 'Your'} FocusiQ assessment: ${when}`, text: body(name, lines) };
   }
   const t = EMPLOYEE_TEMPLATES[kind];
-  return { subject: t.subject, text: body(name, [t.line, LINK_TOKEN]) };
+  return { subject: t.subject, text: body(name, [t.line, ...(t.before ?? []), LINK_TOKEN, ...(t.after ?? [])]) };
 }
 
 // ---------------------------------------------------------------------------

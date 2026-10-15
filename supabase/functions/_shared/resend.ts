@@ -47,9 +47,76 @@ export function resendPayload(n: OutgoingEmail, cfg: ResendConfig): Record<strin
     to: [cfg.redirectTo || n.email],
     subject: cfg.redirectTo ? `[Test for ${n.email}] ${n.subject}` : n.subject,
     text: n.body.replaceAll(LINK_TOKEN, link),
+    html: emailHtml(n.body, link, n.audience === 'director' ? 'Open the FocusiQ dashboard' : 'Open FocusiQ', iconUrl(cfg.employeeUrl)),
     // Kind only: no personal data in tags.
     tags: [{ name: 'focusiq_kind', value: n.kind }],
   };
+}
+
+// ---------------------------------------------------------------------------
+// HTML version: the Walter Geering house style, built from the text body so the
+// two always say the same thing. Simple tables and inline styles so it renders
+// in Outlook. No tracking pixels or tracked links.
+// ---------------------------------------------------------------------------
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const iconUrl = (employeeUrl: string) => {
+  try {
+    return new URL('brand/focusiq-icon.png', new URL('.', employeeUrl)).href;
+  } catch {
+    return '';
+  }
+};
+
+const FONT = "'Segoe UI', Arial, Helvetica, sans-serif";
+const P = `margin:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.55;color:#4a4038`;
+
+/**
+ * Text → HTML. A blank line separates paragraphs; lines starting "- " are a
+ * list; a short line without a full stop between a blank line and more text is
+ * a heading; the {{link}} line becomes a button (with the address under it).
+ */
+export function emailHtml(text: string, link: string, buttonLabel: string, icon = ''): string {
+  const lines = text.split('\n');
+  const out: string[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) out.push(`<ul style="margin:0 0 14px;padding-left:20px;font-family:${FONT};font-size:15px;line-height:1.55;color:#4a4038">${list.map((l) => `<li style="margin:0 0 6px">${esc(l)}</li>`).join('')}</ul>`);
+    list = [];
+  };
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (line.startsWith('- ')) return void list.push(line.slice(2));
+    flush();
+    if (!line) return;
+    const isFooter = i === lines.length - 1 && i > 0 && lines[i - 1] === '';
+    if (line === LINK_TOKEN) {
+      out.push(
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 10px"><tr><td style="border-radius:999px;background:#17120e">` +
+          `<a href="${esc(link)}" style="display:inline-block;padding:14px 30px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px">${esc(buttonLabel)} &rarr;</a></td></tr></table>` +
+          `<p style="margin:0 0 18px;font-family:${FONT};font-size:12px;line-height:1.5;color:#8a7a6d">Or copy this address into your browser: <a href="${esc(link)}" style="color:#0d5a3b">${esc(link)}</a></p>`,
+      );
+    } else if (isFooter) {
+      out.push(`<p style="margin:18px 0 0;padding-top:14px;border-top:1px solid #ede0d5;font-family:${FONT};font-size:12px;line-height:1.5;color:#8a7a6d">${esc(line)}</p>`);
+    } else if ((i === 0 || lines[i - 1] === '') && lines[i + 1] && lines[i + 1] !== '' && line.length <= 40 && !/[.:,!?]$/.test(line) && i > 1) {
+      out.push(`<h2 style="margin:22px 0 8px;font-family:Georgia, 'Times New Roman', serif;font-size:18px;font-weight:800;letter-spacing:-0.2px;color:#17120e">${esc(line)}</h2>`);
+    } else {
+      out.push(`<p style="${P}">${esc(line)}</p>`);
+    }
+  });
+  flush();
+  const logo = icon ? `<img src="${esc(icon)}" width="32" height="32" alt="" style="display:block;border:0;border-radius:8px">` : '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>FocusiQ</title></head>` +
+    `<body style="margin:0;padding:0;background:#f7efe9">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7efe9"><tr><td align="center" style="padding:28px 12px">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">` +
+    `<tr><td style="background:#0d5a3b;border-radius:16px 16px 0 0;padding:18px 28px">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0"><tr>${logo ? `<td style="padding-right:12px">${logo}</td>` : ''}` +
+    `<td style="font-family:${FONT};font-size:20px;font-weight:800;color:#ffffff">FocusiQ</td>` +
+    `<td style="padding-left:12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#a8e8c8">Walter Geering</td></tr></table>` +
+    `</td></tr>` +
+    `<tr><td style="background:#ffffff;border:1px solid #ede0d5;border-top:0;border-radius:0 0 16px 16px;padding:28px">${out.join('')}</td></tr>` +
+    `</table></td></tr></table></body></html>`;
 }
 
 /**
