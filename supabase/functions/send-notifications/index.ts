@@ -14,6 +14,7 @@
 //   FOCUSIQ_EMPLOYEE_APP_URL   – link in employee emails
 //   FOCUSIQ_DIRECTOR_APP_URL   – link in Director emails
 //   FOCUSIQ_EMAIL_REDIRECT_TO  – optional test mode: every email goes to this address instead
+//   (focusiq.email_settings.test_mode_off = true turns test mode off from the database.)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { sendBatch, type OutgoingEmail, type SendOutcome } from '../_shared/resend.ts';
 
@@ -47,12 +48,14 @@ Deno.serve(async (req) => {
     if (e) console.error(`notification ${id}: could not record result – ${e.message}`);
   };
 
+  const { data: testModeOff } = await db.rpc('email_test_mode_off');
+  const redirectTo = testModeOff === true ? undefined : env('FOCUSIQ_EMAIL_REDIRECT_TO') || undefined;
   const totals = await sendBatch((data ?? []) as OutgoingEmail[], {
     apiKey: env('FOCUSIQ_RESEND_API_KEY'),
     from: env('FOCUSIQ_EMAIL_FROM'),
     employeeUrl: env('FOCUSIQ_EMPLOYEE_APP_URL'),
     directorUrl: env('FOCUSIQ_DIRECTOR_APP_URL'),
-    redirectTo: env('FOCUSIQ_EMAIL_REDIRECT_TO') || undefined,
+    redirectTo,
   }, record);
-  return Response.json({ claimed: data?.length ?? 0, ...totals, testMode: !!env('FOCUSIQ_EMAIL_REDIRECT_TO') });
+  return Response.json({ claimed: data?.length ?? 0, ...totals, testMode: !!redirectTo });
 });

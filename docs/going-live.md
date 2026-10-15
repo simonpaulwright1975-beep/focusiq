@@ -32,6 +32,11 @@ FocusiQ runs in two modes:
   **Make sign-in codes**, or use **Sign-in code** on one row. Each code works once, for 12 hours; give each person
   only their own code. Staff choose Get started and type it; one sign-in covers both checks on that computer.
 
+- Email test mode (every email to one address, `FOCUSIQ_EMAIL_REDIRECT_TO`) can be switched off from the database:
+  `update focusiq.email_settings set test_mode_off = true;` (`20261015090400_focusiq_email_test_mode_switch.sql`).
+  It was switched off on 15 October 2026, so emails now go to the real recipients. Set it back to `false` to return to
+  test mode while the secret is still set.
+
 ## Status (5 October 2026)
 
 Live: schema exposed (added to the API's schema list), redirect URL added, Managing Director set as the only
